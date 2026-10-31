@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { S, sizePx, layerEls, effective, actualValue, clamp, escapeHTML } from './model';
 import { $ } from './dom';
 import { getImageData, cacheImage, imgBox } from './image-sets';

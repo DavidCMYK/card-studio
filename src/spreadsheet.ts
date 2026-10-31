@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { S, uid, escapeXML, textKinds, safeFile } from './model';
 import { download, toast } from './dom';
 import { repaint } from './interface';

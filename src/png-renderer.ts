@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { S, sizePx, clamp } from './model';
 import { getImageData, loadedImage, imgBox } from './image-sets';
 function fillCanvas(ctx,e,x,y,w,h){if(e.fillMode==='none')return;ctx.save();if(e.fillMode==='solid')ctx.fillStyle=e.fill1;else{const a=(Number(e.gradientAngle)-90)*Math.PI/180,dx=Math.cos(a),dy=Math.sin(a),extent=(Math.abs(w*dx)+Math.abs(h*dy))/2;const g=ctx.createLinearGradient(x+w/2-dx*extent,y+h/2-dy*extent,x+w/2+dx*extent,y+h/2+dy*extent);g.addColorStop(0,e.fill1);g.addColorStop(1,e.fill2);ctx.fillStyle=g}ctx.fillRect(x,y,w,h);ctx.restore()}

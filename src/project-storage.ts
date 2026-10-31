@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { S, initial, replaceState, safeFile } from './model';
 import { jsonDownload, toast } from './dom';
 import { imageCache } from './image-sets';

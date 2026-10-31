@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { S, initial, replaceState, card, templateEl, layerEls, isExtra, effective, uniqName, px, perUnit, sizePx, clamp, uid } from './model';
 import { $ , toast } from './dom';
 import { renderStage } from './preview';
@@ -11,7 +10,7 @@ import { importImages, setTargetImageSet } from './assets';
 setImageUpdateHandler(renderStage);
 
 function newCard(copy=null){const c=copy?{id:uid(),name:copy.name+' copy',values:{...copy.values},overrides:structuredClone(copy.overrides||{}),extraElements:structuredClone(copy.extraElements||[])}:{id:uid(),name:'Card '+String(S.cards.length+1).padStart(3,'0'),values:{},overrides:{},extraElements:[]};S.cards.push(c);S.mode='cards';S.cardIndex=S.cards.length-1;S.selected=null;repaint();return c}
-function mutateAction(action,el){switch(action){case 'new-project':if(confirm('Start a new project? Unsaved changes will be lost.')){replaceState(initial());imageCache.clear();repaint()}break;
+function mutateAction(action,el: any = null){switch(action){case 'new-project':if(confirm('Start a new project? Unsaved changes will be lost.')){replaceState(initial());imageCache.clear();repaint()}break;
 case 'open-project':$('#openProjectFile').click();break;case 'save-project':saveProject();break;case 'save-template':saveTemplate();break;case 'load-template':$('#openTemplateFile').click();break;
 case 'mode-template':S.mode='template';S.selected=null;repaint();break;case 'mode-cards':S.mode='cards';S.selected=null;repaint();break;
 case 'add-text':case 'add-image':case 'add-shape':addElement(action.slice(4));break;

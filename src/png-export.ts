@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { S, card, safeFile } from './model';
 import { $, download, toast } from './dom';
 import { canvasCard } from './png-renderer';

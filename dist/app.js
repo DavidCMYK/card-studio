@@ -7,14 +7,13 @@ const factories={
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.setTargetImageSet = setTargetImageSet;
 exports.importImages = importImages;
-// @ts-nocheck
 const model_1 = require("./model");
 const image_sets_1 = require("./image-sets");
 const interface_1 = require("./interface");
 const dom_1 = require("./dom");
 let pendingAssetsSet = null;
 function setTargetImageSet(id) { pendingAssetsSet = id; }
-const blobImage = async (f) => await new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = () => reject(Error('Could not read ' + f.name)); r.readAsDataURL(f); });
+const blobImage = async (f) => await new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(String(r.result || "")); r.onerror = () => reject(Error('Could not read ' + f.name)); r.readAsDataURL(f); });
 async function importImages(files) { if (!pendingAssetsSet)
     return; const set = model_1.S.sets.find(x => x.id === pendingAssetsSet); if (!set)
     return; const input = [...files].filter(f => f.type.startsWith('image/')).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })); try {
@@ -50,7 +49,6 @@ exports.jsonDownload = jsonDownload;
 "editor": function(module, exports, require) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-// @ts-nocheck
 const model_1 = require("./model");
 const dom_1 = require("./dom");
 const preview_1 = require("./preview");
@@ -62,7 +60,7 @@ const project_storage_1 = require("./project-storage");
 const assets_1 = require("./assets");
 (0, image_sets_1.setImageUpdateHandler)(preview_1.renderStage);
 function newCard(copy = null) { const c = copy ? { id: (0, model_1.uid)(), name: copy.name + ' copy', values: { ...copy.values }, overrides: structuredClone(copy.overrides || {}), extraElements: structuredClone(copy.extraElements || []) } : { id: (0, model_1.uid)(), name: 'Card ' + String(model_1.S.cards.length + 1).padStart(3, '0'), values: {}, overrides: {}, extraElements: [] }; model_1.S.cards.push(c); model_1.S.mode = 'cards'; model_1.S.cardIndex = model_1.S.cards.length - 1; model_1.S.selected = null; (0, interface_1.repaint)(); return c; }
-function mutateAction(action, el) {
+function mutateAction(action, el = null) {
     switch (action) {
         case 'new-project':
             if (confirm('Start a new project? Unsaved changes will be lost.')) {
@@ -377,7 +375,6 @@ exports.getImageData = exports.getImageRef = exports.setImageUpdateHandler = exp
 exports.cacheImage = cacheImage;
 exports.loadedImage = loadedImage;
 exports.imgBox = imgBox;
-// @ts-nocheck
 const model_1 = require("./model");
 exports.imageCache = new Map();
 let onImageLoaded = () => { };
@@ -460,7 +457,6 @@ exports.chooseCard = chooseCard;
 exports.addElement = addElement;
 exports.setKnownFonts = setKnownFonts;
 exports.baseFonts = baseFonts;
-// @ts-nocheck
 const model_1 = require("./model");
 const dom_1 = require("./dom");
 const preview_1 = require("./preview");
@@ -535,7 +531,7 @@ function renderInspector() {
         if (raw.kind === 'image')
             html += `<div class="field"><label>Image filename (blank = automatic)</label><input data-cardvalue="${raw.id}" value="${(0, model_1.escapeHTML)((0, model_1.card)()?.values?.[raw.id] || '')}" list="imageFiles" placeholder="Set name/image.png"><datalist id="imageFiles">${model_1.S.sets.flatMap(s => s.images.map(im => `<option value="${(0, model_1.escapeHTML)(s.name + '/' + im.name)}"></option>`)).join('')}</datalist></div><div class="small" style="padding:0 0 10px">Enter <b>none</b> to leave this frame empty.</div>`;
     }
-    html += `<div class="section-title">Position and size (${model_1.S.template.unit})</div><div class="fields-two">${field('X', 'x', (0, model_1.fmt)(e.x / perUnit[model_1.S.template.unit]), 'number', 'step="0.1"')}${field('Y', 'y', (0, model_1.fmt)(e.y / perUnit[model_1.S.template.unit]), 'number', 'step="0.1"')}${field('Width', 'w', (0, model_1.fmt)(e.w / perUnit[model_1.S.template.unit]), 'number', 'min="0.1" step="0.1"')}${field('Height', 'h', (0, model_1.fmt)(e.h / perUnit[model_1.S.template.unit]), 'number', 'min="0.1" step="0.1"')}</div>`;
+    html += `<div class="section-title">Position and size (${model_1.S.template.unit})</div><div class="fields-two">${field('X', 'x', (0, model_1.fmt)(e.x / model_1.perUnit[model_1.S.template.unit]), 'number', 'step="0.1"')}${field('Y', 'y', (0, model_1.fmt)(e.y / model_1.perUnit[model_1.S.template.unit]), 'number', 'step="0.1"')}${field('Width', 'w', (0, model_1.fmt)(e.w / model_1.perUnit[model_1.S.template.unit]), 'number', 'min="0.1" step="0.1"')}${field('Height', 'h', (0, model_1.fmt)(e.h / model_1.perUnit[model_1.S.template.unit]), 'number', 'min="0.1" step="0.1"')}</div>`;
     html += checkbox('Hide element', 'hidden', e.hidden) + checkbox('Lock position', 'locked', e.locked);
     if (raw.kind === 'text') {
         if (model_1.S.mode === 'template')
@@ -662,7 +658,6 @@ exports.uniqName = uniqName;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.exportPNG = exportPNG;
 exports.exportAll = exportAll;
-// @ts-nocheck
 const model_1 = require("./model");
 const dom_1 = require("./dom");
 const png_renderer_1 = require("./png-renderer");
@@ -714,7 +709,6 @@ finally {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.canvasCard = canvasCard;
-// @ts-nocheck
 const model_1 = require("./model");
 const image_sets_1 = require("./image-sets");
 function fillCanvas(ctx, e, x, y, w, h) { if (e.fillMode === 'none')
@@ -836,7 +830,6 @@ async function canvasCard(ci, mode = 'cards') {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.renderStage = renderStage;
-// @ts-nocheck
 const model_1 = require("./model");
 const dom_1 = require("./dom");
 const image_sets_1 = require("./image-sets");
@@ -884,7 +877,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.saveProject = saveProject;
 exports.saveTemplate = saveTemplate;
 exports.openJSON = openJSON;
-// @ts-nocheck
 const model_1 = require("./model");
 const dom_1 = require("./dom");
 const image_sets_1 = require("./image-sets");
@@ -934,7 +926,6 @@ exports.parseCSV = parseCSV;
 exports.parseXLSX = parseXLSX;
 exports.applyTable = applyTable;
 exports.readSheet = readSheet;
-// @ts-nocheck
 const model_1 = require("./model");
 const dom_1 = require("./dom");
 const interface_1 = require("./interface");
