@@ -1,0 +1,14 @@
+{
+  "name": "card-studio",
+  "private": true,
+  "version": "0.2.0",
+  "description": "Game card layout editor",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/bundle.cjs",
+    "test": "npm run build && node --test tests/*.test.cjs",
+    "check": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}
