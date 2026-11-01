@@ -1,4 +1,4 @@
-import { S, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, clamp, px, fmt, sizePx, makeElement, textKinds, escapeHTML, perUnit, isExported } from './model';
+import { S, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, clamp, px, fmt, sizePx, makeElement, textKinds, escapeHTML, unitFactor, exportPixels, templateExportSize, isExported } from './model';
 import { $ } from './dom';
 import { renderStage } from './preview';
 export function renderCardControl(){const cc=$('#cardControl');cc.style.display=S.mode==='cards'?'flex':'none';if(S.mode!=='cards')return;cc.innerHTML=`<span style="font-weight:700;color:#62778f">CARD</span><button data-action="prev-card" title="Previous card">‹</button><select id="cardSelector">${S.cards.map((c,i)=>`<option value="${i}" ${i===S.cardIndex?'selected':''}>${escapeHTML(c.name)}</option>`).join('')}</select><button data-action="next-card" title="Next card">›</button><span style="color:#8a98a9;margin-left:auto">${S.cardIndex+1} / ${S.cards.length}</span>`}
@@ -17,6 +17,20 @@ export function renderLeft(){const v=$('#leftBody');$('#btnTemplate').classList.
 function field(label,key,value,type='text',extra=''){return`<div class="field"><label>${escapeHTML(label)}</label><input data-prop="${key}" type="${type}" value="${escapeHTML(value)}" ${extra}></div>`}
 function selectionField(label,key,items,value){return `<div class="field"><label>${escapeHTML(label)}</label><select data-prop="${key}">${items.map(([v,l])=>`<option value="${escapeHTML(v)}" ${String(v)===String(value)?'selected':''}>${escapeHTML(l)}</option>`).join('')}</select></div>`}
 function checkbox(label,key,value){return `<label class="toggle-line"><input type="checkbox" data-prop="${key}" ${value?'checked':''}>${escapeHTML(label)}</label>`}
+// All pixel labels are export-image pixels at the selected resolution.
+const sizeReadout=()=>{const {w,h}=templateExportSize();return `${w.toLocaleString('en-US')} × ${h.toLocaleString('en-US')} px at ${S.template.dpi} DPI`};
+const elementReadout=()=>{
+ const raw=templateEl(S.selected);
+ if(!raw)return '';
+ const e=effective(raw),dpi=S.template.dpi;
+ return `Export pixels at ${dpi} DPI: X ${exportPixels(e.x,dpi)} · Y ${exportPixels(e.y,dpi)} · Width ${exportPixels(e.w,dpi)} px · Height ${exportPixels(e.h,dpi)} px`;
+};
+export function updateDimensionReadouts(){
+ const templateNode=document.querySelector('#templatePixelReadout');
+ if(templateNode)templateNode.textContent=sizeReadout();
+ const elementNode=document.querySelector('#elementPixelReadout');
+ if(elementNode)elementNode.textContent=elementReadout();
+}
 const fontOptions=['Arial','Arial Black','Calibri','Cambria','Comic Sans MS','Courier New','Garamond','Georgia','Helvetica','Impact','Palatino Linotype','Segoe UI','Tahoma','Times New Roman','Trebuchet MS','Verdana'];let knownFonts=[...fontOptions];
 export function renderInspector(){const box=$('#inspector');if(!S.selected&&S.mode==='cards'){
  $('#rightTitle').textContent='Card data';
@@ -29,9 +43,10 @@ export function renderInspector(){const box=$('#inspector');if(!S.selected&&S.mo
  box.innerHTML=out;return}
  if(!S.selected){$('#rightTitle').textContent='Card setup';box.innerHTML=`<div class="inspector-heading">${escapeHTML(S.template.name)}</div><div class="inspector-sub">Card dimensions & export options</div>
  ${field('Template name','template.name',S.template.name)}
- <div class="fields-two">${field('Width','template.width',S.template.width,'number','min="1" step="0.1"')}${field('Height','template.height',S.template.height,'number','min="1" step="0.1"')}</div>
+ <div class="fields-two">${field('Width ('+S.template.unit+')','template.width',S.template.width,'number','min="0.01" step="any"')}${field('Height ('+S.template.unit+')','template.height',S.template.height,'number','min="0.01" step="any"')}</div>
  ${selectionField('Units','template.unit',[['mm','Millimetres (mm)'],['in','Inches (in)'],['px','Pixels (px)']],S.template.unit)}
  ${selectionField('PNG resolution','template.dpi',[[150,'150 DPI'],[300,'300 DPI'],[450,'450 DPI'],[600,'600 DPI']],S.template.dpi)}
+ <div class="small" style="padding:4px 0 12px" id="templatePixelReadout">${sizeReadout()}</div>
  ${field('Background colour','template.background',S.template.background,'color')}
  <div class="rule"></div><div class="section-title">Project</div>${field('Project name','projectName',S.projectName)}
  <div class="small" style="padding:0">Select a layer or click an element on the card to change its properties. Use the Cards tab to edit a single card independently.</div>`;return}
@@ -43,7 +58,8 @@ export function renderInspector(){const box=$('#inspector');if(!S.selected&&S.mo
  if(raw.kind==='text')html+=`<div class="field"><label>Card text</label><textarea data-cardvalue="${raw.id}">${escapeHTML(actualValue(raw))}</textarea></div>`;
  if(raw.kind==='image')html+=`<div class="field"><label>Image filename (blank = automatic)</label><input data-cardvalue="${raw.id}" value="${escapeHTML(card()?.values?.[raw.id]||'')}" list="imageFiles" placeholder="Set name/image.png"><datalist id="imageFiles">${S.sets.flatMap(s=>s.images.map(im=>`<option value="${escapeHTML(s.name+'/'+im.name)}"></option>`)).join('')}</datalist></div><div class="small" style="padding:0 0 10px">Enter <b>none</b> to leave this frame empty.</div>`;
  }
- html+=`<div class="section-title">Position and size (${S.template.unit})</div><div class="fields-two">${field('X','x',fmt(e.x/perUnit[S.template.unit]),'number','step="0.1"')}${field('Y','y',fmt(e.y/perUnit[S.template.unit]),'number','step="0.1"')}${field('Width','w',fmt(e.w/perUnit[S.template.unit]),'number','min="0.1" step="0.1"')}${field('Height','h',fmt(e.h/perUnit[S.template.unit]),'number','min="0.1" step="0.1"')}</div>`;
+ const f=unitFactor(S.template.unit,S.template.dpi);
+ html+=`<div class="section-title">Position and size (${S.template.unit})</div><div class="fields-two">${field('X ('+S.template.unit+')','x',fmt(e.x/f),'number','step="any"')}${field('Y ('+S.template.unit+')','y',fmt(e.y/f),'number','step="any"')}${field('Width ('+S.template.unit+')','w',fmt(e.w/f),'number','min="0.01" step="any"')}${field('Height ('+S.template.unit+')','h',fmt(e.h/f),'number','min="0.01" step="any"')}</div><div class="small" style="padding:4px 0 12px" id="elementPixelReadout">${elementReadout()}</div>`;
  html+=checkbox('Hide element','hidden',e.hidden)+checkbox('Lock position','locked',e.locked);
  if(S.mode==='template')html+=checkbox('Include in exported images','includeInExport',isExported(e))+
  `<div class="small" style="padding:0 0 12px">Turn this off for non-printing guides, such as cut lines and bleed markers. These elements appear only in the Template editor, not in Cards previews or PNG exports.</div>`;
