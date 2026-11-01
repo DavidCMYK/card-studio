@@ -1,4 +1,4 @@
-import { S, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, clamp, px, fmt, sizePx, makeElement, textKinds, escapeHTML, unitFactor, exportPixels, templateExportSize, isExported, opacityFor } from './model';
+import { S, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, clamp, px, fmt, sizePx, makeElement, textKinds, escapeHTML, unitFactor, exportPixels, templateExportSize, isExported, visibleOnCard, opacityFor } from './model';
 import { $ } from './dom';
 import { renderStage } from './preview';
 export function renderCardControl(){const cc=$('#cardControl');cc.style.display=S.mode==='cards'?'flex':'none';if(S.mode!=='cards')return;cc.innerHTML=`<span style="font-weight:700;color:#62778f">CARD</span><button data-action="prev-card" title="Previous card">‹</button><select id="cardSelector">${S.cards.map((c,i)=>`<option value="${i}" ${i===S.cardIndex?'selected':''}>${escapeHTML(c.name)}</option>`).join('')}</select><button data-action="next-card" title="Next card">›</button><span style="color:#8a98a9;margin-left:auto">${S.cardIndex+1} / ${S.cards.length}</span>`}
@@ -8,8 +8,8 @@ export function renderLeft(){const v=$('#leftBody');$('#btnTemplate').classList.
  out+='<div class="card-list">'+S.cards.map((c,i)=>`<div class="card-row ${i===S.cardIndex?'active':''}" data-cardindex="${i}"><span class="mini-art">${String(i+1).padStart(2,'0')}</span><span class="name">${escapeHTML(c.name)}<span class="sub">${Object.keys(c.overrides||{}).length?'Custom layout':'Template layout'}</span></span><button class="small-btn" data-action="duplicate-card" data-cardindex="${i}" title="Duplicate card">⧉</button></div>`).join('')+'</div>';
  out+=`<div class="actionbar"><button class="secondary" data-action="delete-card">Delete card</button><button class="secondary" data-action="reset-card">Reset layout edits</button></div><div class="rule"></div>`;
  }
- out+=`<div class="side-head"><h2>LAYERS</h2><span class="pill">${layerEls().filter(e=>S.mode==='template'||(isExported(e)&&isExported(effective(e)))).length}</span></div><div class="small">Topmost layers are shown first. Select an element to edit it.</div>`;
- out+='<div class="layer-list">'+[...layerEls()].filter(e=>S.mode==='template'||(isExported(e)&&isExported(effective(e)))).reverse().map(e=>`<div class="layer-row ${e.id===S.selected?'active':''}" data-layer="${e.id}"><span style="font-size:15px;color:#7b91ad">${e.kind==='text'?'T':e.kind==='image'?'▧':'◇'}</span><span class="name">${escapeHTML(e.name)}<span class="sub">${e.kind}${e.locked?' · locked':''}${!isExported(e)?' · editor only':''}</span></span></div>`).join('')+'</div>';
+ out+=`<div class="side-head"><h2>LAYERS</h2><span class="pill">${layerEls().filter(e=>S.mode==='template'||visibleOnCard(e,S.cardIndex,'cards')).length}</span></div><div class="small">Topmost layers are shown first. Select an element to edit it.</div>`;
+ out+='<div class="layer-list">'+[...layerEls()].filter(e=>S.mode==='template'||visibleOnCard(e,S.cardIndex,'cards')).reverse().map(e=>`<div class="layer-row ${e.id===S.selected?'active':''}" data-layer="${e.id}"><span style="font-size:15px;color:#7b91ad">${e.kind==='text'?'T':e.kind==='image'?'▧':'◇'}</span><span class="name">${escapeHTML(e.name)}<span class="sub">${e.kind}${e.locked?' · locked':''}${!isExported(e)?' · editor only':''}</span></span></div>`).join('')+'</div>';
  out+=`<div class="rule"></div><div class="side-head"><h2>IMAGE SETS</h2><button data-action="add-set">＋ Load set</button></div><div class="small">Load multiple images as one set. Assign the set to an image frame, then choose sequential, cycling or random assignment.</div>`;
  out+='<div class="set-list">'+S.sets.map(set=>`<div class="asset-row"><div class="asset-title"><span>▧</span><span style="overflow:hidden;text-overflow:ellipsis">${escapeHTML(set.name)}</span><span class="count">${set.images.length} files</span></div><div class="asset-thumbs">${set.images.slice(0,6).map(x=>`<img alt="${escapeHTML(x.name)}" title="${escapeHTML(x.name)}" src="${x.data}">`).join('')}</div><div class="asset-actions"><button data-action="add-to-set" data-set="${set.id}">＋ Images</button><button data-action="remove-set" data-set="${set.id}">Remove</button></div></div>`).join('')+'</div>';
  v.innerHTML=out;
@@ -65,6 +65,8 @@ export function renderInspector(){const box=$('#inspector');if(!S.selected&&S.mo
  `<div class="small" style="padding:0 0 12px">Turn this off for non-printing guides, such as cut lines and bleed markers. These elements appear only in the Template editor, not in Cards previews or PNG exports.</div>`;
  if(raw.kind==='text'){
  if(S.mode==='template')html+=`<div class="field"><label>Default text</label><textarea data-prop="text">${escapeHTML(e.text)}</textarea></div>`;
+ html+=`<div class="section-title">Visibility</div>`+checkbox('Invisible if empty','invisibleIfEmpty',e.invisibleIfEmpty!==false)+
+ `<div class="small" style="padding:0 0 10px">Hide this entire text box on cards where its spreadsheet or card text is blank (including its fill and border). Empty text remains editable in Template mode.</div>`;
  html+=`<div class="section-title">Typography</div>`;
  html+=`<div class="field"><label>Font family</label><input data-prop="font" list="fontOptions" value="${escapeHTML(e.font)}"><datalist id="fontOptions">${knownFonts.map(x=>`<option value="${escapeHTML(x)}"></option>`).join('')}</datalist></div><button class="secondary" style="margin:-4px 0 12px" data-action="scan-fonts">Find installed fonts</button>`;
  html+=`<div class="fields-two">${field('Font size (pt)','fontSize',e.fontSize,'number','min="1" step="0.5"')}${selectionField('Weight','fontWeight',[[100,'Thin'],[300,'Light'],[400,'Regular'],[500,'Medium'],[600,'Semibold'],[700,'Bold'],[800,'Extra bold'],[900,'Black']],e.fontWeight)}</div>`;
@@ -78,6 +80,12 @@ export function renderInspector(){const box=$('#inspector');if(!S.selected&&S.mo
  if(S.mode==='template')html+=`${selectionField('Automatically use image set','autoSet',[['','None'],...S.sets.map(x=>[x.id,x.name])],e.autoSet)}${selectionField('Image assignment','autoMode',[['sequence','Sequential (no repeat)'],['cycle','Cycle through set'],['random','Deterministic random']],e.autoMode)}`;
  }
  if(raw.kind==='shape')html+=`<div class="section-title">Shape</div>${selectionField('Shape','shape',[['rect','Rectangle'],['ellipse','Ellipse']],e.shape)}`;
+ if(raw.kind==='shape'||raw.kind==='image'){
+  const texts=[...S.template.elements,...(S.mode==='cards'?(card()?.extraElements||[]):[])].filter(item=>item.kind==='text');
+  html+=`<div class="section-title">Visibility link</div>`+
+   selectionField('Follow text visibility','linkedTextId',[['','None (always independent)'],...texts.map(item=>[item.id,item.name])],e.linkedTextId||'')+
+   `<div class="small" style="padding:0 0 10px">Hide this entire ${raw.kind==='image'?'image frame':'shape'} when the chosen text box is invisible on this card.</div>`;
+ }
  html+=`<div class="section-title">Appearance</div>${selectionField('Fill','fillMode',[['none','Transparent'],['solid','Solid colour'],['gradient','Linear gradient']],e.fillMode)}`;
  if(e.fillMode!=='none')html+=`<div class="fields-two">${field('Fill colour 1','fill1',e.fill1,'color')}${e.fillMode==='gradient'?field('Fill colour 2','fill2',e.fill2,'color'):''}</div>${e.fillMode==='gradient'?field('Gradient angle (degrees)','gradientAngle',e.gradientAngle,'number','step="5"'):''}`;
  html+=`<div class="fields-two">${field('Border thickness (px)','borderWidth',e.borderWidth,'number','min="0" step="0.5"')}${field('Border colour','borderColor',e.borderColor,'color')}</div>`;
