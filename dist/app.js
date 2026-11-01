@@ -117,6 +117,23 @@ function pasteElement() {
     (0, dom_1.toast)(isMove ? 'Element moved' : 'Element pasted');
     return true;
 }
+// Keep the same point of the card under the viewport centre when zooming.
+// The stage may be centred when small or left-aligned when larger than the
+// viewport; getBoundingClientRect handles either layout without guessing offsets.
+function changeZoom(delta) {
+    const outer = (0, dom_1.$)('#canvasOuter'), stage = (0, dom_1.$)('#stage');
+    const next = (0, model_1.clamp)(Math.round((model_1.S.zoom + delta) * 100) / 100, .3, 3);
+    if (next === model_1.S.zoom)
+        return;
+    const view = outer.getBoundingClientRect(), before = stage.getBoundingClientRect();
+    const cx = view.left + outer.clientWidth / 2, cy = view.top + outer.clientHeight / 2;
+    const focalX = (cx - before.left) / model_1.S.zoom, focalY = (cy - before.top) / model_1.S.zoom;
+    model_1.S.zoom = next;
+    (0, preview_1.renderStage)();
+    const after = stage.getBoundingClientRect();
+    outer.scrollLeft += after.left + focalX * next - cx;
+    outer.scrollTop += after.top + focalY * next - cy;
+}
 function newCard(copy = null) { const c = copy ? { id: (0, model_1.uid)(), name: copy.name + ' copy', values: { ...copy.values }, overrides: structuredClone(copy.overrides || {}), extraElements: structuredClone(copy.extraElements || []) } : { id: (0, model_1.uid)(), name: 'Card ' + String(model_1.S.cards.length + 1).padStart(3, '0'), values: {}, overrides: {}, extraElements: [] }; model_1.S.cards.push(c); model_1.S.mode = 'cards'; model_1.S.cardIndex = model_1.S.cards.length - 1; model_1.S.selected = null; (0, interface_1.repaint)(); return c; }
 function mutateAction(action, el = null) {
     switch (action) {
@@ -205,12 +222,10 @@ function mutateAction(action, el = null) {
             break;
         }
         case 'zoom-in':
-            model_1.S.zoom = (0, model_1.clamp)(Math.round((model_1.S.zoom + .1) * 100) / 100, .3, 3);
-            (0, preview_1.renderStage)();
+            changeZoom(.1);
             break;
         case 'zoom-out':
-            model_1.S.zoom = (0, model_1.clamp)(Math.round((model_1.S.zoom - .1) * 100) / 100, .3, 3);
-            (0, preview_1.renderStage)();
+            changeZoom(-.1);
             break;
         case 'add-set': {
             const name = prompt('Name this image set (e.g. Creature Artwork):');
