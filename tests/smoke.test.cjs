@@ -8,6 +8,7 @@ const sandbox={document,window,URL,Blob,JSZip,console,Image:class{},setTimeout:(
 const source=fs.readFileSync(path.join(__dirname,'..','dist','app.js'),'utf8').replace("load('main');", "const m=load('model'),ui=load('interface'),sheet=load('spreadsheet'),png=load('png-export');window.__test={state:()=>m.S,exportXLSX:sheet.exportXLSX,applyTable:sheet.applyTable,patchElement:ui.patchElement,effective:m.effective,templateEl:m.templateEl,parseCSV:sheet.parseCSV,exportAll:png.exportAll};load('main');");
 vm.createContext(sandbox);vm.runInContext(source,sandbox,{timeout:15000});
 const t=window.__test;if(!t)throw Error('No test API');let state=t.state();if(state.template.elements.length!==6)throw Error('Bad default elements');if(!get('#stage').innerHTML.includes('THE HOLLOW GATE'))throw Error('Stage not rendered');
+// Full-card background elements can cover every pixel of the stage: clicking the workspace must still deselect.
 const bg=state.template.elements[0];
 state.selected=bg.id;
 get('#canvasOuter').emit('pointerdown',{button:0,target:{closest(){return null}},composedPath(){return [get('#canvasOuter')]}});
@@ -49,6 +50,34 @@ keyboard('c');
 keyboard('v');
 if(state.template.elements.length!==countBefore)throw Error('Card mode shortcuts changed template');
 state.mode='template';
+
+// Exercise real inspector change handlers, including DPI with pixel units.
+state.mode='template';
+state.selected=null;
+const prop=(key,value,kind='input')=>{
+ const target={dataset:{prop:key},type:'number',value:String(value)};
+ get('#inspector').emit(kind,{target});
+};
+prop('template.unit','px');
+const oldPhysicalWidth=state.template.width*96/state.template.dpi;
+const firstPixels=state.template.width;
+prop('template.dpi','600');
+if(Math.abs(state.template.width-firstPixels*2)>.01||Math.abs(state.template.width*96/state.template.dpi-oldPhysicalWidth)>.001)throw Error('DPI change altered physical card width in pixel mode');
+if(!get('#statusLeft').textContent.includes('export px'))throw Error('Status does not show export pixel dimensions');
+prop('template.unit','mm');
+if(Math.abs(state.template.width-63)>.01)throw Error('Unit switch did not preserve physical width');
+prop('template.width','50');
+if(!get('#statusLeft').textContent.includes('50 ×'))throw Error('Canvas resize not reflected in status');
+state.selected=state.template.elements.find(x=>x.name==='Artwork').id;
+// A 100-pixel-wide image frame at 600 DPI corresponds to 16 design pixels.
+prop('w','16.9333333333'); // mm -> approx 400 export pixels
+const selectedElement=state.template.elements.find(x=>x.id===state.selected);
+if(Math.abs(selectedElement.w-64)>.01)throw Error('Element width not converted from mm');
+state.selected=null;
+state.template.width=63;
+state.template.height=88;
+state.template.dpi=300;
+state.template.unit='mm';
 let title=state.template.elements.find(x=>x.name==='Card Title');t.applyTable([['Card Name','Card Title','Artwork','Description'],['A card','My sample','', 'Lorem ipsum'],['B card','Second', 'frog.png', 'Second text']]);
 state=t.state();if(state.cards.length!==2||state.cards[1].values[title.id]!=='Second')throw Error('Import failed');
 const old=title.x;t.patchElement(title.id,{x:55});if(t.effective(title).x!==55||title.x!==old)throw Error('Card override did not work');
