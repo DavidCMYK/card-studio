@@ -57,6 +57,22 @@ function pasteElement(): boolean {
   return true;
 }
 
+// Keep the same point of the card under the viewport centre when zooming.
+// The stage may be centred when small or left-aligned when larger than the
+// viewport; getBoundingClientRect handles either layout without guessing offsets.
+function changeZoom(delta: number) {
+ const outer=$('#canvasOuter'),stage=$('#stage');
+ const next=clamp(Math.round((S.zoom+delta)*100)/100,.3,3);
+ if(next===S.zoom)return;
+ const view=outer.getBoundingClientRect(),before=stage.getBoundingClientRect();
+ const cx=view.left+outer.clientWidth/2,cy=view.top+outer.clientHeight/2;
+ const focalX=(cx-before.left)/S.zoom,focalY=(cy-before.top)/S.zoom;
+ S.zoom=next;renderStage();
+ const after=stage.getBoundingClientRect();
+ outer.scrollLeft+=after.left+focalX*next-cx;
+ outer.scrollTop+=after.top+focalY*next-cy;
+}
+
 function newCard(copy=null){const c=copy?{id:uid(),name:copy.name+' copy',values:{...copy.values},overrides:structuredClone(copy.overrides||{}),extraElements:structuredClone(copy.extraElements||[])}:{id:uid(),name:'Card '+String(S.cards.length+1).padStart(3,'0'),values:{},overrides:{},extraElements:[]};S.cards.push(c);S.mode='cards';S.cardIndex=S.cards.length-1;S.selected=null;repaint();return c}
 function mutateAction(action,el: any = null){switch(action){case 'new-project':if(confirm('Start a new project? Unsaved changes will be lost.')){replaceState(initial());resetFileHandles();imageCache.clear();repaint()}break;
 case 'open-project':void openFromDisk('project');break;case 'save-project':void saveProject();break;case 'save-project-as':void saveProjectAs();break;case 'save-template':void saveTemplate();break;case 'save-template-as':void saveTemplateAs();break;case 'load-template':void openFromDisk('template');break;
@@ -65,8 +81,8 @@ case 'add-text':case 'add-image':case 'add-shape':addElement(action.slice(4));br
 case 'copy-element':copyElement();break;case 'cut-element':copyElement(true);break;case 'paste-element':pasteElement();break;
 case 'delete-element':if(!S.selected)return;if(S.mode==='cards'){if(isExtra(S.selected)){card().extraElements=card().extraElements.filter(x=>x.id!==S.selected)}else patchElement(S.selected,{hidden:true});S.selected=null;repaint();toast('Removed from this card only')}else if(confirm('Delete this element from the template and all cards?')){S.template.elements=S.template.elements.filter(x=>x.id!==S.selected);S.selected=null;repaint()}break;
 case 'layer-up':case 'layer-down':{if(S.mode==='cards'&&!isExtra(S.selected)){toast('Shared layer order is changed in Template mode');return}const a=S.mode==='cards'?card().extraElements:S.template.elements;let ix=a.findIndex(e=>e.id===S.selected),delta=action==='layer-up'?1:-1;if(ix<0||ix+delta<0||ix+delta>=a.length)return;[a[ix],a[ix+delta]]=[a[ix+delta],a[ix]];repaint();break}
-case 'zoom-in':S.zoom=clamp(Math.round((S.zoom+.1)*100)/100,.3,3);renderStage();break;
-case 'zoom-out':S.zoom=clamp(Math.round((S.zoom-.1)*100)/100,.3,3);renderStage();break;
+case 'zoom-in':changeZoom(.1);break;
+case 'zoom-out':changeZoom(-.1);break;
 case 'add-set':{const name=prompt('Name this image set (e.g. Creature Artwork):');if(!name?.trim())return;const set={id:uid(),name:name.trim(),images:[]};S.sets.push(set);setTargetImageSet(set.id);$('#assetFiles').click();repaint();break}
 case 'add-to-set':setTargetImageSet(el.dataset.set);$('#assetFiles').click();break;
 case 'remove-set':{const id=el.dataset.set,set=S.sets.find(x=>x.id===id);if(set&&confirm(`Remove image set "${set.name}" and its ${set.images.length} images?`)){S.sets=S.sets.filter(x=>x.id!==id);imageCache.clear();repaint()}break}
