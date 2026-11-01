@@ -86,9 +86,19 @@ export function migrateProjectUnits(obj: any) {
  return obj;
 }
 
+// Old card-only opacity overrides must take precedence over newer defaults.
+export function migrateComponentOpacities(obj: any) {
+ for(const c of obj.cards||[])for(const override of Object.values(c.overrides||{}) as any[]){
+  if(typeof override.opacity==='number')for(const part of ['fillOpacity','borderOpacity','textOpacity']){
+   if(override[part]===undefined)override[part]=override.opacity;
+  }
+ }
+ return obj;
+}
+
 export async function openJSON(file: {text: () => Promise<string>}, onlyTemplate=false, handle: SavedFileHandle | null=null) {
  try {
-  const obj=migrateProjectUnits(JSON.parse(await file.text()));
+  const obj=migrateComponentOpacities(migrateProjectUnits(JSON.parse(await file.text())));
   if(!obj.template?.elements||!Array.isArray(obj.template.elements))throw Error('Not a Card Studio project or template');
   if(onlyTemplate && obj.type==='cardstudio-project')throw Error('This is a project file, not a template. Use Open project instead.');
   if(onlyTemplate||obj.type==='cardstudio-template'){
