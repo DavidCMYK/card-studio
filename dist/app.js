@@ -357,9 +357,9 @@ function handleProp(input) {
         if (key === 'w' || key === 'h')
             v = Math.max(1, v);
     }
-    else if (['fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'borderWidth', 'radius', 'opacity', 'gradientAngle', 'imgScale', 'imgOffsetX', 'imgOffsetY'].includes(key)) {
+    else if (['fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'borderWidth', 'radius', 'opacity', 'fillOpacity', 'borderOpacity', 'textOpacity', 'gradientAngle', 'imgScale', 'imgOffsetX', 'imgOffsetY'].includes(key)) {
         v = Number(v);
-        if (key === 'opacity')
+        if (['opacity', 'fillOpacity', 'borderOpacity', 'textOpacity'].includes(key))
             v = (0, model_1.clamp)(v, 0, 100);
         if (key === 'fontSize')
             v = Math.max(1, v);
@@ -426,17 +426,41 @@ const stage = (0, dom_1.$)('#stage');
 // element before the event bubbles here, so target.closest('#stage') becomes false.
 (0, dom_1.$)('#canvasOuter').addEventListener('pointerdown', e => { if (e.button === 0 && !e.composedPath().includes(stage))
     clearSelection(); });
-stage.addEventListener('pointerdown', e => { if (e.button !== 0)
-    return; const node = e.target.closest('.element'); if (!node) {
-    clearSelection();
-    return;
-} const id = node.dataset.id; model_1.S.selected = id; (0, interface_1.renderInspector)(); (0, interface_1.renderLeft)(); const el = (0, model_1.effective)((0, model_1.templateEl)(id)); const resizing = !!e.target.closest('[data-handle="resize"]'); (0, preview_1.renderStage)(); if (el.locked)
-    return; drag = { id, type: resizing ? 'resize' : 'move', initialX: e.clientX, initialY: e.clientY, x: el.x, y: el.y, w: el.w, h: el.h }; e.preventDefault(); });
-document.addEventListener('pointermove', e => { if (!drag)
-    return; const { w, h } = (0, model_1.sizePx)(), dx = (e.clientX - drag.initialX) / model_1.S.zoom, dy = (e.clientY - drag.initialY) / model_1.S.zoom; let patch; if (drag.type === 'resize')
-    patch = { w: (0, model_1.clamp)(Math.round(drag.w + dx), 5, w * 3), h: (0, model_1.clamp)(Math.round(drag.h + dy), 5, h * 3) };
-else
-    patch = { x: Math.round((0, model_1.clamp)(drag.x + dx, -drag.w + 4, w - 4)), y: Math.round((0, model_1.clamp)(drag.y + dy, -drag.h + 4, h - 4)) }; (0, interface_1.patchElement)(drag.id, patch); (0, preview_1.renderStage)(); (0, interface_1.renderInspector)(); });
+stage.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    const node = e.target.closest('.element');
+    if (!node) { clearSelection(); return; }
+    const id = node.dataset.id;
+    model_1.S.selected = id;
+    (0, interface_1.renderInspector)();
+    (0, interface_1.renderLeft)();
+    const el = (0, model_1.effective)((0, model_1.templateEl)(id));
+    const handle = e.target.closest('[data-handle]')?.dataset.handle || null;
+    (0, preview_1.renderStage)();
+    if (el.locked) return;
+    drag = {id,type:handle?'resize':'move',handle,initialX:e.clientX,initialY:e.clientY,x:el.x,y:el.y,w:el.w,h:el.h};
+    e.preventDefault();
+});
+document.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const {w,h} = (0, model_1.sizePx)();
+    const dx = (e.clientX-drag.initialX)/model_1.S.zoom, dy = (e.clientY-drag.initialY)/model_1.S.zoom;
+    let patch;
+    if (drag.type === 'resize') {
+        let left=drag.x,top=drag.y,right=drag.x+drag.w,bottom=drag.y+drag.h;
+        const maxRight=w*3,maxBottom=h*3,minSize=5,handle=drag.handle||'se';
+        if(handle.includes('w'))left=(0, model_1.clamp)(Math.round(drag.x+dx),-drag.w+4,right-minSize);
+        if(handle.includes('e'))right=(0, model_1.clamp)(Math.round(drag.x+drag.w+dx),left+minSize,maxRight);
+        if(handle.includes('n'))top=(0, model_1.clamp)(Math.round(drag.y+dy),-drag.h+4,bottom-minSize);
+        if(handle.includes('s'))bottom=(0, model_1.clamp)(Math.round(drag.y+drag.h+dy),top+minSize,maxBottom);
+        patch={x:left,y:top,w:right-left,h:bottom-top};
+    } else {
+        patch={x:Math.round((0, model_1.clamp)(drag.x+dx,-drag.w+4,w-4)),y:Math.round((0, model_1.clamp)(drag.y+dy,-drag.h+4,h-4))};
+    }
+    (0, interface_1.patchElement)(drag.id,patch);
+    (0, preview_1.renderStage)();
+    (0, interface_1.renderInspector)();
+});
 document.addEventListener('pointerup', () => { if (drag) {
     drag = null;
     (0, interface_1.renderInspector)();
@@ -692,7 +716,11 @@ function renderInspector() {
     html += `<div class="fields-two">${field('Border thickness (px)', 'borderWidth', e.borderWidth, 'number', 'min="0" step="0.5"')}${field('Border colour', 'borderColor', e.borderColor, 'color')}</div>`;
     if (e.shape !== 'ellipse')
         html += field('Corner radius (px)', 'radius', e.radius, 'number', 'min="0" step="1"');
-    html += field('Opacity (%)', 'opacity', e.opacity, 'number', 'min="0" max="100" step="5"');
+    const opacityField = (label, key) => field(label, key, Math.round((0, model_1.opacityFor)(e, key) * 100), 'number', 'min="0" max="100" step="1"');
+    html += opacityField(raw.kind === 'image' ? 'Image opacity (%)' : 'Background opacity (%)', 'fillOpacity');
+    html += opacityField('Border opacity (%)', 'borderOpacity');
+    if (raw.kind === 'text')
+        html += opacityField('Text opacity (%)', 'textOpacity');
     if (model_1.S.mode === 'cards')
         html += `<div class="inspector-action"><button class="secondary" data-action="reset-element">${(0, model_1.isExtra)(raw.id) ? 'Remove card-only element' : 'Reset this element to template'}</button></div>`;
     box.innerHTML = html;
@@ -736,7 +764,7 @@ require("./editor");
 "model": function(module, exports, require) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.uniqName = exports.actualValue = exports.effective = exports.isExtra = exports.isExported = exports.layerEls = exports.templateEl = exports.card = exports.S = exports.initial = exports.initialElements = exports.makeElement = exports.textKinds = exports.fmt = exports.templateExportSize = exports.sizePx = exports.exportPixels = exports.px = exports.unitFactor = exports.perUnit = exports.clamp = exports.safeFile = exports.escapeXML = exports.escapeHTML = exports.uid = void 0;
+exports.opacityFor = exports.uniqName = exports.actualValue = exports.effective = exports.isExtra = exports.isExported = exports.layerEls = exports.templateEl = exports.card = exports.S = exports.initial = exports.initialElements = exports.makeElement = exports.textKinds = exports.fmt = exports.templateExportSize = exports.sizePx = exports.exportPixels = exports.px = exports.unitFactor = exports.perUnit = exports.clamp = exports.safeFile = exports.escapeXML = exports.escapeHTML = exports.uid = void 0;
 exports.replaceState = replaceState;
 const uid = () => Math.random().toString(36).slice(2, 10);
 exports.uid = uid;
@@ -763,8 +791,10 @@ const templateExportSize = () => { const { w, h } = (0, exports.sizePx)(); retur
 exports.templateExportSize = templateExportSize;
 const fmt = v => String(Math.round(v * 100) / 100);
 exports.fmt = fmt;
+const opacityFor = (e, component) => (0, exports.clamp)(Number(e[component] ?? e.opacity ?? 100) || 0, 0, 100) / 100;
+exports.opacityFor = opacityFor;
 exports.textKinds = ['text', 'image'];
-const makeElement = (kind, parts = {}) => ({ id: (0, exports.uid)(), kind, name: kind === 'text' ? 'Text' : kind === 'image' ? 'Artwork' : 'Shape', x: 22, y: 35, w: 195, h: 55, locked: false, hidden: false, includeInExport: true, shape: 'rect', radius: 0, fillMode: kind === 'shape' ? 'solid' : 'none', fill1: '#ffffff', fill2: '#dde5f1', gradientAngle: 90, borderWidth: 0, borderColor: '#233b58', opacity: 100, text: 'Text', font: 'Georgia', fontSize: 19, fontWeight: 400, italic: false, underline: false, color: '#152b43', align: 'left', valign: 'middle', lineHeight: 1.18, letterSpacing: 0, imageFit: 'cover', imgScale: 1, imgOffsetX: 0, imgOffsetY: 0, autoSet: '', autoMode: 'cycle', ...parts });
+const makeElement = (kind, parts = {}) => ({ id: (0, exports.uid)(), kind, name: kind === 'text' ? 'Text' : kind === 'image' ? 'Artwork' : 'Shape', x: 22, y: 35, w: 195, h: 55, locked: false, hidden: false, includeInExport: true, shape: 'rect', radius: 0, fillMode: kind === 'shape' ? 'solid' : 'none', fill1: '#ffffff', fill2: '#dde5f1', gradientAngle: 90, borderWidth: 0, borderColor: '#233b58', opacity: 100, fillOpacity: 100, borderOpacity: 100, textOpacity: 100, text: 'Text', font: 'Georgia', fontSize: 19, fontWeight: 400, italic: false, underline: false, color: '#152b43', align: 'left', valign: 'middle', lineHeight: 1.18, letterSpacing: 0, imageFit: 'cover', imgScale: 1, imgOffsetX: 0, imgOffsetY: 0, autoSet: '', autoMode: 'cycle', ...parts });
 exports.makeElement = makeElement;
 const initialElements = () => [
     (0, exports.makeElement)('shape', { name: 'Card background', x: 0, y: 0, w: (0, exports.px)(63, 'mm'), h: (0, exports.px)(88, 'mm'), fillMode: 'gradient', fill1: '#fcfaf4', fill2: '#dce7ed', gradientAngle: 180 }),
@@ -938,33 +968,21 @@ async function canvasCard(ci, mode = 'cards') {
     ctx.fillStyle = model_1.S.template.background;
     ctx.fillRect(0, 0, w, h);
     for (const raw of [...model_1.S.template.elements, ...(mode === 'cards' ? (model_1.S.cards[ci]?.extraElements || []) : [])]) {
-        const e = mode === 'cards' ? { ...raw, ...(model_1.S.cards[ci]?.overrides?.[raw.id] || {}) } : raw;
-        if (e.hidden || !(0, model_1.isExported)(raw) || !(0, model_1.isExported)(e))
-            continue;
+        const e = mode === 'cards' ? {...raw,...(model_1.S.cards[ci]?.overrides?.[raw.id] || {})} : raw;
+        if (e.hidden || !(0, model_1.isExported)(raw) || !(0, model_1.isExported)(e)) continue;
         ctx.save();
-        ctx.globalAlpha = (0, model_1.clamp)((e.opacity ?? 100) / 100, 0, 1);
-        canvasFillShape(ctx, e);
+        ctx.globalAlpha = (0, model_1.opacityFor)(e, 'fillOpacity');
+        canvasFillShape(ctx,e);
         if (raw.kind === 'image') {
-            const src = (0, image_sets_1.getImageData)(raw, ci, mode), img = await (0, image_sets_1.loadedImage)(src);
-            if (img) {
-                ctx.save();
-                makeShapePath(ctx, e);
-                ctx.clip();
-                const bb = (0, image_sets_1.imgBox)(e, img);
-                ctx.drawImage(img, e.x + bb.x, e.y + bb.y, bb.w, bb.h);
-                ctx.restore();
-            }
+            const src = (0, image_sets_1.getImageData)(raw,ci,mode), img = await (0, image_sets_1.loadedImage)(src);
+            if (img) {ctx.save();makeShapePath(ctx,e);ctx.clip();const bb=(0, image_sets_1.imgBox)(e,img);ctx.drawImage(img,e.x+bb.x,e.y+bb.y,bb.w,bb.h);ctx.restore();}
         }
-        if (raw.kind === 'text') {
+        if(raw.kind === 'text') {
+            ctx.globalAlpha = (0, model_1.opacityFor)(e, 'textOpacity');
             const value = mode === 'cards' && Object.prototype.hasOwnProperty.call(model_1.S.cards[ci]?.values || {}, raw.id) ? model_1.S.cards[ci].values[raw.id] : raw.text;
-            canvasDrawText(ctx, e, value);
+            canvasDrawText(ctx,e,value);
         }
-        if (e.borderWidth > 0) {
-            makeShapePath(ctx, e);
-            ctx.lineWidth = e.borderWidth;
-            ctx.strokeStyle = e.borderColor;
-            ctx.stroke();
-        }
+        if(e.borderWidth > 0) {ctx.globalAlpha=(0, model_1.opacityFor)(e, 'borderOpacity');makeShapePath(ctx,e);ctx.lineWidth=e.borderWidth;ctx.strokeStyle=e.borderColor;ctx.stroke();}
         ctx.restore();
     }
     return cvs;
@@ -1006,9 +1024,14 @@ function renderStage() {
                 content = `<div class="missing">${src ? 'Loading image…' : `IMAGE FRAME<br>${(0, model_1.escapeHTML)(raw.name)}`}</div>`;
         }
         const border = e.borderWidth > 0 ? `${e.borderWidth * z}px solid ${e.borderColor}` : 'none';
-        const base = `left:${e.x * z}px;top:${e.y * z}px;width:${e.w * z}px;height:${e.h * z}px;background:${gradientCSS(e)};border:${border};border-radius:${e.shape === 'ellipse' ? '50%' : `${(e.radius || 0) * z}px`};opacity:${(e.opacity ?? 100) / 100};`;
-        const label = selected ? `<span class="selection-label">${(0, model_1.escapeHTML)(raw.name)}</span>${!e.locked ? '<span class="resize-handle" data-handle="resize"></span>' : ''}` : '';
-        html += `<div class="element ${selected ? 'selected' : ''} ${e.locked ? 'locked' : ''}" data-id="${raw.id}" style="${base}">${content}${label}</div>`;
+        const base = `left:${e.x * z}px;top:${e.y * z}px;width:${e.w * z}px;height:${e.h * z}px;border-radius:${e.shape === 'ellipse' ? '50%' : `${(e.radius || 0) * z}px`};`;
+        const fill = `<div class="element-fill" style="background:${gradientCSS(e)};opacity:${(0, model_1.opacityFor)(e, 'fillOpacity')}"></div>`;
+        const borderLayer = e.borderWidth > 0 ? `<div class="element-border" style="border:${border};opacity:${(0, model_1.opacityFor)(e, 'borderOpacity')}"></div>` : '';
+        if (e.kind === 'text') content = `<div class="text-layer" style="opacity:${(0, model_1.opacityFor)(e, 'textOpacity')}">${content}</div>`;
+        if (e.kind === 'image') content = `<div class="image-layer" style="opacity:${(0, model_1.opacityFor)(e, 'fillOpacity')}">${content}</div>`;
+        const handles = !e.locked ? ['nw','n','ne','e','se','s','sw','w'].map(h=>`<span class="resize-handle resize-${h}" data-handle="${h}"></span>`).join('') : '';
+        const label = selected ? `<span class="selection-label">${(0, model_1.escapeHTML)(raw.name)}</span>${handles}` : '';
+        html += `<div class="element ${selected ? 'selected' : ''} ${e.locked ? 'locked' : ''}" data-id="${raw.id}" style="${base}">${fill}${content}${borderLayer}${label}</div>`;
     }
     st.innerHTML = html;
     (0, dom_1.$)('#statusLeft').textContent = `${model_1.S.template.width} × ${model_1.S.template.height} ${model_1.S.template.unit} · ${(0, model_1.templateExportSize)().w} × ${(0, model_1.templateExportSize)().h} export px · ${model_1.S.template.dpi} DPI`;
@@ -1023,6 +1046,7 @@ exports.saveTemplateAs = exports.saveTemplate = exports.saveProjectAs = exports.
 exports.resetFileHandles = resetFileHandles;
 exports.openFromDisk = openFromDisk;
 exports.migrateProjectUnits = migrateProjectUnits;
+exports.migrateComponentOpacities = migrateComponentOpacities;
 exports.openJSON = openJSON;
 const model_1 = require("./model");
 const dom_1 = require("./dom");
@@ -1132,9 +1156,17 @@ function migrateProjectUnits(obj) {
     obj.version = 2;
     return obj;
 }
+function migrateComponentOpacities(obj) {
+    for (const c of obj.cards || []) for (const override of Object.values(c.overrides || {})) {
+        if (typeof override.opacity === 'number') for (const part of ['fillOpacity','borderOpacity','textOpacity']) {
+            if (override[part] === undefined) override[part] = override.opacity;
+        }
+    }
+    return obj;
+}
 async function openJSON(file, onlyTemplate = false, handle = null) {
     try {
-        const obj = migrateProjectUnits(JSON.parse(await file.text()));
+        const obj = migrateComponentOpacities(migrateProjectUnits(JSON.parse(await file.text())));
         if (!obj.template?.elements || !Array.isArray(obj.template.elements))
             throw Error('Not a Card Studio project or template');
         if (onlyTemplate && obj.type === 'cardstudio-project')
