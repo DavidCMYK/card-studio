@@ -82,6 +82,7 @@ function mutateAction(action, el = null) {
             (0, dom_1.$)('#openTemplateFile').click();
             break;
         case 'mode-template':
+        case 'card-setup':
             model_1.S.mode = 'template';
             model_1.S.selected = null;
             (0, interface_1.repaint)();
@@ -327,13 +328,15 @@ document.addEventListener('click', listenClick);
 (0, dom_1.$)('#assetFiles').addEventListener('change', async (e) => { if (e.target.files.length)
     await (0, assets_1.importImages)(e.target.files); e.target.value = ''; });
 let drag = null;
+function clearSelection() { if (model_1.S.selected === null)
+    return; model_1.S.selected = null; (0, interface_1.renderInspector)(); (0, interface_1.renderLeft)(); (0, preview_1.renderStage)(); }
 const stage = (0, dom_1.$)('#stage');
+// The card may be entirely covered by elements. Click the workspace to clear selection.
+(0, dom_1.$)('#canvasOuter').addEventListener('pointerdown', e => { if (e.button === 0 && !e.target.closest('#stage'))
+    clearSelection(); });
 stage.addEventListener('pointerdown', e => { if (e.button !== 0)
     return; const node = e.target.closest('.element'); if (!node) {
-    model_1.S.selected = null;
-    (0, interface_1.renderInspector)();
-    (0, interface_1.renderLeft)();
-    (0, preview_1.renderStage)();
+    clearSelection();
     return;
 } const id = node.dataset.id; model_1.S.selected = id; (0, interface_1.renderInspector)(); (0, interface_1.renderLeft)(); const el = (0, model_1.effective)((0, model_1.templateEl)(id)); const resizing = !!e.target.closest('[data-handle="resize"]'); (0, preview_1.renderStage)(); if (el.locked)
     return; drag = { id, type: resizing ? 'resize' : 'move', initialX: e.clientX, initialY: e.clientY, x: el.x, y: el.y, w: el.w, h: el.h }; e.preventDefault(); });
