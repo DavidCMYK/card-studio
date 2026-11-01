@@ -559,8 +559,8 @@ function renderLeft() {
         out += '<div class="card-list">' + model_1.S.cards.map((c, i) => `<div class="card-row ${i === model_1.S.cardIndex ? 'active' : ''}" data-cardindex="${i}"><span class="mini-art">${String(i + 1).padStart(2, '0')}</span><span class="name">${(0, model_1.escapeHTML)(c.name)}<span class="sub">${Object.keys(c.overrides || {}).length ? 'Custom layout' : 'Template layout'}</span></span><button class="small-btn" data-action="duplicate-card" data-cardindex="${i}" title="Duplicate card">⧉</button></div>`).join('') + '</div>';
         out += `<div class="actionbar"><button class="secondary" data-action="delete-card">Delete card</button><button class="secondary" data-action="reset-card">Reset layout edits</button></div><div class="rule"></div>`;
     }
-    out += `<div class="side-head"><h2>LAYERS</h2><span class="pill">${(0, model_1.layerEls)().length}</span></div><div class="small">Topmost layers are shown first. Select an element to edit it.</div>`;
-    out += '<div class="layer-list">' + [...(0, model_1.layerEls)()].reverse().map(e => `<div class="layer-row ${e.id === model_1.S.selected ? 'active' : ''}" data-layer="${e.id}"><span style="font-size:15px;color:#7b91ad">${e.kind === 'text' ? 'T' : e.kind === 'image' ? '▧' : '◇'}</span><span class="name">${(0, model_1.escapeHTML)(e.name)}<span class="sub">${e.kind}${e.locked ? ' · locked' : ''}</span></span></div>`).join('') + '</div>';
+    out += `<div class="side-head"><h2>LAYERS</h2><span class="pill">${(0, model_1.layerEls)().filter(e => model_1.S.mode === 'template' || ((0, model_1.isExported)(e) && (0, model_1.isExported)((0, model_1.effective)(e)))).length}</span></div><div class="small">Topmost layers are shown first. Select an element to edit it.</div>`;
+    out += '<div class="layer-list">' + [...(0, model_1.layerEls)()].filter(e => model_1.S.mode === 'template' || ((0, model_1.isExported)(e) && (0, model_1.isExported)((0, model_1.effective)(e)))).reverse().map(e => `<div class="layer-row ${e.id === model_1.S.selected ? 'active' : ''}" data-layer="${e.id}"><span style="font-size:15px;color:#7b91ad">${e.kind === 'text' ? 'T' : e.kind === 'image' ? '▧' : '◇'}</span><span class="name">${(0, model_1.escapeHTML)(e.name)}<span class="sub">${e.kind}${e.locked ? ' · locked' : ''}${!(0, model_1.isExported)(e) ? ' · editor only' : ''}</span></span></div>`).join('') + '</div>';
     out += `<div class="rule"></div><div class="side-head"><h2>IMAGE SETS</h2><button data-action="add-set">＋ Load set</button></div><div class="small">Load multiple images as one set. Assign the set to an image frame, then choose sequential, cycling or random assignment.</div>`;
     out += '<div class="set-list">' + model_1.S.sets.map(set => `<div class="asset-row"><div class="asset-title"><span>▧</span><span style="overflow:hidden;text-overflow:ellipsis">${(0, model_1.escapeHTML)(set.name)}</span><span class="count">${set.images.length} files</span></div><div class="asset-thumbs">${set.images.slice(0, 6).map(x => `<img alt="${(0, model_1.escapeHTML)(x.name)}" title="${(0, model_1.escapeHTML)(x.name)}" src="${x.data}">`).join('')}</div><div class="asset-actions"><button data-action="add-to-set" data-set="${set.id}">＋ Images</button><button data-action="remove-set" data-set="${set.id}">Remove</button></div></div>`).join('') + '</div>';
     v.innerHTML = out;
@@ -620,6 +620,9 @@ function renderInspector() {
     }
     html += `<div class="section-title">Position and size (${model_1.S.template.unit})</div><div class="fields-two">${field('X', 'x', (0, model_1.fmt)(e.x / model_1.perUnit[model_1.S.template.unit]), 'number', 'step="0.1"')}${field('Y', 'y', (0, model_1.fmt)(e.y / model_1.perUnit[model_1.S.template.unit]), 'number', 'step="0.1"')}${field('Width', 'w', (0, model_1.fmt)(e.w / model_1.perUnit[model_1.S.template.unit]), 'number', 'min="0.1" step="0.1"')}${field('Height', 'h', (0, model_1.fmt)(e.h / model_1.perUnit[model_1.S.template.unit]), 'number', 'min="0.1" step="0.1"')}</div>`;
     html += checkbox('Hide element', 'hidden', e.hidden) + checkbox('Lock position', 'locked', e.locked);
+    if (model_1.S.mode === 'template')
+        html += checkbox('Include in exported images', 'includeInExport', (0, model_1.isExported)(e)) +
+            `<div class="small" style="padding:0 0 12px">Turn this off for non-printing guides, such as cut lines and bleed markers. These elements appear only in the Template editor, not in Cards previews or PNG exports.</div>`;
     if (raw.kind === 'text') {
         if (model_1.S.mode === 'template')
             html += `<div class="field"><label>Default text</label><textarea data-prop="text">${(0, model_1.escapeHTML)(e.text)}</textarea></div>`;
@@ -688,7 +691,7 @@ require("./editor");
 "model": function(module, exports, require) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.uniqName = exports.actualValue = exports.effective = exports.isExtra = exports.layerEls = exports.templateEl = exports.card = exports.S = exports.initial = exports.initialElements = exports.makeElement = exports.textKinds = exports.fmt = exports.sizePx = exports.px = exports.perUnit = exports.clamp = exports.safeFile = exports.escapeXML = exports.escapeHTML = exports.uid = void 0;
+exports.uniqName = exports.actualValue = exports.effective = exports.isExtra = exports.isExported = exports.layerEls = exports.templateEl = exports.card = exports.S = exports.initial = exports.initialElements = exports.makeElement = exports.textKinds = exports.fmt = exports.sizePx = exports.px = exports.perUnit = exports.clamp = exports.safeFile = exports.escapeXML = exports.escapeHTML = exports.uid = void 0;
 exports.replaceState = replaceState;
 const uid = () => Math.random().toString(36).slice(2, 10);
 exports.uid = uid;
@@ -708,7 +711,7 @@ exports.sizePx = sizePx;
 const fmt = v => String(Math.round(v * 100) / 100);
 exports.fmt = fmt;
 exports.textKinds = ['text', 'image'];
-const makeElement = (kind, parts = {}) => ({ id: (0, exports.uid)(), kind, name: kind === 'text' ? 'Text' : kind === 'image' ? 'Artwork' : 'Shape', x: 22, y: 35, w: 195, h: 55, locked: false, hidden: false, shape: 'rect', radius: 0, fillMode: kind === 'shape' ? 'solid' : 'none', fill1: '#ffffff', fill2: '#dde5f1', gradientAngle: 90, borderWidth: 0, borderColor: '#233b58', opacity: 100, text: 'Text', font: 'Georgia', fontSize: 19, fontWeight: 400, italic: false, underline: false, color: '#152b43', align: 'left', valign: 'middle', lineHeight: 1.18, letterSpacing: 0, imageFit: 'cover', imgScale: 1, imgOffsetX: 0, imgOffsetY: 0, autoSet: '', autoMode: 'cycle', ...parts });
+const makeElement = (kind, parts = {}) => ({ id: (0, exports.uid)(), kind, name: kind === 'text' ? 'Text' : kind === 'image' ? 'Artwork' : 'Shape', x: 22, y: 35, w: 195, h: 55, locked: false, hidden: false, includeInExport: true, shape: 'rect', radius: 0, fillMode: kind === 'shape' ? 'solid' : 'none', fill1: '#ffffff', fill2: '#dde5f1', gradientAngle: 90, borderWidth: 0, borderColor: '#233b58', opacity: 100, text: 'Text', font: 'Georgia', fontSize: 19, fontWeight: 400, italic: false, underline: false, color: '#152b43', align: 'left', valign: 'middle', lineHeight: 1.18, letterSpacing: 0, imageFit: 'cover', imgScale: 1, imgOffsetX: 0, imgOffsetY: 0, autoSet: '', autoMode: 'cycle', ...parts });
 exports.makeElement = makeElement;
 const initialElements = () => [
     (0, exports.makeElement)('shape', { name: 'Card background', x: 0, y: 0, w: (0, exports.px)(63, 'mm'), h: (0, exports.px)(88, 'mm'), fillMode: 'gradient', fill1: '#fcfaf4', fill2: '#dce7ed', gradientAngle: 180 }),
@@ -729,6 +732,8 @@ const templateEl = (id) => exports.S.template.elements.find(e => e.id === id) ||
 exports.templateEl = templateEl;
 const layerEls = () => [...exports.S.template.elements, ...(exports.S.mode === 'cards' ? ((0, exports.card)()?.extraElements || []) : [])];
 exports.layerEls = layerEls;
+const isExported = (e) => e.includeInExport !== false;
+exports.isExported = isExported;
 const isExtra = (id) => !!(0, exports.card)()?.extraElements?.some(e => e.id === id);
 exports.isExtra = isExtra;
 const effective = (e) => exports.S.mode === 'cards' && (0, exports.card)() && !(0, exports.isExtra)(e.id) ? { ...e, ...((0, exports.card)().overrides?.[e.id] || {}) } : e;
@@ -881,7 +886,7 @@ async function canvasCard(ci, mode = 'cards') {
     ctx.fillRect(0, 0, w, h);
     for (const raw of [...model_1.S.template.elements, ...(mode === 'cards' ? (model_1.S.cards[ci]?.extraElements || []) : [])]) {
         const e = mode === 'cards' ? { ...raw, ...(model_1.S.cards[ci]?.overrides?.[raw.id] || {}) } : raw;
-        if (e.hidden)
+        if (e.hidden || !(0, model_1.isExported)(raw) || !(0, model_1.isExported)(e))
             continue;
         ctx.save();
         ctx.globalAlpha = (0, model_1.clamp)((e.opacity ?? 100) / 100, 0, 1);
@@ -930,7 +935,7 @@ function renderStage() {
     const eList = (0, model_1.layerEls)();
     for (const raw of eList) {
         const e = (0, model_1.effective)(raw);
-        if (e.hidden)
+        if (e.hidden || (model_1.S.mode === 'cards' && (!(0, model_1.isExported)(raw) || !(0, model_1.isExported)(e))))
             continue;
         const selected = model_1.S.selected === raw.id, src = (0, image_sets_1.getImageData)(raw, model_1.S.cardIndex, model_1.S.mode);
         let content = '';
