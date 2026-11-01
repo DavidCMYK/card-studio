@@ -7,6 +7,10 @@ export interface CardElement {
   locked: boolean; hidden: boolean;
   /** False for editor-only guides, bleed or cut lines. Missing means true for older projects. */
   includeInExport?: boolean;
+  /** Text: hide the complete text element when the card's text value is blank. Defaults to true. */
+  invisibleIfEmpty?: boolean;
+  /** Shape/image: link visibility to the selected text element's ID. */
+  linkedTextId?: string;
   shape: 'rect' | 'ellipse'; radius: number;
   fillMode: 'none' | 'solid' | 'gradient';
   fill1: string; fill2: string; gradientAngle: number;
