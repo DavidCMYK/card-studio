@@ -1,4 +1,4 @@
-import { S, sizePx, layerEls, effective, actualValue, clamp, escapeHTML, isExported } from './model';
+import { S, sizePx, layerEls, effective, actualValue, clamp, escapeHTML, templateExportSize, isExported } from './model';
 import { $ } from './dom';
 import { getImageData, cacheImage, imgBox } from './image-sets';
 const gradientCSS=e=>e.fillMode==='solid'?e.fill1:e.fillMode==='gradient'?`linear-gradient(${e.gradientAngle}deg,${e.fill1},${e.fill2})`:'transparent';
@@ -16,7 +16,7 @@ export function renderStage(){const st=$('#stage'),{w,h}=sizePx(),z=S.zoom;st.st
  const label=selected?`<span class="selection-label">${escapeHTML(raw.name)}</span>${!e.locked?'<span class="resize-handle" data-handle="resize"></span>':''}`:'';
  html+=`<div class="element ${selected?'selected':''} ${e.locked?'locked':''}" data-id="${raw.id}" style="${base}">${content}${label}</div>`;
  }
- st.innerHTML=html;$('#statusLeft').textContent=`${S.template.width} × ${S.template.height} ${S.template.unit} · ${Math.round(w)} × ${Math.round(h)} design px · ${S.template.dpi} DPI PNG`;
+ st.innerHTML=html;$('#statusLeft').textContent=`${S.template.width} × ${S.template.height} ${S.template.unit} · ${templateExportSize().w} × ${templateExportSize().h} export px · ${S.template.dpi} DPI`;
  $('#zoomLabel').textContent=Math.round(S.zoom*100)+'%';
 }
 
