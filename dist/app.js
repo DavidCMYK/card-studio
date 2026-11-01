@@ -304,17 +304,30 @@ function handleProp(input) {
         return;
     let v = input.type === 'checkbox' ? input.checked : input.value;
     if (key.startsWith('template.')) {
-        const p = key.split('.')[1];
+        const p = key.split('.')[1], template = model_1.S.template;
         if (p === 'unit') {
-            const old = model_1.S.template.unit;
-            model_1.S.template.width = Number((model_1.S.template.width * model_1.perUnit[old] / model_1.perUnit[v]).toFixed(4));
-            model_1.S.template.height = Number((model_1.S.template.height * model_1.perUnit[old] / model_1.perUnit[v]).toFixed(4));
+            const oldFactor = (0, model_1.unitFactor)(template.unit, template.dpi), newFactor = (0, model_1.unitFactor)(v, template.dpi);
+            template.width = Number((template.width * oldFactor / newFactor).toFixed(6));
+            template.height = Number((template.height * oldFactor / newFactor).toFixed(6));
         }
-        else if (['width', 'height', 'dpi'].includes(p))
+        else if (p === 'dpi') {
+            const newDpi = Number(v);
+            if (!Number.isFinite(newDpi) || newDpi <= 0)
+                return;
+            // Keep the physical card size unchanged. With px selected the editable
+            // pixel count must grow or shrink when the resolution changes.
+            if (template.unit === 'px') {
+                template.width = Number((template.width * newDpi / template.dpi).toFixed(6));
+                template.height = Number((template.height * newDpi / template.dpi).toFixed(6));
+            }
+            v = newDpi;
+        }
+        else if (['width', 'height'].includes(p)) {
             v = Number(v);
-        if (p === 'width' || p === 'height')
-            v = Math.max(.5, v || .5);
-        model_1.S.template[p] = v;
+            if (!Number.isFinite(v) || v <= 0)
+                return;
+        }
+        template[p] = v;
         return;
     }
     if (key === 'projectName') {
@@ -333,7 +346,7 @@ function handleProp(input) {
         return;
     }
     if (['x', 'y', 'w', 'h'].includes(key)) {
-        v = (0, model_1.px)(Number(v), model_1.S.template.unit);
+        v = (0, model_1.px)(Number(v), model_1.S.template.unit, model_1.S.template.dpi);
         if (key === 'w' || key === 'h')
             v = Math.max(1, v);
     }
@@ -362,6 +375,7 @@ function handleProp(input) {
 } if (inp.dataset.prop) {
     handleProp(inp);
     (0, preview_1.renderStage)();
+    (0, interface_1.updateDimensionReadouts)();
     (0, dom_1.$)('#projectTitle').textContent = model_1.S.projectName;
 } });
 (0, dom_1.$)('#inspector').addEventListener('change', event => { const inp = event.target; if (inp.dataset.cardvalue) {
@@ -413,7 +427,7 @@ document.addEventListener('pointermove', e => { if (!drag)
     return; const { w, h } = (0, model_1.sizePx)(), dx = (e.clientX - drag.initialX) / model_1.S.zoom, dy = (e.clientY - drag.initialY) / model_1.S.zoom; let patch; if (drag.type === 'resize')
     patch = { w: (0, model_1.clamp)(Math.round(drag.w + dx), 5, w * 3), h: (0, model_1.clamp)(Math.round(drag.h + dy), 5, h * 3) };
 else
-    patch = { x: Math.round((0, model_1.clamp)(drag.x + dx, -drag.w + 4, w - 4)), y: Math.round((0, model_1.clamp)(drag.y + dy, -drag.h + 4, h - 4)) }; (0, interface_1.patchElement)(drag.id, patch); (0, preview_1.renderStage)(); });
+    patch = { x: Math.round((0, model_1.clamp)(drag.x + dx, -drag.w + 4, w - 4)), y: Math.round((0, model_1.clamp)(drag.y + dy, -drag.h + 4, h - 4)) }; (0, interface_1.patchElement)(drag.id, patch); (0, preview_1.renderStage)(); (0, interface_1.renderInspector)(); });
 document.addEventListener('pointerup', () => { if (drag) {
     drag = null;
     (0, interface_1.renderInspector)();
@@ -539,6 +553,7 @@ function imgBox(e, img) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.renderCardControl = renderCardControl;
 exports.renderLeft = renderLeft;
+exports.updateDimensionReadouts = updateDimensionReadouts;
 exports.renderInspector = renderInspector;
 exports.repaint = repaint;
 exports.patchElement = patchElement;
@@ -570,6 +585,23 @@ function renderLeft() {
 function field(label, key, value, type = 'text', extra = '') { return `<div class="field"><label>${(0, model_1.escapeHTML)(label)}</label><input data-prop="${key}" type="${type}" value="${(0, model_1.escapeHTML)(value)}" ${extra}></div>`; }
 function selectionField(label, key, items, value) { return `<div class="field"><label>${(0, model_1.escapeHTML)(label)}</label><select data-prop="${key}">${items.map(([v, l]) => `<option value="${(0, model_1.escapeHTML)(v)}" ${String(v) === String(value) ? 'selected' : ''}>${(0, model_1.escapeHTML)(l)}</option>`).join('')}</select></div>`; }
 function checkbox(label, key, value) { return `<label class="toggle-line"><input type="checkbox" data-prop="${key}" ${value ? 'checked' : ''}>${(0, model_1.escapeHTML)(label)}</label>`; }
+// All pixel labels are export-image pixels at the selected resolution.
+const sizeReadout = () => { const { w, h } = (0, model_1.templateExportSize)(); return `${w.toLocaleString('en-US')} × ${h.toLocaleString('en-US')} px at ${model_1.S.template.dpi} DPI`; };
+const elementReadout = () => {
+    const raw = (0, model_1.templateEl)(model_1.S.selected);
+    if (!raw)
+        return '';
+    const e = (0, model_1.effective)(raw), dpi = model_1.S.template.dpi;
+    return `Export pixels at ${dpi} DPI: X ${(0, model_1.exportPixels)(e.x, dpi)} · Y ${(0, model_1.exportPixels)(e.y, dpi)} · Width ${(0, model_1.exportPixels)(e.w, dpi)} px · Height ${(0, model_1.exportPixels)(e.h, dpi)} px`;
+};
+function updateDimensionReadouts() {
+    const templateNode = document.querySelector('#templatePixelReadout');
+    if (templateNode)
+        templateNode.textContent = sizeReadout();
+    const elementNode = document.querySelector('#elementPixelReadout');
+    if (elementNode)
+        elementNode.textContent = elementReadout();
+}
 const fontOptions = ['Arial', 'Arial Black', 'Calibri', 'Cambria', 'Comic Sans MS', 'Courier New', 'Garamond', 'Georgia', 'Helvetica', 'Impact', 'Palatino Linotype', 'Segoe UI', 'Tahoma', 'Times New Roman', 'Trebuchet MS', 'Verdana'];
 let knownFonts = [...fontOptions];
 function renderInspector() {
@@ -593,9 +625,10 @@ function renderInspector() {
         (0, dom_1.$)('#rightTitle').textContent = 'Card setup';
         box.innerHTML = `<div class="inspector-heading">${(0, model_1.escapeHTML)(model_1.S.template.name)}</div><div class="inspector-sub">Card dimensions & export options</div>
  ${field('Template name', 'template.name', model_1.S.template.name)}
- <div class="fields-two">${field('Width', 'template.width', model_1.S.template.width, 'number', 'min="1" step="0.1"')}${field('Height', 'template.height', model_1.S.template.height, 'number', 'min="1" step="0.1"')}</div>
+ <div class="fields-two">${field('Width (' + model_1.S.template.unit + ')', 'template.width', model_1.S.template.width, 'number', 'min="0.01" step="any"')}${field('Height (' + model_1.S.template.unit + ')', 'template.height', model_1.S.template.height, 'number', 'min="0.01" step="any"')}</div>
  ${selectionField('Units', 'template.unit', [['mm', 'Millimetres (mm)'], ['in', 'Inches (in)'], ['px', 'Pixels (px)']], model_1.S.template.unit)}
  ${selectionField('PNG resolution', 'template.dpi', [[150, '150 DPI'], [300, '300 DPI'], [450, '450 DPI'], [600, '600 DPI']], model_1.S.template.dpi)}
+ <div class="small" style="padding:4px 0 12px" id="templatePixelReadout">${sizeReadout()}</div>
  ${field('Background colour', 'template.background', model_1.S.template.background, 'color')}
  <div class="rule"></div><div class="section-title">Project</div>${field('Project name', 'projectName', model_1.S.projectName)}
  <div class="small" style="padding:0">Select a layer or click an element on the card to change its properties. Use the Cards tab to edit a single card independently.</div>`;
@@ -620,7 +653,8 @@ function renderInspector() {
         if (raw.kind === 'image')
             html += `<div class="field"><label>Image filename (blank = automatic)</label><input data-cardvalue="${raw.id}" value="${(0, model_1.escapeHTML)((0, model_1.card)()?.values?.[raw.id] || '')}" list="imageFiles" placeholder="Set name/image.png"><datalist id="imageFiles">${model_1.S.sets.flatMap(s => s.images.map(im => `<option value="${(0, model_1.escapeHTML)(s.name + '/' + im.name)}"></option>`)).join('')}</datalist></div><div class="small" style="padding:0 0 10px">Enter <b>none</b> to leave this frame empty.</div>`;
     }
-    html += `<div class="section-title">Position and size (${model_1.S.template.unit})</div><div class="fields-two">${field('X', 'x', (0, model_1.fmt)(e.x / model_1.perUnit[model_1.S.template.unit]), 'number', 'step="0.1"')}${field('Y', 'y', (0, model_1.fmt)(e.y / model_1.perUnit[model_1.S.template.unit]), 'number', 'step="0.1"')}${field('Width', 'w', (0, model_1.fmt)(e.w / model_1.perUnit[model_1.S.template.unit]), 'number', 'min="0.1" step="0.1"')}${field('Height', 'h', (0, model_1.fmt)(e.h / model_1.perUnit[model_1.S.template.unit]), 'number', 'min="0.1" step="0.1"')}</div>`;
+    const f = (0, model_1.unitFactor)(model_1.S.template.unit, model_1.S.template.dpi);
+    html += `<div class="section-title">Position and size (${model_1.S.template.unit})</div><div class="fields-two">${field('X (' + model_1.S.template.unit + ')', 'x', (0, model_1.fmt)(e.x / f), 'number', 'step="any"')}${field('Y (' + model_1.S.template.unit + ')', 'y', (0, model_1.fmt)(e.y / f), 'number', 'step="any"')}${field('Width (' + model_1.S.template.unit + ')', 'w', (0, model_1.fmt)(e.w / f), 'number', 'min="0.01" step="any"')}${field('Height (' + model_1.S.template.unit + ')', 'h', (0, model_1.fmt)(e.h / f), 'number', 'min="0.01" step="any"')}</div><div class="small" style="padding:4px 0 12px" id="elementPixelReadout">${elementReadout()}</div>`;
     html += checkbox('Hide element', 'hidden', e.hidden) + checkbox('Lock position', 'locked', e.locked);
     if (model_1.S.mode === 'template')
         html += checkbox('Include in exported images', 'includeInExport', (0, model_1.isExported)(e)) +
@@ -693,7 +727,7 @@ require("./editor");
 "model": function(module, exports, require) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.uniqName = exports.actualValue = exports.effective = exports.isExtra = exports.isExported = exports.layerEls = exports.templateEl = exports.card = exports.S = exports.initial = exports.initialElements = exports.makeElement = exports.textKinds = exports.fmt = exports.sizePx = exports.px = exports.perUnit = exports.clamp = exports.safeFile = exports.escapeXML = exports.escapeHTML = exports.uid = void 0;
+exports.uniqName = exports.actualValue = exports.effective = exports.isExtra = exports.isExported = exports.layerEls = exports.templateEl = exports.card = exports.S = exports.initial = exports.initialElements = exports.makeElement = exports.textKinds = exports.fmt = exports.templateExportSize = exports.sizePx = exports.exportPixels = exports.px = exports.unitFactor = exports.perUnit = exports.clamp = exports.safeFile = exports.escapeXML = exports.escapeHTML = exports.uid = void 0;
 exports.replaceState = replaceState;
 const uid = () => Math.random().toString(36).slice(2, 10);
 exports.uid = uid;
@@ -705,11 +739,19 @@ const safeFile = s => String(s || 'card').replace(/[\\/:*?"<>|\x00-\x1f]/g, '_')
 exports.safeFile = safeFile;
 const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
 exports.clamp = clamp;
+// Geometry uses 96 CSS/design pixels per inch internally. The 'px' unit shown in
+// controls means *export image pixels* at the selected DPI, never screen pixels.
 exports.perUnit = { mm: 96 / 25.4, in: 96, px: 1 };
-const px = (value, unit = 'mm') => Number(value || 0) * exports.perUnit[unit];
+const unitFactor = (unit, dpi) => unit === 'px' ? 96 / dpi : exports.perUnit[unit];
+exports.unitFactor = unitFactor;
+const px = (value, unit = 'mm', dpi = 300) => Number(value || 0) * (0, exports.unitFactor)(unit, dpi);
 exports.px = px;
-const sizePx = () => ({ w: (0, exports.px)(exports.S.template.width, exports.S.template.unit), h: (0, exports.px)(exports.S.template.height, exports.S.template.unit) });
+const exportPixels = (designPixels, dpi = exports.S.template.dpi) => Math.round(designPixels * dpi / 96);
+exports.exportPixels = exportPixels;
+const sizePx = () => ({ w: (0, exports.px)(exports.S.template.width, exports.S.template.unit, exports.S.template.dpi), h: (0, exports.px)(exports.S.template.height, exports.S.template.unit, exports.S.template.dpi) });
 exports.sizePx = sizePx;
+const templateExportSize = () => { const { w, h } = (0, exports.sizePx)(); return { w: (0, exports.exportPixels)(w), h: (0, exports.exportPixels)(h) }; };
+exports.templateExportSize = templateExportSize;
 const fmt = v => String(Math.round(v * 100) / 100);
 exports.fmt = fmt;
 exports.textKinds = ['text', 'image'];
@@ -724,7 +766,7 @@ const initialElements = () => [
     (0, exports.makeElement)('text', { name: 'Description', x: 18, y: 223, w: 201, h: 83, text: 'Beyond the old stones, the road descends into darkness.', font: 'Georgia', fontSize: 11, fontWeight: 400, valign: 'top', color: '#324358', lineHeight: 1.3 })
 ];
 exports.initialElements = initialElements;
-const initial = () => ({ type: 'cardstudio-project', version: 1, projectName: 'Untitled deck', template: { name: 'Standard game card', width: 63, height: 88, unit: 'mm', dpi: 300, background: '#ffffff', elements: (0, exports.initialElements)() }, sets: [], cards: [{ id: (0, exports.uid)(), name: 'Card 001', values: {}, overrides: {}, extraElements: [] }], mode: 'template', cardIndex: 0, selected: null, zoom: 1.55 });
+const initial = () => ({ type: 'cardstudio-project', version: 2, projectName: 'Untitled deck', template: { name: 'Standard game card', width: 63, height: 88, unit: 'mm', dpi: 300, background: '#ffffff', elements: (0, exports.initialElements)() }, sets: [], cards: [{ id: (0, exports.uid)(), name: 'Card 001', values: {}, overrides: {}, extraElements: [] }], mode: 'template', cardIndex: 0, selected: null, zoom: 1.55 });
 exports.initial = initial;
 exports.S = (0, exports.initial)();
 function replaceState(value) { exports.S = value; }
@@ -876,7 +918,7 @@ else if (e.align === 'right')
     y += lh;
 } ctx.restore(); }
 async function canvasCard(ci, mode = 'cards') {
-    const { w, h } = (0, model_1.sizePx)(), dpi = Number(model_1.S.template.dpi) || 300, mult = model_1.S.template.unit === 'px' ? 1 : dpi / 96, W = Math.round(w * mult), H = Math.round(h * mult);
+    const { w, h } = (0, model_1.sizePx)(), { w: W, h: H } = (0, model_1.templateExportSize)();
     if (W > 12000 || H > 12000 || W * H > 75000000)
         throw Error('Export dimensions are too large. Lower the DPI or card size.');
     const cvs = document.createElement('canvas');
@@ -960,7 +1002,7 @@ function renderStage() {
         html += `<div class="element ${selected ? 'selected' : ''} ${e.locked ? 'locked' : ''}" data-id="${raw.id}" style="${base}">${content}${label}</div>`;
     }
     st.innerHTML = html;
-    (0, dom_1.$)('#statusLeft').textContent = `${model_1.S.template.width} × ${model_1.S.template.height} ${model_1.S.template.unit} · ${Math.round(w)} × ${Math.round(h)} design px · ${model_1.S.template.dpi} DPI PNG`;
+    (0, dom_1.$)('#statusLeft').textContent = `${model_1.S.template.width} × ${model_1.S.template.height} ${model_1.S.template.unit} · ${(0, model_1.templateExportSize)().w} × ${(0, model_1.templateExportSize)().h} export px · ${model_1.S.template.dpi} DPI`;
     (0, dom_1.$)('#zoomLabel').textContent = Math.round(model_1.S.zoom * 100) + '%';
 }
 
@@ -968,6 +1010,7 @@ function renderStage() {
 "project-storage": function(module, exports, require) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.migrateProjectUnits = migrateProjectUnits;
 exports.saveProject = saveProject;
 exports.saveTemplate = saveTemplate;
 exports.openJSON = openJSON;
@@ -975,11 +1018,39 @@ const model_1 = require("./model");
 const dom_1 = require("./dom");
 const image_sets_1 = require("./image-sets");
 const interface_1 = require("./interface");
-function saveProject() { (0, dom_1.jsonDownload)({ ...model_1.S, type: 'cardstudio-project', version: 1 }, (0, model_1.safeFile)(model_1.S.projectName) + '.cardstudio.json'); (0, dom_1.toast)('Project saved, including embedded image sets'); }
-function saveTemplate() { (0, dom_1.jsonDownload)({ type: 'cardstudio-template', version: 1, template: model_1.S.template }, (0, model_1.safeFile)(model_1.S.template.name) + '.template.json'); (0, dom_1.toast)('Template saved'); }
+// Version 1 treated pixel-sized templates as CSS-pixel layouts and bypassed
+// DPI when exporting. Scale the stored design geometry so legacy output pixel
+// dimensions and relative placement remain unchanged under the corrected model.
+function migrateProjectUnits(obj) {
+    if (Number(obj.version ?? 1) >= 2 || obj.template?.unit !== 'px')
+        return obj;
+    const dpi = Number(obj.template.dpi) || 300, scale = 96 / dpi;
+    const fields = ['x', 'y', 'w', 'h', 'fontSize', 'borderWidth', 'radius', 'letterSpacing', 'imgOffsetX', 'imgOffsetY'];
+    const scaleFields = (e) => {
+        if (!e)
+            return;
+        for (const name of fields)
+            if (typeof e[name] === 'number')
+                e[name] *= scale;
+        if (e.imageFit === 'free' && typeof e.imgScale === 'number')
+            e.imgScale *= scale;
+    };
+    for (const e of obj.template.elements)
+        scaleFields(e);
+    for (const c of obj.cards || []) {
+        for (const e of c.extraElements || [])
+            scaleFields(e);
+        for (const [id, override] of Object.entries(c.overrides || {}))
+            scaleFields(override);
+    }
+    obj.version = 2;
+    return obj;
+}
+function saveProject() { (0, dom_1.jsonDownload)({ ...model_1.S, type: 'cardstudio-project', version: 2 }, (0, model_1.safeFile)(model_1.S.projectName) + '.cardstudio.json'); (0, dom_1.toast)('Project saved, including embedded image sets'); }
+function saveTemplate() { (0, dom_1.jsonDownload)({ type: 'cardstudio-template', version: 2, template: model_1.S.template }, (0, model_1.safeFile)(model_1.S.template.name) + '.template.json'); (0, dom_1.toast)('Template saved'); }
 async function openJSON(file, onlyTemplate = false) {
     try {
-        const obj = JSON.parse(await file.text());
+        const obj = migrateProjectUnits(JSON.parse(await file.text()));
         if (!obj.template?.elements || !Array.isArray(obj.template.elements))
             throw Error('Not a Card Studio project or template');
         if (onlyTemplate || obj.type === 'cardstudio-template') {
