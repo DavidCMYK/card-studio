@@ -38,9 +38,9 @@ test('editor preview uses component layers without fading selection handles',()=
   const e=model.makeElement('text',{fillMode:'solid',borderWidth:2,fillOpacity:25,borderOpacity:75,textOpacity:40});
   s.template.elements=[e];s.selected=e.id;model.replaceState(s);renderStage();
   const html=node('#stage').innerHTML;
-  assert.match(html,/class="element-fill"[^>]*opacity:0\\.25/);
-  assert.match(html,/class="element-border"[^>]*opacity:0\\.75/);
-  assert.match(html,/class="text-layer"[^>]*opacity:0\\.4/);
+  assert.match(html,/class="element-fill"[^>]*opacity:0\.25/);
+  assert.match(html,/class="element-border"[^>]*opacity:0\.75/);
+  assert.match(html,/class="text-layer"[^>]*opacity:0\.4/);
   assert.match(html,/resize-handle resize-nw/);
 });
 test('PNG exports use separate fill, text, border and image opacity',async()=>{
