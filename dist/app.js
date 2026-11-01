@@ -73,6 +73,8 @@ function copyElement(cut = false) {
     }
     elementClipboard = { element: structuredClone(el), cut, project: model_1.S, pasteCount: 0 };
     if (cut) {
+        // Retain the original ID in the clipboard so card-specific spreadsheet values
+        // and overrides still refer to this element when it is pasted back.
         model_1.S.template.elements = model_1.S.template.elements.filter(x => x.id !== el.id);
         model_1.S.selected = null;
         (0, interface_1.repaint)();
@@ -106,6 +108,7 @@ function pasteElement() {
     model_1.S.template.elements.push(pasted);
     model_1.S.selected = pasted.id;
     if (isMove) {
+        // Further pastes duplicate the moved element rather than reusing its ID.
         from.cut = false;
         from.element = structuredClone(pasted);
         from.pasteCount = 0;
@@ -114,7 +117,6 @@ function pasteElement() {
     (0, dom_1.toast)(isMove ? 'Element moved' : 'Element pasted');
     return true;
 }
-
 function newCard(copy = null) { const c = copy ? { id: (0, model_1.uid)(), name: copy.name + ' copy', values: { ...copy.values }, overrides: structuredClone(copy.overrides || {}), extraElements: structuredClone(copy.extraElements || []) } : { id: (0, model_1.uid)(), name: 'Card ' + String(model_1.S.cards.length + 1).padStart(3, '0'), values: {}, overrides: {}, extraElements: [] }; model_1.S.cards.push(c); model_1.S.mode = 'cards'; model_1.S.cardIndex = model_1.S.cards.length - 1; model_1.S.selected = null; (0, interface_1.repaint)(); return c; }
 function mutateAction(action, el = null) {
     switch (action) {
@@ -416,34 +418,39 @@ document.addEventListener('pointerup', () => { if (drag) {
     (0, interface_1.renderLeft)();
     (0, preview_1.renderStage)();
 } });
-document.addEventListener('keydown', e => { const active = document.activeElement, tag = active?.tagName;
-if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) || active?.isContentEditable)
-    return;
-if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && model_1.S.mode === 'template') {
-    const action = { c: 'copy-element', x: 'cut-element', v: 'paste-element' }[e.key.toLowerCase()];
-    if (action && ((action === 'paste-element' && elementClipboard) || (action !== 'paste-element' && model_1.S.selected))) {
+document.addEventListener('keydown', e => {
+    const active = document.activeElement, tag = active?.tagName;
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) || active?.isContentEditable)
+        return;
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && model_1.S.mode === 'template') {
+        const action = { c: 'copy-element', x: 'cut-element', v: 'paste-element' }[e.key.toLowerCase()];
+        if (action && ((action === 'paste-element' && elementClipboard) || (action !== 'paste-element' && model_1.S.selected))) {
+            e.preventDefault();
+            mutateAction(action);
+            return;
+        }
+    }
+    if (e.ctrlKey || e.altKey || e.metaKey)
+        return;
+    if (!model_1.S.selected)
+        return;
+    if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
-        mutateAction(action);
+        mutateAction('delete-element');
         return;
     }
-}
-if (e.ctrlKey || e.altKey || e.metaKey)
-    return;
-if (!model_1.S.selected)
-    return; if (e.key === 'Delete' || e.key === 'Backspace') {
-    e.preventDefault();
-    mutateAction('delete-element');
-    return;
-} const delta = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key]; if (delta) {
-    const el = (0, model_1.effective)((0, model_1.templateEl)(model_1.S.selected));
-    if (el.locked)
-        return;
-    e.preventDefault();
-    const step = e.shiftKey ? 10 : 1;
-    (0, interface_1.patchElement)(model_1.S.selected, { x: el.x + delta[0] * step, y: el.y + delta[1] * step });
-    (0, preview_1.renderStage)();
-    (0, interface_1.renderInspector)();
-} });
+    const delta = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+    if (delta) {
+        const el = (0, model_1.effective)((0, model_1.templateEl)(model_1.S.selected));
+        if (el.locked)
+            return;
+        e.preventDefault();
+        const step = e.shiftKey ? 10 : 1;
+        (0, interface_1.patchElement)(model_1.S.selected, { x: el.x + delta[0] * step, y: el.y + delta[1] * step });
+        (0, preview_1.renderStage)();
+        (0, interface_1.renderInspector)();
+    }
+});
 window.addEventListener('resize', () => { });
 (0, interface_1.repaint)();
 
