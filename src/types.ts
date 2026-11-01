@@ -5,6 +5,8 @@ export interface CardElement {
   id: string; kind: ElementKind; name: string;
   x: number; y: number; w: number; h: number;
   locked: boolean; hidden: boolean;
+  /** False for editor-only guides, bleed or cut lines. Missing means true for older projects. */
+  includeInExport?: boolean;
   shape: 'rect' | 'ellipse'; radius: number;
   fillMode: 'none' | 'solid' | 'gradient';
   fill1: string; fill2: string; gradientAngle: number;
