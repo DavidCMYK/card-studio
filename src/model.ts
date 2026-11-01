@@ -18,7 +18,7 @@ export const fmt=v=>String(Math.round(v*100)/100);
 export type OpacityComponent = 'fillOpacity'|'borderOpacity'|'textOpacity';
 export const opacityFor=(e: CardElement,component: OpacityComponent)=>clamp(Number(e[component]??e.opacity??100)||0,0,100)/100;
 export const textKinds=['text','image'];
-export const makeElement=(kind: ElementKind,parts: Partial<CardElement> = {}): CardElement =>({id:uid(),kind,name:kind==='text'?'Text':kind==='image'?'Artwork':'Shape',x:22,y:35,w:195,h:55,locked:false,hidden:false,includeInExport:true,shape:'rect',radius:0,fillMode:kind==='shape'?'solid':'none',fill1:'#ffffff',fill2:'#dde5f1',gradientAngle:90,borderWidth:0,borderColor:'#233b58',opacity:100,fillOpacity:100,borderOpacity:100,textOpacity:100,text:'Text',font:'Georgia',fontSize:19,fontWeight:400,italic:false,underline:false,color:'#152b43',align:'left',valign:'middle',lineHeight:1.18,letterSpacing:0,imageFit:'cover',imgScale:1,imgOffsetX:0,imgOffsetY:0,autoSet:'',autoMode:'cycle',...parts});
+export const makeElement=(kind: ElementKind,parts: Partial<CardElement> = {}): CardElement =>({id:uid(),kind,name:kind==='text'?'Text':kind==='image'?'Artwork':'Shape',x:22,y:35,w:195,h:55,locked:false,hidden:false,includeInExport:true,invisibleIfEmpty:true,linkedTextId:'',shape:'rect',radius:0,fillMode:kind==='shape'?'solid':'none',fill1:'#ffffff',fill2:'#dde5f1',gradientAngle:90,borderWidth:0,borderColor:'#233b58',opacity:100,fillOpacity:100,borderOpacity:100,textOpacity:100,text:'Text',font:'Georgia',fontSize:19,fontWeight:400,italic:false,underline:false,color:'#152b43',align:'left',valign:'middle',lineHeight:1.18,letterSpacing:0,imageFit:'cover',imgScale:1,imgOffsetX:0,imgOffsetY:0,autoSet:'',autoMode:'cycle',...parts});
 export const initialElements=()=>[
 makeElement('shape',{name:'Card background',x:0,y:0,w:px(63,'mm'),h:px(88,'mm'),fillMode:'gradient',fill1:'#fcfaf4',fill2:'#dce7ed',gradientAngle:180}),
 makeElement('shape',{name:'Artwork surround',x:8,y:42,w:222,h:169,fillMode:'solid',fill1:'#fdfdfc',borderWidth:1.5,borderColor:'#6c8297'}),
@@ -37,4 +37,25 @@ export const isExported=(e: CardElement)=>e.includeInExport !== false;
 export const isExtra=(id: string | null)=>!!card()?.extraElements?.some(e=>e.id===id);
 export const effective=(e: CardElement)=>S.mode==='cards'&&card()&&!isExtra(e.id)?{...e,...(card().overrides?.[e.id]||{})}:e;
 export const actualValue=(e: CardElement)=>S.mode==='cards'&&card()&&Object.prototype.hasOwnProperty.call(card().values||{},e.id)?card().values[e.id]:(e.kind==='text'?e.text:'');
+/** Resolve spreadsheet/card data for any card index, without changing the UI selection. */
+export function cardTextValue(e: CardElement, cardIndex: number): string {
+ const values=S.cards[cardIndex]?.values||{};
+ return String(Object.prototype.hasOwnProperty.call(values,e.id)?values[e.id]:e.text??'');
+}
+/** Single visibility rule shared by card preview, layers, and all PNG exports. */
+export function visibleOnCard(raw: CardElement, cardIndex: number, mode: 'template'|'cards'='cards'): boolean {
+ const overrides=mode==='cards'?S.cards[cardIndex]?.overrides?.[raw.id]:null;
+ const el=overrides?{...raw,...overrides}:raw;
+ if(el.hidden||!isExported(raw)||!isExported(el))return false;
+ // Template PNG exports should still render default text/backgrounds, but no guides.
+ if(mode!=='cards')return true;
+ if(el.kind==='text')return el.invisibleIfEmpty===false||cardTextValue(raw,cardIndex).trim()!=='';
+ if((el.kind==='shape'||el.kind==='image')&&el.linkedTextId){
+  const source=[...S.template.elements,...(S.cards[cardIndex]?.extraElements||[])]
+   .find(item=>item.id===el.linkedTextId&&item.kind==='text');
+  // Orphaned links are ignored rather than concealing the element unexpectedly.
+  return !source||visibleOnCard(source,cardIndex,'cards');
+ }
+ return true;
+}
 export const uniqName=(name: string,exclude?: string)=>{let base=String(name||'Element').trim()||'Element',str=base,n=2;while(layerEls().some(x=>x.id!==exclude&&x.name.toLowerCase()===str.toLowerCase()))str=base+' '+n++;return str};
