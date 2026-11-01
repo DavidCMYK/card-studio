@@ -1,4 +1,4 @@
-import { S, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, clamp, px, fmt, sizePx, makeElement, textKinds, escapeHTML, unitFactor, exportPixels, templateExportSize, isExported } from './model';
+import { S, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, clamp, px, fmt, sizePx, makeElement, textKinds, escapeHTML, unitFactor, exportPixels, templateExportSize, isExported, opacityFor } from './model';
 import { $ } from './dom';
 import { renderStage } from './preview';
 export function renderCardControl(){const cc=$('#cardControl');cc.style.display=S.mode==='cards'?'flex':'none';if(S.mode!=='cards')return;cc.innerHTML=`<span style="font-weight:700;color:#62778f">CARD</span><button data-action="prev-card" title="Previous card">‹</button><select id="cardSelector">${S.cards.map((c,i)=>`<option value="${i}" ${i===S.cardIndex?'selected':''}>${escapeHTML(c.name)}</option>`).join('')}</select><button data-action="next-card" title="Next card">›</button><span style="color:#8a98a9;margin-left:auto">${S.cardIndex+1} / ${S.cards.length}</span>`}
@@ -82,7 +82,10 @@ export function renderInspector(){const box=$('#inspector');if(!S.selected&&S.mo
  if(e.fillMode!=='none')html+=`<div class="fields-two">${field('Fill colour 1','fill1',e.fill1,'color')}${e.fillMode==='gradient'?field('Fill colour 2','fill2',e.fill2,'color'):''}</div>${e.fillMode==='gradient'?field('Gradient angle (degrees)','gradientAngle',e.gradientAngle,'number','step="5"'):''}`;
  html+=`<div class="fields-two">${field('Border thickness (px)','borderWidth',e.borderWidth,'number','min="0" step="0.5"')}${field('Border colour','borderColor',e.borderColor,'color')}</div>`;
  if(e.shape!=='ellipse')html+=field('Corner radius (px)','radius',e.radius,'number','min="0" step="1"');
- html+=field('Opacity (%)','opacity',e.opacity,'number','min="0" max="100" step="5"');
+ const opacityField=(label,key)=>field(label,key,Math.round(opacityFor(e,key)*100),'number','min="0" max="100" step="1"');
+ html+=opacityField(raw.kind==='image'?'Image opacity (%)':'Background opacity (%)','fillOpacity');
+ html+=opacityField('Border opacity (%)','borderOpacity');
+ if(raw.kind==='text')html+=opacityField('Text opacity (%)','textOpacity');
  if(S.mode==='cards')html+=`<div class="inspector-action"><button class="secondary" data-action="reset-element">${isExtra(raw.id)?'Remove card-only element':'Reset this element to template'}</button></div>`;
  box.innerHTML=html;
 }
