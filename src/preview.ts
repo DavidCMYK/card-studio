@@ -1,4 +1,4 @@
-import { S, sizePx, layerEls, effective, actualValue, clamp, escapeHTML, templateExportSize, isExported } from './model';
+import { S, sizePx, layerEls, effective, actualValue, clamp, escapeHTML, templateExportSize, isExported, opacityFor } from './model';
 import { $ } from './dom';
 import { getImageData, cacheImage, imgBox } from './image-sets';
 const gradientCSS=e=>e.fillMode==='solid'?e.fill1:e.fillMode==='gradient'?`linear-gradient(${e.gradientAngle}deg,${e.fill1},${e.fill2})`:'transparent';
@@ -12,9 +12,14 @@ export function renderStage(){const st=$('#stage'),{w,h}=sizePx(),z=S.zoom;st.st
  else content=`<div class="missing">${src?'Loading image…':`IMAGE FRAME<br>${escapeHTML(raw.name)}`}</div>`;
  }
  const border=e.borderWidth>0?`${e.borderWidth*z}px solid ${e.borderColor}`:'none';
- const base=`left:${e.x*z}px;top:${e.y*z}px;width:${e.w*z}px;height:${e.h*z}px;background:${gradientCSS(e)};border:${border};border-radius:${e.shape==='ellipse'?'50%':`${(e.radius||0)*z}px`};opacity:${(e.opacity??100)/100};`;
- const label=selected?`<span class="selection-label">${escapeHTML(raw.name)}</span>${!e.locked?'<span class="resize-handle" data-handle="resize"></span>':''}`:'';
- html+=`<div class="element ${selected?'selected':''} ${e.locked?'locked':''}" data-id="${raw.id}" style="${base}">${content}${label}</div>`;
+ const base=`left:${e.x*z}px;top:${e.y*z}px;width:${e.w*z}px;height:${e.h*z}px;border-radius:${e.shape==='ellipse'?'50%':`${(e.radius||0)*z}px`};`;
+ const fill=`<div class="element-fill" style="background:${gradientCSS(e)};opacity:${opacityFor(e,'fillOpacity')}"></div>`;
+ const borderLayer=e.borderWidth>0?`<div class="element-border" style="border:${border};opacity:${opacityFor(e,'borderOpacity')}"></div>`:'';
+ if(e.kind==='text')content=`<div class="text-layer" style="opacity:${opacityFor(e,'textOpacity')}">${content}</div>`;
+ if(e.kind==='image')content=`<div class="image-layer" style="opacity:${opacityFor(e,'fillOpacity')}">${content}</div>`;
+ const handles=!e.locked?['nw','n','ne','e','se','s','sw','w'].map(h=>`<span class="resize-handle resize-${h}" data-handle="${h}"></span>`).join(''):'';
+ const label=selected?`<span class="selection-label">${escapeHTML(raw.name)}</span>${handles}`:'';
+ html+=`<div class="element ${selected?'selected':''} ${e.locked?'locked':''}" data-id="${raw.id}" style="${base}">${fill}${content}${borderLayer}${label}</div>`;
  }
  st.innerHTML=html;$('#statusLeft').textContent=`${S.template.width} × ${S.template.height} ${S.template.unit} · ${templateExportSize().w} × ${templateExportSize().h} export px · ${S.template.dpi} DPI`;
  $('#zoomLabel').textContent=Math.round(S.zoom*100)+'%';
