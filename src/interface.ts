@@ -1,4 +1,4 @@
-import { S, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, clamp, px, fmt, sizePx, makeElement, textKinds, escapeHTML, perUnit } from './model';
+import { S, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, clamp, px, fmt, sizePx, makeElement, textKinds, escapeHTML, perUnit, isExported } from './model';
 import { $ } from './dom';
 import { renderStage } from './preview';
 export function renderCardControl(){const cc=$('#cardControl');cc.style.display=S.mode==='cards'?'flex':'none';if(S.mode!=='cards')return;cc.innerHTML=`<span style="font-weight:700;color:#62778f">CARD</span><button data-action="prev-card" title="Previous card">‹</button><select id="cardSelector">${S.cards.map((c,i)=>`<option value="${i}" ${i===S.cardIndex?'selected':''}>${escapeHTML(c.name)}</option>`).join('')}</select><button data-action="next-card" title="Next card">›</button><span style="color:#8a98a9;margin-left:auto">${S.cardIndex+1} / ${S.cards.length}</span>`}
@@ -8,8 +8,8 @@ export function renderLeft(){const v=$('#leftBody');$('#btnTemplate').classList.
  out+='<div class="card-list">'+S.cards.map((c,i)=>`<div class="card-row ${i===S.cardIndex?'active':''}" data-cardindex="${i}"><span class="mini-art">${String(i+1).padStart(2,'0')}</span><span class="name">${escapeHTML(c.name)}<span class="sub">${Object.keys(c.overrides||{}).length?'Custom layout':'Template layout'}</span></span><button class="small-btn" data-action="duplicate-card" data-cardindex="${i}" title="Duplicate card">⧉</button></div>`).join('')+'</div>';
  out+=`<div class="actionbar"><button class="secondary" data-action="delete-card">Delete card</button><button class="secondary" data-action="reset-card">Reset layout edits</button></div><div class="rule"></div>`;
  }
- out+=`<div class="side-head"><h2>LAYERS</h2><span class="pill">${layerEls().length}</span></div><div class="small">Topmost layers are shown first. Select an element to edit it.</div>`;
- out+='<div class="layer-list">'+[...layerEls()].reverse().map(e=>`<div class="layer-row ${e.id===S.selected?'active':''}" data-layer="${e.id}"><span style="font-size:15px;color:#7b91ad">${e.kind==='text'?'T':e.kind==='image'?'▧':'◇'}</span><span class="name">${escapeHTML(e.name)}<span class="sub">${e.kind}${e.locked?' · locked':''}</span></span></div>`).join('')+'</div>';
+ out+=`<div class="side-head"><h2>LAYERS</h2><span class="pill">${layerEls().filter(e=>S.mode==='template'||(isExported(e)&&isExported(effective(e)))).length}</span></div><div class="small">Topmost layers are shown first. Select an element to edit it.</div>`;
+ out+='<div class="layer-list">'+[...layerEls()].filter(e=>S.mode==='template'||(isExported(e)&&isExported(effective(e)))).reverse().map(e=>`<div class="layer-row ${e.id===S.selected?'active':''}" data-layer="${e.id}"><span style="font-size:15px;color:#7b91ad">${e.kind==='text'?'T':e.kind==='image'?'▧':'◇'}</span><span class="name">${escapeHTML(e.name)}<span class="sub">${e.kind}${e.locked?' · locked':''}${!isExported(e)?' · editor only':''}</span></span></div>`).join('')+'</div>';
  out+=`<div class="rule"></div><div class="side-head"><h2>IMAGE SETS</h2><button data-action="add-set">＋ Load set</button></div><div class="small">Load multiple images as one set. Assign the set to an image frame, then choose sequential, cycling or random assignment.</div>`;
  out+='<div class="set-list">'+S.sets.map(set=>`<div class="asset-row"><div class="asset-title"><span>▧</span><span style="overflow:hidden;text-overflow:ellipsis">${escapeHTML(set.name)}</span><span class="count">${set.images.length} files</span></div><div class="asset-thumbs">${set.images.slice(0,6).map(x=>`<img alt="${escapeHTML(x.name)}" title="${escapeHTML(x.name)}" src="${x.data}">`).join('')}</div><div class="asset-actions"><button data-action="add-to-set" data-set="${set.id}">＋ Images</button><button data-action="remove-set" data-set="${set.id}">Remove</button></div></div>`).join('')+'</div>';
  v.innerHTML=out;
@@ -45,6 +45,8 @@ export function renderInspector(){const box=$('#inspector');if(!S.selected&&S.mo
  }
  html+=`<div class="section-title">Position and size (${S.template.unit})</div><div class="fields-two">${field('X','x',fmt(e.x/perUnit[S.template.unit]),'number','step="0.1"')}${field('Y','y',fmt(e.y/perUnit[S.template.unit]),'number','step="0.1"')}${field('Width','w',fmt(e.w/perUnit[S.template.unit]),'number','min="0.1" step="0.1"')}${field('Height','h',fmt(e.h/perUnit[S.template.unit]),'number','min="0.1" step="0.1"')}</div>`;
  html+=checkbox('Hide element','hidden',e.hidden)+checkbox('Lock position','locked',e.locked);
+ if(S.mode==='template')html+=checkbox('Include in exported images','includeInExport',isExported(e))+
+ `<div class="small" style="padding:0 0 12px">Turn this off for non-printing guides, such as cut lines and bleed markers. These elements appear only in the Template editor, not in Cards previews or PNG exports.</div>`;
  if(raw.kind==='text'){
  if(S.mode==='template')html+=`<div class="field"><label>Default text</label><textarea data-prop="text">${escapeHTML(e.text)}</textarea></div>`;
  html+=`<div class="section-title">Typography</div>`;
