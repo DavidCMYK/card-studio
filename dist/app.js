@@ -399,7 +399,9 @@ function clearSelection() { if (model_1.S.selected === null)
     return; model_1.S.selected = null; (0, interface_1.renderInspector)(); (0, interface_1.renderLeft)(); (0, preview_1.renderStage)(); }
 const stage = (0, dom_1.$)('#stage');
 // The card may be entirely covered by elements. Click the workspace to clear selection.
-(0, dom_1.$)('#canvasOuter').addEventListener('pointerdown', e => { if (e.button === 0 && !e.target.closest('#stage'))
+// Use the event's original propagation path: renderStage() can replace the clicked
+// element before the event bubbles here, so target.closest('#stage') becomes false.
+(0, dom_1.$)('#canvasOuter').addEventListener('pointerdown', e => { if (e.button === 0 && !e.composedPath().includes(stage))
     clearSelection(); });
 stage.addEventListener('pointerdown', e => { if (e.button !== 0)
     return; const node = e.target.closest('.element'); if (!node) {
