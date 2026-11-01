@@ -14,6 +14,7 @@ A browser-based card layout editor for creating game card templates, staging car
 - Named image sets with sequential, cycling and deterministic random placement.
 - Export an XLSX staging spreadsheet using text/image element names, then import completed XLSX or CSV card data.
 - Per-card layout and content overrides without changing the shared template.
+- File menu with New, Open, Save and Save As for projects and templates. In Chrome/Edge, browser-granted file handles let Save overwrite the previously opened or saved file; Save As selects a different filename. Other browsers use downloads and cannot overwrite an existing local file.
 - Save/load JSON projects (including embedded images) and templates, export current PNG or a ZIP of all cards.
 
 ## Sizing and resolution
@@ -61,3 +62,7 @@ Existing version 1 `.cardstudio.json` project files and `.template.json` files r
 ## Notes
 
 This is an initial editor. Check the export output and dimensions before production printing. Fonts that are not installed on the computer may be substituted. The bundled JSZip library retains its original license notice.
+
+### Save and Save As
+
+In **File**, choose **Save template** to write back to the template that was opened or previously saved via the browser's native file picker. **Save template as…** always asks for a location/name, then subsequent saves target the new file. Projects have independent Save and Save As destinations. The browser may ask permission before writing, and file handles are only retained during the current editor session; reopen the file after restarting the editor. In browsers without the File System Access API, Save downloads a new copy rather than overwriting, because websites are not allowed to modify arbitrary local files.

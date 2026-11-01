@@ -5,7 +5,7 @@ import { repaint, renderInspector, renderLeft, chooseCard, patchElement, addElem
 import { imageCache, setImageUpdateHandler } from './image-sets';
 import { exportPNG, exportAll } from './png-export';
 import { exportXLSX, readSheet } from './spreadsheet';
-import { saveProject, saveTemplate, openJSON } from './project-storage';
+import { saveProject, saveProjectAs, saveTemplate, saveTemplateAs, openFromDisk, openJSON, resetFileHandles } from './project-storage';
 import { importImages, setTargetImageSet } from './assets';
 setImageUpdateHandler(renderStage);
 
@@ -58,8 +58,8 @@ function pasteElement(): boolean {
 }
 
 function newCard(copy=null){const c=copy?{id:uid(),name:copy.name+' copy',values:{...copy.values},overrides:structuredClone(copy.overrides||{}),extraElements:structuredClone(copy.extraElements||[])}:{id:uid(),name:'Card '+String(S.cards.length+1).padStart(3,'0'),values:{},overrides:{},extraElements:[]};S.cards.push(c);S.mode='cards';S.cardIndex=S.cards.length-1;S.selected=null;repaint();return c}
-function mutateAction(action,el: any = null){switch(action){case 'new-project':if(confirm('Start a new project? Unsaved changes will be lost.')){replaceState(initial());imageCache.clear();repaint()}break;
-case 'open-project':$('#openProjectFile').click();break;case 'save-project':saveProject();break;case 'save-template':saveTemplate();break;case 'load-template':$('#openTemplateFile').click();break;
+function mutateAction(action,el: any = null){switch(action){case 'new-project':if(confirm('Start a new project? Unsaved changes will be lost.')){replaceState(initial());resetFileHandles();imageCache.clear();repaint()}break;
+case 'open-project':void openFromDisk('project');break;case 'save-project':void saveProject();break;case 'save-project-as':void saveProjectAs();break;case 'save-template':void saveTemplate();break;case 'save-template-as':void saveTemplateAs();break;case 'load-template':void openFromDisk('template');break;
 case 'mode-template':case 'card-setup':S.mode='template';S.selected=null;repaint();break;case 'mode-cards':S.mode='cards';S.selected=null;repaint();break;
 case 'add-text':case 'add-image':case 'add-shape':addElement(action.slice(4));break;
 case 'copy-element':copyElement();break;case 'cut-element':copyElement(true);break;case 'paste-element':pasteElement();break;
@@ -113,7 +113,7 @@ function handleProp(input){const key=input.dataset.prop;if(!key)return;let v=inp
 }
 $('#inspector').addEventListener('input',event=>{const inp=event.target;if(inp.dataset.cardvalue){const c=card();if(c){c.values??={};c.values[inp.dataset.cardvalue]=inp.value;renderStage()}return}if(inp.dataset.prop){handleProp(inp);renderStage();updateDimensionReadouts();$('#projectTitle').textContent=S.projectName}});
 $('#inspector').addEventListener('change',event=>{const inp=event.target;if(inp.dataset.cardvalue){renderLeft();return}if(inp.dataset.prop){handleProp(inp);repaint()}});
-function listenClick(e){const actionEl=e.target.closest('[data-action]');if(actionEl){e.stopPropagation();mutateAction(actionEl.dataset.action,actionEl);return}const listRow=e.target.closest('[data-layer]');if(listRow){S.selected=listRow.dataset.layer;repaint();return}const cardRow=e.target.closest('[data-cardindex]');if(cardRow){chooseCard(Number(cardRow.dataset.cardindex));return}}
+function listenClick(e){const menu=$('#fileMenu');const actionEl=e.target.closest('[data-action]');if(actionEl){menu.open=false;e.stopPropagation();mutateAction(actionEl.dataset.action,actionEl);return}if(menu.open&&!e.target.closest('#fileMenu'))menu.open=false;const listRow=e.target.closest('[data-layer]');if(listRow){S.selected=listRow.dataset.layer;repaint();return}const cardRow=e.target.closest('[data-cardindex]');if(cardRow){chooseCard(Number(cardRow.dataset.cardindex));return}}
 document.addEventListener('click',listenClick);
 $('#cardControl').addEventListener('change',e=>{if(e.target.id==='cardSelector')chooseCard(Number(e.target.value))});
 $('#openProjectFile').addEventListener('change',async e=>{if(e.target.files[0])await openJSON(e.target.files[0]);e.target.value=''});

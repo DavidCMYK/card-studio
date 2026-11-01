@@ -3,8 +3,17 @@
   <header class="top">
     <div class="logo"><span class="logo-mark">▣</span><span>Card Studio</span></div><div class="top-sep"></div>
     <span id="projectTitle" class="project-title">Untitled project</span>
-    <button data-action="new-project">New</button><button data-action="open-project">Open project</button><button data-action="save-project">Save project</button>
-    <div class="top-sep"></div><button data-action="save-template">Save template</button><button data-action="load-template">Load template</button>
+    <details id="fileMenu" class="file-menu"><summary>File</summary><div class="file-menu-panel" role="group" aria-label="File commands">
+      <button data-action="new-project">New project</button>
+      <button data-action="open-project">Open project…</button>
+      <button data-action="load-template">Open template…</button>
+      <div class="file-menu-rule"></div>
+      <button data-action="save-project">Save project</button>
+      <button data-action="save-project-as">Save project as…</button>
+      <div class="file-menu-rule"></div>
+      <button data-action="save-template">Save template</button>
+      <button data-action="save-template-as">Save template as…</button>
+    </div></details>
     <div class="top-sep"></div><button data-action="export-sheet">Export XLSX</button><button data-action="import-sheet">Import sheet</button>
     <div class="top-sep"></div><button class="accent" data-action="export-current">Export PNG</button><button class="accent" data-action="export-all">Export all ZIP</button>
   </header>

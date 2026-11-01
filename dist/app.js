@@ -123,21 +123,28 @@ function mutateAction(action, el = null) {
         case 'new-project':
             if (confirm('Start a new project? Unsaved changes will be lost.')) {
                 (0, model_1.replaceState)((0, model_1.initial)());
+                (0, project_storage_1.resetFileHandles)();
                 image_sets_1.imageCache.clear();
                 (0, interface_1.repaint)();
             }
             break;
         case 'open-project':
-            (0, dom_1.$)('#openProjectFile').click();
+            void (0, project_storage_1.openFromDisk)('project');
             break;
         case 'save-project':
-            (0, project_storage_1.saveProject)();
+            void (0, project_storage_1.saveProject)();
+            break;
+        case 'save-project-as':
+            void (0, project_storage_1.saveProjectAs)();
             break;
         case 'save-template':
-            (0, project_storage_1.saveTemplate)();
+            void (0, project_storage_1.saveTemplate)();
+            break;
+        case 'save-template-as':
+            void (0, project_storage_1.saveTemplateAs)();
             break;
         case 'load-template':
-            (0, dom_1.$)('#openTemplateFile').click();
+            void (0, project_storage_1.openFromDisk)('template');
             break;
         case 'mode-template':
         case 'card-setup':
@@ -385,11 +392,13 @@ function handleProp(input) {
     handleProp(inp);
     (0, interface_1.repaint)();
 } });
-function listenClick(e) { const actionEl = e.target.closest('[data-action]'); if (actionEl) {
+function listenClick(e) { const menu = (0, dom_1.$)('#fileMenu'); const actionEl = e.target.closest('[data-action]'); if (actionEl) {
+    menu.open = false;
     e.stopPropagation();
     mutateAction(actionEl.dataset.action, actionEl);
     return;
-} const listRow = e.target.closest('[data-layer]'); if (listRow) {
+} if (menu.open && !e.target.closest('#fileMenu'))
+    menu.open = false; const listRow = e.target.closest('[data-layer]'); if (listRow) {
     model_1.S.selected = listRow.dataset.layer;
     (0, interface_1.repaint)();
     return;
@@ -1010,17 +1019,94 @@ function renderStage() {
 "project-storage": function(module, exports, require) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.saveTemplateAs = exports.saveTemplate = exports.saveProjectAs = exports.saveProject = void 0;
+exports.resetFileHandles = resetFileHandles;
+exports.openFromDisk = openFromDisk;
 exports.migrateProjectUnits = migrateProjectUnits;
-exports.saveProject = saveProject;
-exports.saveTemplate = saveTemplate;
 exports.openJSON = openJSON;
 const model_1 = require("./model");
 const dom_1 = require("./dom");
 const image_sets_1 = require("./image-sets");
 const interface_1 = require("./interface");
+let projectFileHandle = null;
+let templateFileHandle = null;
+function resetFileHandles() { projectFileHandle = null; templateFileHandle = null; }
+const projectName = () => (0, model_1.safeFile)(model_1.S.projectName) + '.cardstudio.json';
+const templateName = () => (0, model_1.safeFile)(model_1.S.template.name) + '.template.json';
+const projectContents = () => ({ ...model_1.S, type: 'cardstudio-project', version: 2 });
+const templateContents = () => ({ type: 'cardstudio-template', version: 2, template: model_1.S.template });
+const filePicker = (type, name) => ({
+    suggestedName: name,
+    types: [{ description: type === 'project' ? 'Card Studio project' : 'Card Studio template', accept: { 'application/json': ['.json'] } }]
+});
+function isCancel(error) { return error?.name === 'AbortError'; }
+async function saveDocument(type, saveAs = false) {
+    const isProject = type === 'project';
+    const handle = isProject ? projectFileHandle : templateFileHandle;
+    const name = isProject ? projectName() : templateName();
+    const data = isProject ? projectContents() : templateContents();
+    const picker = window.showSaveFilePicker;
+    if (typeof picker !== 'function' && (!handle || saveAs)) {
+        // Downloads cannot replace an existing local file. Do not claim otherwise.
+        (0, dom_1.jsonDownload)(data, name);
+        (0, dom_1.toast)('Downloaded a copy. To overwrite files directly, use Chrome or Edge with file access enabled.');
+        return false;
+    }
+    try {
+        // Call the picker synchronously at the start of this user-triggered action.
+        const destination = !saveAs && handle ? handle : await picker.call(window, filePicker(type, name));
+        const writable = await destination.createWritable();
+        try {
+            await writable.write(JSON.stringify(data, null, 2));
+            await writable.close();
+        }
+        catch (err) {
+            try {
+                await writable.abort?.();
+            }
+            catch { }
+            throw err;
+        }
+        if (isProject)
+            projectFileHandle = destination;
+        else
+            templateFileHandle = destination;
+        (0, dom_1.toast)(`${isProject ? 'Project' : 'Template'} saved to ${destination.name}`);
+        return true;
+    }
+    catch (error) {
+        if (!isCancel(error))
+            alert('Could not save ' + type + ': ' + error.message);
+        return false;
+    }
+}
+const saveProject = () => saveDocument('project');
+exports.saveProject = saveProject;
+const saveProjectAs = () => saveDocument('project', true);
+exports.saveProjectAs = saveProjectAs;
+const saveTemplate = () => saveDocument('template');
+exports.saveTemplate = saveTemplate;
+const saveTemplateAs = () => saveDocument('template', true);
+exports.saveTemplateAs = saveTemplateAs;
+async function openFromDisk(type) {
+    const picker = window.showOpenFilePicker;
+    if (typeof picker !== 'function') {
+        (0, dom_1.$)(type === 'project' ? '#openProjectFile' : '#openTemplateFile').click();
+        return;
+    }
+    try {
+        const [handle] = await picker.call(window, { multiple: false, types: filePicker(type, '').types });
+        if (!handle)
+            return;
+        await openJSON(await handle.getFile(), type === 'template', handle);
+    }
+    catch (error) {
+        if (!isCancel(error))
+            alert('Could not open ' + type + ': ' + error.message);
+    }
+}
 // Version 1 treated pixel-sized templates as CSS-pixel layouts and bypassed
-// DPI when exporting. Scale the stored design geometry so legacy output pixel
-// dimensions and relative placement remain unchanged under the corrected model.
+// DPI when exporting. Scale stored geometry to preserve legacy appearance.
 function migrateProjectUnits(obj) {
     if (Number(obj.version ?? 1) >= 2 || obj.template?.unit !== 'px')
         return obj;
@@ -1040,19 +1126,19 @@ function migrateProjectUnits(obj) {
     for (const c of obj.cards || []) {
         for (const e of c.extraElements || [])
             scaleFields(e);
-        for (const [id, override] of Object.entries(c.overrides || {}))
+        for (const override of Object.values(c.overrides || {}))
             scaleFields(override);
     }
     obj.version = 2;
     return obj;
 }
-function saveProject() { (0, dom_1.jsonDownload)({ ...model_1.S, type: 'cardstudio-project', version: 2 }, (0, model_1.safeFile)(model_1.S.projectName) + '.cardstudio.json'); (0, dom_1.toast)('Project saved, including embedded image sets'); }
-function saveTemplate() { (0, dom_1.jsonDownload)({ type: 'cardstudio-template', version: 2, template: model_1.S.template }, (0, model_1.safeFile)(model_1.S.template.name) + '.template.json'); (0, dom_1.toast)('Template saved'); }
-async function openJSON(file, onlyTemplate = false) {
+async function openJSON(file, onlyTemplate = false, handle = null) {
     try {
         const obj = migrateProjectUnits(JSON.parse(await file.text()));
         if (!obj.template?.elements || !Array.isArray(obj.template.elements))
             throw Error('Not a Card Studio project or template');
+        if (onlyTemplate && obj.type === 'cardstudio-project')
+            throw Error('This is a project file, not a template. Use Open project instead.');
         if (onlyTemplate || obj.type === 'cardstudio-template') {
             model_1.S.template = obj.template;
             model_1.S.selected = null;
@@ -1064,6 +1150,7 @@ async function openJSON(file, onlyTemplate = false) {
                 c.values = {};
                 c.extraElements = [];
             }
+            templateFileHandle = handle;
             (0, dom_1.toast)('Template loaded. Existing staged cards reset.');
         }
         else {
@@ -1071,12 +1158,16 @@ async function openJSON(file, onlyTemplate = false) {
                 throw Error('Project does not contain cards and image sets');
             (0, model_1.replaceState)({ ...(0, model_1.initial)(), ...obj, mode: 'template', selected: null, cardIndex: 0 });
             image_sets_1.imageCache.clear();
+            projectFileHandle = handle;
+            templateFileHandle = null;
             (0, dom_1.toast)('Project loaded');
         }
         (0, interface_1.repaint)();
+        return true;
     }
     catch (err) {
         alert('Could not open file: ' + err.message);
+        return false;
     }
 }
 
