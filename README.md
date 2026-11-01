@@ -6,6 +6,9 @@ A browser-based card layout editor for creating game card templates, staging car
 
 ## Features
 
+- Independently adjustable fill or image opacity, border opacity, and text opacity (where applicable). Existing template opacities remain compatible.
+- Resize selected elements from any of their four corners or four edges.
+
 - Custom card dimensions in millimetres, inches or pixels, with always-visible output pixel dimensions at the selected DPI. Both the template and individual elements show size in the selected unit and export pixels. Changing DPI preserves the physical layout and updates its pixel resolution.
 - Visual template editor with draggable and resizable text, image frames, shapes, gradients and borders.
 - Copy, cut and paste template elements using toolbar buttons or Ctrl/Cmd+C, X and V. Copies keep styling, image assignment and dimensions; cut-and-paste preserves staged card data.
