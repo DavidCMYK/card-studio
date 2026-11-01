@@ -59,6 +59,62 @@ const spreadsheet_1 = require("./spreadsheet");
 const project_storage_1 = require("./project-storage");
 const assets_1 = require("./assets");
 (0, image_sets_1.setImageUpdateHandler)(preview_1.renderStage);
+let elementClipboard = null;
+// This is an internal element clipboard, independent of the system text clipboard.
+function copyElement(cut = false) {
+    if (model_1.S.mode !== 'template') {
+        (0, dom_1.toast)('Switch to Template to copy or cut elements');
+        return false;
+    }
+    const el = (0, model_1.templateEl)(model_1.S.selected);
+    if (!el) {
+        (0, dom_1.toast)('Select an element first');
+        return false;
+    }
+    elementClipboard = { element: structuredClone(el), cut, project: model_1.S, pasteCount: 0 };
+    if (cut) {
+        model_1.S.template.elements = model_1.S.template.elements.filter(x => x.id !== el.id);
+        model_1.S.selected = null;
+        (0, interface_1.repaint)();
+    }
+    (0, dom_1.toast)(cut ? 'Element cut — paste to move it' : 'Element copied');
+    return true;
+}
+function pasteElement() {
+    if (model_1.S.mode !== 'template') {
+        (0, dom_1.toast)('Switch to Template to paste elements');
+        return false;
+    }
+    if (!elementClipboard) {
+        (0, dom_1.toast)('Copy or cut an element first');
+        return false;
+    }
+    const from = elementClipboard;
+    const pasted = structuredClone(from.element);
+    const isMove = from.cut && from.project === model_1.S &&
+        !model_1.S.template.elements.some(e => e.id === pasted.id);
+    if (!isMove) {
+        pasted.id = (0, model_1.uid)();
+        pasted.name = (0, model_1.uniqName)(pasted.name + ' copy');
+    }
+    else {
+        pasted.name = (0, model_1.uniqName)(pasted.name);
+    }
+    const offset = 12 * (isMove ? 1 : ++from.pasteCount);
+    pasted.x += offset;
+    pasted.y += offset;
+    model_1.S.template.elements.push(pasted);
+    model_1.S.selected = pasted.id;
+    if (isMove) {
+        from.cut = false;
+        from.element = structuredClone(pasted);
+        from.pasteCount = 0;
+    }
+    (0, interface_1.repaint)();
+    (0, dom_1.toast)(isMove ? 'Element moved' : 'Element pasted');
+    return true;
+}
+
 function newCard(copy = null) { const c = copy ? { id: (0, model_1.uid)(), name: copy.name + ' copy', values: { ...copy.values }, overrides: structuredClone(copy.overrides || {}), extraElements: structuredClone(copy.extraElements || []) } : { id: (0, model_1.uid)(), name: 'Card ' + String(model_1.S.cards.length + 1).padStart(3, '0'), values: {}, overrides: {}, extraElements: [] }; model_1.S.cards.push(c); model_1.S.mode = 'cards'; model_1.S.cardIndex = model_1.S.cards.length - 1; model_1.S.selected = null; (0, interface_1.repaint)(); return c; }
 function mutateAction(action, el = null) {
     switch (action) {
@@ -96,6 +152,15 @@ function mutateAction(action, el = null) {
         case 'add-image':
         case 'add-shape':
             (0, interface_1.addElement)(action.slice(4));
+            break;
+        case 'copy-element':
+            copyElement();
+            break;
+        case 'cut-element':
+            copyElement(true);
+            break;
+        case 'paste-element':
+            pasteElement();
             break;
         case 'delete-element':
             if (!model_1.S.selected)
@@ -351,8 +416,20 @@ document.addEventListener('pointerup', () => { if (drag) {
     (0, interface_1.renderLeft)();
     (0, preview_1.renderStage)();
 } });
-document.addEventListener('keydown', e => { const tag = document.activeElement?.tagName; if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) || e.ctrlKey || e.altKey || e.metaKey)
-    return; if (!model_1.S.selected)
+document.addEventListener('keydown', e => { const active = document.activeElement, tag = active?.tagName;
+if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) || active?.isContentEditable)
+    return;
+if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && model_1.S.mode === 'template') {
+    const action = { c: 'copy-element', x: 'cut-element', v: 'paste-element' }[e.key.toLowerCase()];
+    if (action && ((action === 'paste-element' && elementClipboard) || (action !== 'paste-element' && model_1.S.selected))) {
+        e.preventDefault();
+        mutateAction(action);
+        return;
+    }
+}
+if (e.ctrlKey || e.altKey || e.metaKey)
+    return;
+if (!model_1.S.selected)
     return; if (e.key === 'Delete' || e.key === 'Backspace') {
     e.preventDefault();
     mutateAction('delete-element');
