@@ -1,13 +1,23 @@
 const vm=require('vm'),fs=require('fs'),path=require('path');const JSZip=require('/opt/nvm/versions/node/v22.16.0/lib/node_modules/pptxgenjs/node_modules/jszip');
-let lastBlob=null,downloads=[];class MockEl{constructor(id){this.id=id;this.style={};this.dataset={};this.attrs={};this.children=[];this.files=[];this.classList={add(){},remove(){},toggle(){}};this.innerHTML='';this.textContent='';this.value='';this.disabled=false;}addEventListener(){}click(){}append(){}remove(){}setAttribute(k,v){this.attrs[k]=v}closest(){return null}}
+let lastBlob=null,downloads=[];class MockEl{constructor(id){this.id=id;this.style={};this.dataset={};this.attrs={};this.children=[];this.files=[];this.classList={add(){},remove(){},toggle(){}};this.innerHTML='';this.textContent='';this.value='';this.disabled=false;this.listeners={};}addEventListener(type,handler){(this.listeners[type]??=[]).push(handler)}emit(type,event){for(const fn of this.listeners[type]??[])fn(event)}click(){}append(){}remove(){}setAttribute(k,v){this.attrs[k]=v}closest(){return null}}
 const nodes=new Map();const get=s=>{if(!nodes.has(s))nodes.set(s,new MockEl(s));return nodes.get(s)};
-const document={querySelector:get,querySelectorAll(){return[]},createElement(tag){return new MockEl(tag)},addEventListener(){},body:{append(){}},activeElement:{tagName:'BODY'}};
+const document={querySelector:get,querySelectorAll(){return[]},createElement(tag){return new MockEl(tag)},listeners:{},addEventListener(type,handler){(this.listeners[type]??=[]).push(handler)},body:{append(){}},activeElement:{tagName:'BODY'}};
 const window={addEventListener(){},queryLocalFonts:null};
 const URL={createObjectURL(blob){lastBlob=blob;return 'blob:local'},revokeObjectURL(){}};
 const sandbox={document,window,URL,Blob,JSZip,console,Image:class{},setTimeout:(fn,ms)=>{const t=setTimeout(fn,ms);t.unref();return t},clearTimeout,confirm(){return true},alert:console.log,prompt(){return 'Set'},structuredClone,Math,Date};
 const source=fs.readFileSync(path.join(__dirname,'..','dist','app.js'),'utf8').replace("load('main');", "const m=load('model'),ui=load('interface'),sheet=load('spreadsheet'),png=load('png-export');window.__test={state:()=>m.S,exportXLSX:sheet.exportXLSX,applyTable:sheet.applyTable,patchElement:ui.patchElement,effective:m.effective,templateEl:m.templateEl,parseCSV:sheet.parseCSV,exportAll:png.exportAll};load('main');");
 vm.createContext(sandbox);vm.runInContext(source,sandbox,{timeout:15000});
 const t=window.__test;if(!t)throw Error('No test API');let state=t.state();if(state.template.elements.length!==6)throw Error('Bad default elements');if(!get('#stage').innerHTML.includes('THE HOLLOW GATE'))throw Error('Stage not rendered');
+const bg=state.template.elements[0];
+state.selected=bg.id;
+get('#canvasOuter').emit('pointerdown',{button:0,target:{closest(){return null}}});
+if(state.selected!==null||!get('#inspector').innerHTML.includes('Card dimensions'))throw Error('Workspace click did not open Card setup');
+state.selected=bg.id;
+get('#canvasOuter').emit('pointerdown',{button:0,target:{closest(selector){return selector==='#stage'?get('#stage'):null}}});
+if(state.selected!==bg.id)throw Error('Click on card incorrectly deselected');
+state.mode='cards';
+document.listeners.click[0]({target:{closest(selector){return selector==='[data-action]'?{dataset:{action:'card-setup'}}:null}},stopPropagation(){}});
+if(state.mode!=='template'||state.selected!==null||!get('#inspector').innerHTML.includes('Card dimensions'))throw Error('Card setup toolbar button failed');
 let title=state.template.elements.find(x=>x.name==='Card Title');t.applyTable([['Card Name','Card Title','Artwork','Description'],['A card','My sample','', 'Lorem ipsum'],['B card','Second', 'frog.png', 'Second text']]);
 state=t.state();if(state.cards.length!==2||state.cards[1].values[title.id]!=='Second')throw Error('Import failed');
 const old=title.x;t.patchElement(title.id,{x:55});if(t.effective(title).x!==55||title.x!==old)throw Error('Card override did not work');
