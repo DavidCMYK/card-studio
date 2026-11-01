@@ -102,7 +102,9 @@ let drag: any = null;
 function clearSelection(){if(S.selected===null)return;S.selected=null;renderInspector();renderLeft();renderStage()}
 const stage=$('#stage');
 // The card may be entirely covered by elements. Click the workspace to clear selection.
-$('#canvasOuter').addEventListener('pointerdown',e=>{if(e.button===0&&!e.target.closest('#stage'))clearSelection()});
+// Use the event's original propagation path: renderStage() can replace the clicked
+// element before the event bubbles here, so target.closest('#stage') becomes false.
+$('#canvasOuter').addEventListener('pointerdown',e=>{if(e.button===0&&!e.composedPath().includes(stage))clearSelection()});
 stage.addEventListener('pointerdown',e=>{if(e.button!==0)return;const node=e.target.closest('.element');if(!node){clearSelection();return}const id=node.dataset.id;S.selected=id;renderInspector();renderLeft();const el=effective(templateEl(id));const resizing=!!e.target.closest('[data-handle="resize"]');renderStage();if(el.locked)return;drag={id,type:resizing?'resize':'move',initialX:e.clientX,initialY:e.clientY,x:el.x,y:el.y,w:el.w,h:el.h};e.preventDefault()});
 document.addEventListener('pointermove',e=>{if(!drag)return;const {w,h}=sizePx(),dx=(e.clientX-drag.initialX)/S.zoom,dy=(e.clientY-drag.initialY)/S.zoom;let patch;if(drag.type==='resize')patch={w:clamp(Math.round(drag.w+dx),5,w*3),h:clamp(Math.round(drag.h+dy),5,h*3)};else patch={x:Math.round(clamp(drag.x+dx,-drag.w+4,w-4)),y:Math.round(clamp(drag.y+dy,-drag.h+4,h-4))};patchElement(drag.id,patch);renderStage()});
 document.addEventListener('pointerup',()=>{if(drag){drag=null;renderInspector();renderLeft();renderStage()}});
