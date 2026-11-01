@@ -441,41 +441,28 @@ const stage = (0, dom_1.$)('#stage');
 // element before the event bubbles here, so target.closest('#stage') becomes false.
 (0, dom_1.$)('#canvasOuter').addEventListener('pointerdown', e => { if (e.button === 0 && !e.composedPath().includes(stage))
     clearSelection(); });
-stage.addEventListener('pointerdown', e => {
-    if (e.button !== 0) return;
-    const node = e.target.closest('.element');
-    if (!node) { clearSelection(); return; }
-    const id = node.dataset.id;
-    model_1.S.selected = id;
-    (0, interface_1.renderInspector)();
-    (0, interface_1.renderLeft)();
-    const el = (0, model_1.effective)((0, model_1.templateEl)(id));
-    const handle = e.target.closest('[data-handle]')?.dataset.handle || null;
-    (0, preview_1.renderStage)();
-    if (el.locked) return;
-    drag = {id,type:handle?'resize':'move',handle,initialX:e.clientX,initialY:e.clientY,x:el.x,y:el.y,w:el.w,h:el.h};
-    e.preventDefault();
-});
-document.addEventListener('pointermove', e => {
-    if (!drag) return;
-    const {w,h} = (0, model_1.sizePx)();
-    const dx = (e.clientX-drag.initialX)/model_1.S.zoom, dy = (e.clientY-drag.initialY)/model_1.S.zoom;
-    let patch;
-    if (drag.type === 'resize') {
-        let left=drag.x,top=drag.y,right=drag.x+drag.w,bottom=drag.y+drag.h;
-        const maxRight=w*3,maxBottom=h*3,minSize=5,handle=drag.handle||'se';
-        if(handle.includes('w'))left=(0, model_1.clamp)(Math.round(drag.x+dx),-drag.w+4,right-minSize);
-        if(handle.includes('e'))right=(0, model_1.clamp)(Math.round(drag.x+drag.w+dx),left+minSize,maxRight);
-        if(handle.includes('n'))top=(0, model_1.clamp)(Math.round(drag.y+dy),-drag.h+4,bottom-minSize);
-        if(handle.includes('s'))bottom=(0, model_1.clamp)(Math.round(drag.y+drag.h+dy),top+minSize,maxBottom);
-        patch={x:left,y:top,w:right-left,h:bottom-top};
-    } else {
-        patch={x:Math.round((0, model_1.clamp)(drag.x+dx,-drag.w+4,w-4)),y:Math.round((0, model_1.clamp)(drag.y+dy,-drag.h+4,h-4))};
-    }
-    (0, interface_1.patchElement)(drag.id,patch);
-    (0, preview_1.renderStage)();
-    (0, interface_1.renderInspector)();
-});
+stage.addEventListener('pointerdown', e => { if (e.button !== 0)
+    return; const node = e.target.closest('.element'); if (!node) {
+    clearSelection();
+    return;
+} const id = node.dataset.id; model_1.S.selected = id; (0, interface_1.renderInspector)(); (0, interface_1.renderLeft)(); const el = (0, model_1.effective)((0, model_1.templateEl)(id)); const handle = e.target.closest('[data-handle]')?.dataset.handle || null; (0, preview_1.renderStage)(); if (el.locked)
+    return; drag = { id, type: handle ? 'resize' : 'move', handle, initialX: e.clientX, initialY: e.clientY, x: el.x, y: el.y, w: el.w, h: el.h }; e.preventDefault(); });
+document.addEventListener('pointermove', e => { if (!drag)
+    return; const { w, h } = (0, model_1.sizePx)(), dx = (e.clientX - drag.initialX) / model_1.S.zoom, dy = (e.clientY - drag.initialY) / model_1.S.zoom; let patch; if (drag.type === 'resize') {
+    let left = drag.x, top = drag.y, right = drag.x + drag.w, bottom = drag.y + drag.h;
+    const maxRight = w * 3, maxBottom = h * 3, minSize = 5, handle = drag.handle || 'se';
+    if (handle.includes('w'))
+        left = (0, model_1.clamp)(Math.round(drag.x + dx), -drag.w + 4, right - minSize);
+    if (handle.includes('e'))
+        right = (0, model_1.clamp)(Math.round(drag.x + drag.w + dx), left + minSize, maxRight);
+    if (handle.includes('n'))
+        top = (0, model_1.clamp)(Math.round(drag.y + dy), -drag.h + 4, bottom - minSize);
+    if (handle.includes('s'))
+        bottom = (0, model_1.clamp)(Math.round(drag.y + drag.h + dy), top + minSize, maxBottom);
+    patch = { x: left, y: top, w: right - left, h: bottom - top };
+}
+else
+    patch = { x: Math.round((0, model_1.clamp)(drag.x + dx, -drag.w + 4, w - 4)), y: Math.round((0, model_1.clamp)(drag.y + dy, -drag.h + 4, h - 4)) }; (0, interface_1.patchElement)(drag.id, patch); (0, preview_1.renderStage)(); (0, interface_1.renderInspector)(); });
 document.addEventListener('pointerup', () => { if (drag) {
     drag = null;
     (0, interface_1.renderInspector)();
@@ -624,8 +611,8 @@ function renderLeft() {
         out += '<div class="card-list">' + model_1.S.cards.map((c, i) => `<div class="card-row ${i === model_1.S.cardIndex ? 'active' : ''}" data-cardindex="${i}"><span class="mini-art">${String(i + 1).padStart(2, '0')}</span><span class="name">${(0, model_1.escapeHTML)(c.name)}<span class="sub">${Object.keys(c.overrides || {}).length ? 'Custom layout' : 'Template layout'}</span></span><button class="small-btn" data-action="duplicate-card" data-cardindex="${i}" title="Duplicate card">⧉</button></div>`).join('') + '</div>';
         out += `<div class="actionbar"><button class="secondary" data-action="delete-card">Delete card</button><button class="secondary" data-action="reset-card">Reset layout edits</button></div><div class="rule"></div>`;
     }
-    out += `<div class="side-head"><h2>LAYERS</h2><span class="pill">${(0, model_1.layerEls)().filter(e => model_1.S.mode === 'template' || ((0, model_1.isExported)(e) && (0, model_1.isExported)((0, model_1.effective)(e)))).length}</span></div><div class="small">Topmost layers are shown first. Select an element to edit it.</div>`;
-    out += '<div class="layer-list">' + [...(0, model_1.layerEls)()].filter(e => model_1.S.mode === 'template' || ((0, model_1.isExported)(e) && (0, model_1.isExported)((0, model_1.effective)(e)))).reverse().map(e => `<div class="layer-row ${e.id === model_1.S.selected ? 'active' : ''}" data-layer="${e.id}"><span style="font-size:15px;color:#7b91ad">${e.kind === 'text' ? 'T' : e.kind === 'image' ? '▧' : '◇'}</span><span class="name">${(0, model_1.escapeHTML)(e.name)}<span class="sub">${e.kind}${e.locked ? ' · locked' : ''}${!(0, model_1.isExported)(e) ? ' · editor only' : ''}</span></span></div>`).join('') + '</div>';
+    out += `<div class="side-head"><h2>LAYERS</h2><span class="pill">${(0, model_1.layerEls)().filter(e => model_1.S.mode === 'template' || (0, model_1.visibleOnCard)(e, model_1.S.cardIndex, 'cards')).length}</span></div><div class="small">Topmost layers are shown first. Select an element to edit it.</div>`;
+    out += '<div class="layer-list">' + [...(0, model_1.layerEls)()].filter(e => model_1.S.mode === 'template' || (0, model_1.visibleOnCard)(e, model_1.S.cardIndex, 'cards')).reverse().map(e => `<div class="layer-row ${e.id === model_1.S.selected ? 'active' : ''}" data-layer="${e.id}"><span style="font-size:15px;color:#7b91ad">${e.kind === 'text' ? 'T' : e.kind === 'image' ? '▧' : '◇'}</span><span class="name">${(0, model_1.escapeHTML)(e.name)}<span class="sub">${e.kind}${e.locked ? ' · locked' : ''}${!(0, model_1.isExported)(e) ? ' · editor only' : ''}</span></span></div>`).join('') + '</div>';
     out += `<div class="rule"></div><div class="side-head"><h2>IMAGE SETS</h2><button data-action="add-set">＋ Load set</button></div><div class="small">Load multiple images as one set. Assign the set to an image frame, then choose sequential, cycling or random assignment.</div>`;
     out += '<div class="set-list">' + model_1.S.sets.map(set => `<div class="asset-row"><div class="asset-title"><span>▧</span><span style="overflow:hidden;text-overflow:ellipsis">${(0, model_1.escapeHTML)(set.name)}</span><span class="count">${set.images.length} files</span></div><div class="asset-thumbs">${set.images.slice(0, 6).map(x => `<img alt="${(0, model_1.escapeHTML)(x.name)}" title="${(0, model_1.escapeHTML)(x.name)}" src="${x.data}">`).join('')}</div><div class="asset-actions"><button data-action="add-to-set" data-set="${set.id}">＋ Images</button><button data-action="remove-set" data-set="${set.id}">Remove</button></div></div>`).join('') + '</div>';
     v.innerHTML = out;
@@ -710,6 +697,8 @@ function renderInspector() {
     if (raw.kind === 'text') {
         if (model_1.S.mode === 'template')
             html += `<div class="field"><label>Default text</label><textarea data-prop="text">${(0, model_1.escapeHTML)(e.text)}</textarea></div>`;
+        html += `<div class="section-title">Visibility</div>` + checkbox('Invisible if empty', 'invisibleIfEmpty', e.invisibleIfEmpty !== false) +
+            `<div class="small" style="padding:0 0 10px">Hide this entire text box on cards where its spreadsheet or card text is blank (including its fill and border). Empty text remains editable in Template mode.</div>`;
         html += `<div class="section-title">Typography</div>`;
         html += `<div class="field"><label>Font family</label><input data-prop="font" list="fontOptions" value="${(0, model_1.escapeHTML)(e.font)}"><datalist id="fontOptions">${knownFonts.map(x => `<option value="${(0, model_1.escapeHTML)(x)}"></option>`).join('')}</datalist></div><button class="secondary" style="margin:-4px 0 12px" data-action="scan-fonts">Find installed fonts</button>`;
         html += `<div class="fields-two">${field('Font size (pt)', 'fontSize', e.fontSize, 'number', 'min="1" step="0.5"')}${selectionField('Weight', 'fontWeight', [[100, 'Thin'], [300, 'Light'], [400, 'Regular'], [500, 'Medium'], [600, 'Semibold'], [700, 'Bold'], [800, 'Extra bold'], [900, 'Black']], e.fontWeight)}</div>`;
@@ -725,6 +714,12 @@ function renderInspector() {
     }
     if (raw.kind === 'shape')
         html += `<div class="section-title">Shape</div>${selectionField('Shape', 'shape', [['rect', 'Rectangle'], ['ellipse', 'Ellipse']], e.shape)}`;
+    if (raw.kind === 'shape' || raw.kind === 'image') {
+        const texts = [...model_1.S.template.elements, ...(model_1.S.mode === 'cards' ? ((0, model_1.card)()?.extraElements || []) : [])].filter(item => item.kind === 'text');
+        html += `<div class="section-title">Visibility link</div>` +
+            selectionField('Follow text visibility', 'linkedTextId', [['', 'None (always independent)'], ...texts.map(item => [item.id, item.name])], e.linkedTextId || '') +
+            `<div class="small" style="padding:0 0 10px">Hide this entire ${raw.kind === 'image' ? 'image frame' : 'shape'} when the chosen text box is invisible on this card.</div>`;
+    }
     html += `<div class="section-title">Appearance</div>${selectionField('Fill', 'fillMode', [['none', 'Transparent'], ['solid', 'Solid colour'], ['gradient', 'Linear gradient']], e.fillMode)}`;
     if (e.fillMode !== 'none')
         html += `<div class="fields-two">${field('Fill colour 1', 'fill1', e.fill1, 'color')}${e.fillMode === 'gradient' ? field('Fill colour 2', 'fill2', e.fill2, 'color') : ''}</div>${e.fillMode === 'gradient' ? field('Gradient angle (degrees)', 'gradientAngle', e.gradientAngle, 'number', 'step="5"') : ''}`;
@@ -779,8 +774,10 @@ require("./editor");
 "model": function(module, exports, require) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.opacityFor = exports.uniqName = exports.actualValue = exports.effective = exports.isExtra = exports.isExported = exports.layerEls = exports.templateEl = exports.card = exports.S = exports.initial = exports.initialElements = exports.makeElement = exports.textKinds = exports.fmt = exports.templateExportSize = exports.sizePx = exports.exportPixels = exports.px = exports.unitFactor = exports.perUnit = exports.clamp = exports.safeFile = exports.escapeXML = exports.escapeHTML = exports.uid = void 0;
+exports.uniqName = exports.actualValue = exports.effective = exports.isExtra = exports.isExported = exports.layerEls = exports.templateEl = exports.card = exports.S = exports.initial = exports.initialElements = exports.makeElement = exports.textKinds = exports.opacityFor = exports.fmt = exports.templateExportSize = exports.sizePx = exports.exportPixels = exports.px = exports.unitFactor = exports.perUnit = exports.clamp = exports.safeFile = exports.escapeXML = exports.escapeHTML = exports.uid = void 0;
 exports.replaceState = replaceState;
+exports.cardTextValue = cardTextValue;
+exports.visibleOnCard = visibleOnCard;
 const uid = () => Math.random().toString(36).slice(2, 10);
 exports.uid = uid;
 const escapeHTML = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -809,7 +806,7 @@ exports.fmt = fmt;
 const opacityFor = (e, component) => (0, exports.clamp)(Number(e[component] ?? e.opacity ?? 100) || 0, 0, 100) / 100;
 exports.opacityFor = opacityFor;
 exports.textKinds = ['text', 'image'];
-const makeElement = (kind, parts = {}) => ({ id: (0, exports.uid)(), kind, name: kind === 'text' ? 'Text' : kind === 'image' ? 'Artwork' : 'Shape', x: 22, y: 35, w: 195, h: 55, locked: false, hidden: false, includeInExport: true, shape: 'rect', radius: 0, fillMode: kind === 'shape' ? 'solid' : 'none', fill1: '#ffffff', fill2: '#dde5f1', gradientAngle: 90, borderWidth: 0, borderColor: '#233b58', opacity: 100, fillOpacity: 100, borderOpacity: 100, textOpacity: 100, text: 'Text', font: 'Georgia', fontSize: 19, fontWeight: 400, italic: false, underline: false, color: '#152b43', align: 'left', valign: 'middle', lineHeight: 1.18, letterSpacing: 0, imageFit: 'cover', imgScale: 1, imgOffsetX: 0, imgOffsetY: 0, autoSet: '', autoMode: 'cycle', ...parts });
+const makeElement = (kind, parts = {}) => ({ id: (0, exports.uid)(), kind, name: kind === 'text' ? 'Text' : kind === 'image' ? 'Artwork' : 'Shape', x: 22, y: 35, w: 195, h: 55, locked: false, hidden: false, includeInExport: true, invisibleIfEmpty: true, linkedTextId: '', shape: 'rect', radius: 0, fillMode: kind === 'shape' ? 'solid' : 'none', fill1: '#ffffff', fill2: '#dde5f1', gradientAngle: 90, borderWidth: 0, borderColor: '#233b58', opacity: 100, fillOpacity: 100, borderOpacity: 100, textOpacity: 100, text: 'Text', font: 'Georgia', fontSize: 19, fontWeight: 400, italic: false, underline: false, color: '#152b43', align: 'left', valign: 'middle', lineHeight: 1.18, letterSpacing: 0, imageFit: 'cover', imgScale: 1, imgOffsetX: 0, imgOffsetY: 0, autoSet: '', autoMode: 'cycle', ...parts });
 exports.makeElement = makeElement;
 const initialElements = () => [
     (0, exports.makeElement)('shape', { name: 'Card background', x: 0, y: 0, w: (0, exports.px)(63, 'mm'), h: (0, exports.px)(88, 'mm'), fillMode: 'gradient', fill1: '#fcfaf4', fill2: '#dce7ed', gradientAngle: 180 }),
@@ -838,6 +835,30 @@ const effective = (e) => exports.S.mode === 'cards' && (0, exports.card)() && !(
 exports.effective = effective;
 const actualValue = (e) => exports.S.mode === 'cards' && (0, exports.card)() && Object.prototype.hasOwnProperty.call((0, exports.card)().values || {}, e.id) ? (0, exports.card)().values[e.id] : (e.kind === 'text' ? e.text : '');
 exports.actualValue = actualValue;
+/** Resolve spreadsheet/card data for any card index, without changing the UI selection. */
+function cardTextValue(e, cardIndex) {
+    const values = exports.S.cards[cardIndex]?.values || {};
+    return String(Object.prototype.hasOwnProperty.call(values, e.id) ? values[e.id] : e.text ?? '');
+}
+/** Single visibility rule shared by card preview, layers, and all PNG exports. */
+function visibleOnCard(raw, cardIndex, mode = 'cards') {
+    const overrides = mode === 'cards' ? exports.S.cards[cardIndex]?.overrides?.[raw.id] : null;
+    const el = overrides ? { ...raw, ...overrides } : raw;
+    if (el.hidden || !(0, exports.isExported)(raw) || !(0, exports.isExported)(el))
+        return false;
+    // Template PNG exports should still render default text/backgrounds, but no guides.
+    if (mode !== 'cards')
+        return true;
+    if (el.kind === 'text')
+        return el.invisibleIfEmpty === false || cardTextValue(raw, cardIndex).trim() !== '';
+    if ((el.kind === 'shape' || el.kind === 'image') && el.linkedTextId) {
+        const source = [...exports.S.template.elements, ...(exports.S.cards[cardIndex]?.extraElements || [])]
+            .find(item => item.id === el.linkedTextId && item.kind === 'text');
+        // Orphaned links are ignored rather than concealing the element unexpectedly.
+        return !source || visibleOnCard(source, cardIndex, 'cards');
+    }
+    return true;
+}
 const uniqName = (name, exclude) => { let base = String(name || 'Element').trim() || 'Element', str = base, n = 2; while ((0, exports.layerEls)().some(x => x.id !== exclude && x.name.toLowerCase() === str.toLowerCase()))
     str = base + ' ' + n++; return str; };
 exports.uniqName = uniqName;
@@ -983,21 +1004,35 @@ async function canvasCard(ci, mode = 'cards') {
     ctx.fillStyle = model_1.S.template.background;
     ctx.fillRect(0, 0, w, h);
     for (const raw of [...model_1.S.template.elements, ...(mode === 'cards' ? (model_1.S.cards[ci]?.extraElements || []) : [])]) {
-        const e = mode === 'cards' ? {...raw,...(model_1.S.cards[ci]?.overrides?.[raw.id] || {})} : raw;
-        if (e.hidden || !(0, model_1.isExported)(raw) || !(0, model_1.isExported)(e)) continue;
+        const e = mode === 'cards' ? { ...raw, ...(model_1.S.cards[ci]?.overrides?.[raw.id] || {}) } : raw;
+        if (!(0, model_1.visibleOnCard)(raw, ci, mode))
+            continue;
         ctx.save();
         ctx.globalAlpha = (0, model_1.opacityFor)(e, 'fillOpacity');
-        canvasFillShape(ctx,e);
+        canvasFillShape(ctx, e);
         if (raw.kind === 'image') {
-            const src = (0, image_sets_1.getImageData)(raw,ci,mode), img = await (0, image_sets_1.loadedImage)(src);
-            if (img) {ctx.save();makeShapePath(ctx,e);ctx.clip();const bb=(0, image_sets_1.imgBox)(e,img);ctx.drawImage(img,e.x+bb.x,e.y+bb.y,bb.w,bb.h);ctx.restore();}
+            const src = (0, image_sets_1.getImageData)(raw, ci, mode), img = await (0, image_sets_1.loadedImage)(src);
+            if (img) {
+                ctx.save();
+                makeShapePath(ctx, e);
+                ctx.clip();
+                const bb = (0, image_sets_1.imgBox)(e, img);
+                ctx.drawImage(img, e.x + bb.x, e.y + bb.y, bb.w, bb.h);
+                ctx.restore();
+            }
         }
-        if(raw.kind === 'text') {
+        if (raw.kind === 'text') {
             ctx.globalAlpha = (0, model_1.opacityFor)(e, 'textOpacity');
             const value = mode === 'cards' && Object.prototype.hasOwnProperty.call(model_1.S.cards[ci]?.values || {}, raw.id) ? model_1.S.cards[ci].values[raw.id] : raw.text;
-            canvasDrawText(ctx,e,value);
+            canvasDrawText(ctx, e, value);
         }
-        if(e.borderWidth > 0) {ctx.globalAlpha=(0, model_1.opacityFor)(e, 'borderOpacity');makeShapePath(ctx,e);ctx.lineWidth=e.borderWidth;ctx.strokeStyle=e.borderColor;ctx.stroke();}
+        if (e.borderWidth > 0) {
+            ctx.globalAlpha = (0, model_1.opacityFor)(e, 'borderOpacity');
+            makeShapePath(ctx, e);
+            ctx.lineWidth = e.borderWidth;
+            ctx.strokeStyle = e.borderColor;
+            ctx.stroke();
+        }
         ctx.restore();
     }
     return cvs;
@@ -1021,7 +1056,7 @@ function renderStage() {
     const eList = (0, model_1.layerEls)();
     for (const raw of eList) {
         const e = (0, model_1.effective)(raw);
-        if (e.hidden || (model_1.S.mode === 'cards' && (!(0, model_1.isExported)(raw) || !(0, model_1.isExported)(e))))
+        if (model_1.S.mode === 'template' ? e.hidden : !(0, model_1.visibleOnCard)(raw, model_1.S.cardIndex, 'cards'))
             continue;
         const selected = model_1.S.selected === raw.id, src = (0, image_sets_1.getImageData)(raw, model_1.S.cardIndex, model_1.S.mode);
         let content = '';
@@ -1042,9 +1077,11 @@ function renderStage() {
         const base = `left:${e.x * z}px;top:${e.y * z}px;width:${e.w * z}px;height:${e.h * z}px;border-radius:${e.shape === 'ellipse' ? '50%' : `${(e.radius || 0) * z}px`};`;
         const fill = `<div class="element-fill" style="background:${gradientCSS(e)};opacity:${(0, model_1.opacityFor)(e, 'fillOpacity')}"></div>`;
         const borderLayer = e.borderWidth > 0 ? `<div class="element-border" style="border:${border};opacity:${(0, model_1.opacityFor)(e, 'borderOpacity')}"></div>` : '';
-        if (e.kind === 'text') content = `<div class="text-layer" style="opacity:${(0, model_1.opacityFor)(e, 'textOpacity')}">${content}</div>`;
-        if (e.kind === 'image') content = `<div class="image-layer" style="opacity:${(0, model_1.opacityFor)(e, 'fillOpacity')}">${content}</div>`;
-        const handles = !e.locked ? ['nw','n','ne','e','se','s','sw','w'].map(h=>`<span class="resize-handle resize-${h}" data-handle="${h}"></span>`).join('') : '';
+        if (e.kind === 'text')
+            content = `<div class="text-layer" style="opacity:${(0, model_1.opacityFor)(e, 'textOpacity')}">${content}</div>`;
+        if (e.kind === 'image')
+            content = `<div class="image-layer" style="opacity:${(0, model_1.opacityFor)(e, 'fillOpacity')}">${content}</div>`;
+        const handles = !e.locked ? ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'].map(h => `<span class="resize-handle resize-${h}" data-handle="${h}"></span>`).join('') : '';
         const label = selected ? `<span class="selection-label">${(0, model_1.escapeHTML)(raw.name)}</span>${handles}` : '';
         html += `<div class="element ${selected ? 'selected' : ''} ${e.locked ? 'locked' : ''}" data-id="${raw.id}" style="${base}">${fill}${content}${borderLayer}${label}</div>`;
     }
@@ -1171,12 +1208,17 @@ function migrateProjectUnits(obj) {
     obj.version = 2;
     return obj;
 }
+// Legacy card-only "opacity" overrides must win over new component defaults.
+// For old elements missing the component properties, opacityFor supplies the fallback.
 function migrateComponentOpacities(obj) {
-    for (const c of obj.cards || []) for (const override of Object.values(c.overrides || {})) {
-        if (typeof override.opacity === 'number') for (const part of ['fillOpacity','borderOpacity','textOpacity']) {
-            if (override[part] === undefined) override[part] = override.opacity;
+    for (const c of obj.cards || [])
+        for (const override of Object.values(c.overrides || {})) {
+            if (typeof override.opacity === 'number')
+                for (const part of ['fillOpacity', 'borderOpacity', 'textOpacity']) {
+                    if (override[part] === undefined)
+                        override[part] = override.opacity;
+                }
         }
-    }
     return obj;
 }
 async function openJSON(file, onlyTemplate = false, handle = null) {
