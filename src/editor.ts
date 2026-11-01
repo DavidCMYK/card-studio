@@ -107,7 +107,7 @@ stage.addEventListener('pointerdown',e=>{if(e.button!==0)return;const node=e.tar
 document.addEventListener('pointermove',e=>{if(!drag)return;const {w,h}=sizePx(),dx=(e.clientX-drag.initialX)/S.zoom,dy=(e.clientY-drag.initialY)/S.zoom;let patch;if(drag.type==='resize')patch={w:clamp(Math.round(drag.w+dx),5,w*3),h:clamp(Math.round(drag.h+dy),5,h*3)};else patch={x:Math.round(clamp(drag.x+dx,-drag.w+4,w-4)),y:Math.round(clamp(drag.y+dy,-drag.h+4,h-4))};patchElement(drag.id,patch);renderStage()});
 document.addEventListener('pointerup',()=>{if(drag){drag=null;renderInspector();renderLeft();renderStage()}});
 document.addEventListener('keydown',e=>{const active=document.activeElement,tag=active?.tagName;
-if(['INPUT','TEXTAREA','SELECT'].includes(tag)||active?.isContentEditable)return;
+if(['INPUT','TEXTAREA','SELECT'].includes(tag)||(active as HTMLElement)?.isContentEditable)return;
 if((e.ctrlKey||e.metaKey)&&!e.altKey&&!e.shiftKey&&S.mode==='template'){
  const action={c:'copy-element',x:'cut-element',v:'paste-element'}[e.key.toLowerCase()];
  if(action&&((action==='paste-element'&&elementClipboard)||(action!=='paste-element'&&S.selected))){
