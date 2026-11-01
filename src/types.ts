@@ -10,7 +10,11 @@ export interface CardElement {
   shape: 'rect' | 'ellipse'; radius: number;
   fillMode: 'none' | 'solid' | 'gradient';
   fill1: string; fill2: string; gradientAngle: number;
-  borderWidth: number; borderColor: string; opacity: number;
+  borderWidth: number; borderColor: string;
+  /** Legacy overall opacity, retained for older project files. */
+  opacity?: number;
+  /** Independent component opacities in percent (0–100). */
+  fillOpacity?: number; borderOpacity?: number; textOpacity?: number;
   text: string; font: string; fontSize: number; fontWeight: number;
   italic: boolean; underline: boolean; color: string;
   align: 'left' | 'center' | 'right'; valign: 'top' | 'middle' | 'bottom';
