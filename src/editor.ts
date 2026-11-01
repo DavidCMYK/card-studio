@@ -9,11 +9,60 @@ import { saveProject, saveTemplate, openJSON } from './project-storage';
 import { importImages, setTargetImageSet } from './assets';
 setImageUpdateHandler(renderStage);
 
+
+type ElementClipboard = { element: any; cut: boolean; project: any; pasteCount: number };
+let elementClipboard: ElementClipboard | null = null;
+// This is an internal element clipboard, independent of the system text clipboard.
+function copyElement(cut = false): boolean {
+  if (S.mode !== 'template') { toast('Switch to Template to copy or cut elements'); return false; }
+  const el = templateEl(S.selected);
+  if (!el) { toast('Select an element first'); return false; }
+  elementClipboard = {element: structuredClone(el), cut, project: S, pasteCount: 0};
+  if (cut) {
+    // Retain the original ID in the clipboard so card-specific spreadsheet values
+    // and overrides still refer to this element when it is pasted back.
+    S.template.elements = S.template.elements.filter(x => x.id !== el.id);
+    S.selected = null;
+    repaint();
+  }
+  toast(cut ? 'Element cut — paste to move it' : 'Element copied');
+  return true;
+}
+function pasteElement(): boolean {
+  if (S.mode !== 'template') { toast('Switch to Template to paste elements'); return false; }
+  if (!elementClipboard) { toast('Copy or cut an element first'); return false; }
+  const from = elementClipboard;
+  const pasted = structuredClone(from.element);
+  const isMove = from.cut && from.project === S &&
+    !S.template.elements.some(e => e.id === pasted.id);
+  if (!isMove) {
+    pasted.id = uid();
+    pasted.name = uniqName(pasted.name + ' copy');
+  } else {
+    pasted.name = uniqName(pasted.name);
+  }
+  const offset = 12 * (isMove ? 1 : ++from.pasteCount);
+  pasted.x += offset;
+  pasted.y += offset;
+  S.template.elements.push(pasted);
+  S.selected = pasted.id;
+  if (isMove) {
+    // Further pastes duplicate the moved element rather than reusing its ID.
+    from.cut = false;
+    from.element = structuredClone(pasted);
+    from.pasteCount = 0;
+  }
+  repaint();
+  toast(isMove ? 'Element moved' : 'Element pasted');
+  return true;
+}
+
 function newCard(copy=null){const c=copy?{id:uid(),name:copy.name+' copy',values:{...copy.values},overrides:structuredClone(copy.overrides||{}),extraElements:structuredClone(copy.extraElements||[])}:{id:uid(),name:'Card '+String(S.cards.length+1).padStart(3,'0'),values:{},overrides:{},extraElements:[]};S.cards.push(c);S.mode='cards';S.cardIndex=S.cards.length-1;S.selected=null;repaint();return c}
 function mutateAction(action,el: any = null){switch(action){case 'new-project':if(confirm('Start a new project? Unsaved changes will be lost.')){replaceState(initial());imageCache.clear();repaint()}break;
 case 'open-project':$('#openProjectFile').click();break;case 'save-project':saveProject();break;case 'save-template':saveTemplate();break;case 'load-template':$('#openTemplateFile').click();break;
 case 'mode-template':case 'card-setup':S.mode='template';S.selected=null;repaint();break;case 'mode-cards':S.mode='cards';S.selected=null;repaint();break;
 case 'add-text':case 'add-image':case 'add-shape':addElement(action.slice(4));break;
+case 'copy-element':copyElement();break;case 'cut-element':copyElement(true);break;case 'paste-element':pasteElement();break;
 case 'delete-element':if(!S.selected)return;if(S.mode==='cards'){if(isExtra(S.selected)){card().extraElements=card().extraElements.filter(x=>x.id!==S.selected)}else patchElement(S.selected,{hidden:true});S.selected=null;repaint();toast('Removed from this card only')}else if(confirm('Delete this element from the template and all cards?')){S.template.elements=S.template.elements.filter(x=>x.id!==S.selected);S.selected=null;repaint()}break;
 case 'layer-up':case 'layer-down':{if(S.mode==='cards'&&!isExtra(S.selected)){toast('Shared layer order is changed in Template mode');return}const a=S.mode==='cards'?card().extraElements:S.template.elements;let ix=a.findIndex(e=>e.id===S.selected),delta=action==='layer-up'?1:-1;if(ix<0||ix+delta<0||ix+delta>=a.length)return;[a[ix],a[ix+delta]]=[a[ix+delta],a[ix]];repaint();break}
 case 'zoom-in':S.zoom=clamp(Math.round((S.zoom+.1)*100)/100,.3,3);renderStage();break;
@@ -57,7 +106,15 @@ $('#canvasOuter').addEventListener('pointerdown',e=>{if(e.button===0&&!e.target.
 stage.addEventListener('pointerdown',e=>{if(e.button!==0)return;const node=e.target.closest('.element');if(!node){clearSelection();return}const id=node.dataset.id;S.selected=id;renderInspector();renderLeft();const el=effective(templateEl(id));const resizing=!!e.target.closest('[data-handle="resize"]');renderStage();if(el.locked)return;drag={id,type:resizing?'resize':'move',initialX:e.clientX,initialY:e.clientY,x:el.x,y:el.y,w:el.w,h:el.h};e.preventDefault()});
 document.addEventListener('pointermove',e=>{if(!drag)return;const {w,h}=sizePx(),dx=(e.clientX-drag.initialX)/S.zoom,dy=(e.clientY-drag.initialY)/S.zoom;let patch;if(drag.type==='resize')patch={w:clamp(Math.round(drag.w+dx),5,w*3),h:clamp(Math.round(drag.h+dy),5,h*3)};else patch={x:Math.round(clamp(drag.x+dx,-drag.w+4,w-4)),y:Math.round(clamp(drag.y+dy,-drag.h+4,h-4))};patchElement(drag.id,patch);renderStage()});
 document.addEventListener('pointerup',()=>{if(drag){drag=null;renderInspector();renderLeft();renderStage()}});
-document.addEventListener('keydown',e=>{const tag=document.activeElement?.tagName;if(['INPUT','TEXTAREA','SELECT'].includes(tag)||e.ctrlKey||e.altKey||e.metaKey)return;if(!S.selected)return;if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();mutateAction('delete-element');return}const delta={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];if(delta){const el=effective(templateEl(S.selected));if(el.locked)return;e.preventDefault();const step=e.shiftKey?10:1;patchElement(S.selected,{x:el.x+delta[0]*step,y:el.y+delta[1]*step});renderStage();renderInspector()}});
+document.addEventListener('keydown',e=>{const active=document.activeElement,tag=active?.tagName;
+if(['INPUT','TEXTAREA','SELECT'].includes(tag)||active?.isContentEditable)return;
+if((e.ctrlKey||e.metaKey)&&!e.altKey&&!e.shiftKey&&S.mode==='template'){
+ const action={c:'copy-element',x:'cut-element',v:'paste-element'}[e.key.toLowerCase()];
+ if(action&&((action==='paste-element'&&elementClipboard)||(action!=='paste-element'&&S.selected))){
+   e.preventDefault();mutateAction(action);return;
+ }
+}
+if(e.ctrlKey||e.altKey||e.metaKey)return;if(!S.selected)return;if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();mutateAction('delete-element');return}const delta={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];if(delta){const el=effective(templateEl(S.selected));if(el.locked)return;e.preventDefault();const step=e.shiftKey?10:1;patchElement(S.selected,{x:el.x+delta[0]*step,y:el.y+delta[1]*step});renderStage();renderInspector()}});
 window.addEventListener('resize',()=>{});
 
 repaint();
