@@ -5,9 +5,15 @@ export const escapeHTML=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<'
 export const escapeXML=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 export const safeFile=s=>String(s||'card').replace(/[\\/:*?"<>|\x00-\x1f]/g,'_').trim().slice(0,95)||'card';
 export const clamp=(v,min,max)=>Math.min(max,Math.max(min,v));
+// Geometry uses 96 CSS/design pixels per inch internally. The 'px' unit shown in
+// controls means *export image pixels* at the selected DPI, never screen pixels.
 export const perUnit: Record<Units, number>={mm:96/25.4,in:96,px:1};
-export const px=(value: number,unit: Units = 'mm')=>Number(value||0)*perUnit[unit];
-export const sizePx=()=>({w:px(S.template.width,S.template.unit),h:px(S.template.height,S.template.unit)});
+export const unitFactor=(unit: Units,dpi: number)=>unit==='px'?96/dpi:perUnit[unit];
+export const px=(value: number,unit: Units = 'mm',dpi: number = 300)=>Number(value||0)*unitFactor(unit,dpi);
+export const exportPixels=(designPixels: number,dpi: number = S.template.dpi)=>Math.round(designPixels*dpi/96);
+export const sizePx=()=>({w:px(S.template.width,S.template.unit,S.template.dpi),h:px(S.template.height,S.template.unit,S.template.dpi)});
+export const templateExportSize=()=>{const {w,h}=sizePx();return {w:exportPixels(w),h:exportPixels(h)}};
+
 export const fmt=v=>String(Math.round(v*100)/100);
 export const textKinds=['text','image'];
 export const makeElement=(kind: ElementKind,parts: Partial<CardElement> = {}): CardElement =>({id:uid(),kind,name:kind==='text'?'Text':kind==='image'?'Artwork':'Shape',x:22,y:35,w:195,h:55,locked:false,hidden:false,includeInExport:true,shape:'rect',radius:0,fillMode:kind==='shape'?'solid':'none',fill1:'#ffffff',fill2:'#dde5f1',gradientAngle:90,borderWidth:0,borderColor:'#233b58',opacity:100,text:'Text',font:'Georgia',fontSize:19,fontWeight:400,italic:false,underline:false,color:'#152b43',align:'left',valign:'middle',lineHeight:1.18,letterSpacing:0,imageFit:'cover',imgScale:1,imgOffsetX:0,imgOffsetY:0,autoSet:'',autoMode:'cycle',...parts});
@@ -19,7 +25,7 @@ makeElement('text',{name:'Card Title',x:13,y:9,w:213,h:32,text:'THE HOLLOW GATE'
 makeElement('shape',{name:'Text panel',x:8,y:217,w:222,h:103,fillMode:'solid',fill1:'#fdfcf8',borderWidth:1,borderColor:'#8da0af',radius:6}),
 makeElement('text',{name:'Description',x:18,y:223,w:201,h:83,text:'Beyond the old stones, the road descends into darkness.',font:'Georgia',fontSize:11,fontWeight:400,valign:'top',color:'#324358',lineHeight:1.3})
 ];
-export const initial=(): StudioProject =>({type:'cardstudio-project',version:1,projectName:'Untitled deck',template:{name:'Standard game card',width:63,height:88,unit:'mm',dpi:300,background:'#ffffff',elements:initialElements()},sets:[],cards:[{id:uid(),name:'Card 001',values:{},overrides:{},extraElements:[]}],mode:'template',cardIndex:0,selected:null,zoom:1.55});
+export const initial=(): StudioProject =>({type:'cardstudio-project',version:2,projectName:'Untitled deck',template:{name:'Standard game card',width:63,height:88,unit:'mm',dpi:300,background:'#ffffff',elements:initialElements()},sets:[],cards:[{id:uid(),name:'Card 001',values:{},overrides:{},extraElements:[]}],mode:'template',cardIndex:0,selected:null,zoom:1.55});
 export let S: StudioProject = initial();
 export function replaceState(value: StudioProject) { S = value; }
 export const card=()=>S.cards[S.cardIndex]||null;
