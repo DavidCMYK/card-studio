@@ -10,7 +10,7 @@ export const px=(value: number,unit: Units = 'mm')=>Number(value||0)*perUnit[uni
 export const sizePx=()=>({w:px(S.template.width,S.template.unit),h:px(S.template.height,S.template.unit)});
 export const fmt=v=>String(Math.round(v*100)/100);
 export const textKinds=['text','image'];
-export const makeElement=(kind: ElementKind,parts: Partial<CardElement> = {}): CardElement =>({id:uid(),kind,name:kind==='text'?'Text':kind==='image'?'Artwork':'Shape',x:22,y:35,w:195,h:55,locked:false,hidden:false,shape:'rect',radius:0,fillMode:kind==='shape'?'solid':'none',fill1:'#ffffff',fill2:'#dde5f1',gradientAngle:90,borderWidth:0,borderColor:'#233b58',opacity:100,text:'Text',font:'Georgia',fontSize:19,fontWeight:400,italic:false,underline:false,color:'#152b43',align:'left',valign:'middle',lineHeight:1.18,letterSpacing:0,imageFit:'cover',imgScale:1,imgOffsetX:0,imgOffsetY:0,autoSet:'',autoMode:'cycle',...parts});
+export const makeElement=(kind: ElementKind,parts: Partial<CardElement> = {}): CardElement =>({id:uid(),kind,name:kind==='text'?'Text':kind==='image'?'Artwork':'Shape',x:22,y:35,w:195,h:55,locked:false,hidden:false,includeInExport:true,shape:'rect',radius:0,fillMode:kind==='shape'?'solid':'none',fill1:'#ffffff',fill2:'#dde5f1',gradientAngle:90,borderWidth:0,borderColor:'#233b58',opacity:100,text:'Text',font:'Georgia',fontSize:19,fontWeight:400,italic:false,underline:false,color:'#152b43',align:'left',valign:'middle',lineHeight:1.18,letterSpacing:0,imageFit:'cover',imgScale:1,imgOffsetX:0,imgOffsetY:0,autoSet:'',autoMode:'cycle',...parts});
 export const initialElements=()=>[
 makeElement('shape',{name:'Card background',x:0,y:0,w:px(63,'mm'),h:px(88,'mm'),fillMode:'gradient',fill1:'#fcfaf4',fill2:'#dce7ed',gradientAngle:180}),
 makeElement('shape',{name:'Artwork surround',x:8,y:42,w:222,h:169,fillMode:'solid',fill1:'#fdfdfc',borderWidth:1.5,borderColor:'#6c8297'}),
@@ -25,6 +25,7 @@ export function replaceState(value: StudioProject) { S = value; }
 export const card=()=>S.cards[S.cardIndex]||null;
 export const templateEl=(id: string | null)=>S.template.elements.find(e=>e.id===id)||(S.mode==='cards'?card()?.extraElements?.find(e=>e.id===id):null);
 export const layerEls=()=>[...S.template.elements,...(S.mode==='cards'?(card()?.extraElements||[]):[])];
+export const isExported=(e: CardElement)=>e.includeInExport !== false;
 export const isExtra=(id: string | null)=>!!card()?.extraElements?.some(e=>e.id===id);
 export const effective=(e: CardElement)=>S.mode==='cards'&&card()&&!isExtra(e.id)?{...e,...(card().overrides?.[e.id]||{})}:e;
 export const actualValue=(e: CardElement)=>S.mode==='cards'&&card()&&Object.prototype.hasOwnProperty.call(card().values||{},e.id)?card().values[e.id]:(e.kind==='text'?e.text:'');
