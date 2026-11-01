@@ -10,11 +10,16 @@ vm.createContext(sandbox);vm.runInContext(source,sandbox,{timeout:15000});
 const t=window.__test;if(!t)throw Error('No test API');let state=t.state();if(state.template.elements.length!==6)throw Error('Bad default elements');if(!get('#stage').innerHTML.includes('THE HOLLOW GATE'))throw Error('Stage not rendered');
 const bg=state.template.elements[0];
 state.selected=bg.id;
-get('#canvasOuter').emit('pointerdown',{button:0,target:{closest(){return null}}});
+get('#canvasOuter').emit('pointerdown',{button:0,target:{closest(){return null}},composedPath(){return [get('#canvasOuter')]}});
 if(state.selected!==null||!get('#inspector').innerHTML.includes('Card dimensions'))throw Error('Workspace click did not open Card setup');
-state.selected=bg.id;
-get('#canvasOuter').emit('pointerdown',{button:0,target:{closest(selector){return selector==='#stage'?get('#stage'):null}}});
-if(state.selected!==bg.id)throw Error('Click on card incorrectly deselected');
+// Simulate an actual stage selection followed by a bubble event. renderStage()
+// replaces the clicked element, so target.closest('#stage') no longer finds it.
+const clickedNode={dataset:{id:bg.id}};
+const detachedTarget={closest(selector){return selector==='.element'?clickedNode:null}};
+get('#stage').emit('pointerdown',{button:0,target:detachedTarget,clientX:0,clientY:0,preventDefault(){}});
+if(state.selected!==bg.id||!get('#inspector').innerHTML.includes('Card background'))throw Error('Stage pointerdown did not select element');
+get('#canvasOuter').emit('pointerdown',{button:0,target:detachedTarget,composedPath(){return [detachedTarget,get('#stage'),get('#canvasOuter')]}});
+if(state.selected!==bg.id)throw Error('Stage click deselected on bubble after DOM was replaced');
 state.mode='cards';
 document.listeners.click[0]({target:{closest(selector){return selector==='[data-action]'?{dataset:{action:'card-setup'}}:null}},stopPropagation(){}});
 if(state.mode!=='template'||state.selected!==null||!get('#inspector').innerHTML.includes('Card dimensions'))throw Error('Card setup toolbar button failed');
