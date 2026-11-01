@@ -11,6 +11,7 @@ A browser-based card layout editor for creating game card templates, staging car
 
 - Custom card dimensions in millimetres, inches or pixels, with always-visible output pixel dimensions at the selected DPI. Both the template and individual elements show size in the selected unit and export pixels. Changing DPI preserves the physical layout and updates its pixel resolution.
 - Visual template editor with draggable and resizable text, image frames, shapes, gradients and borders.
+- Scroll the workspace vertically or horizontally when the card exceeds the viewport; zoom controls keep the current viewing area centred.
 - Copy, cut and paste template elements using toolbar buttons or Ctrl/Cmd+C, X and V. Copies keep styling, image assignment and dimensions; cut-and-paste preserves staged card data.
 - **Editor-only elements:** Select any element in Template mode and untick **Include in exported images**. Such layers remain in the Template editor (for cut lines, bleed markers and guides) but are hidden in Cards mode and excluded from all PNG exports. Older saved projects default to including their existing elements in exports.
 - Installed font selection (browser support/permission permitting), text formatting and image fitting options.
