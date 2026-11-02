@@ -6,12 +6,11 @@ A browser-based card layout editor for creating game card templates, staging car
 
 ## Features
 
-- Independently adjustable fill or image opacity, border opacity, and text opacity (where applicable). Existing template opacities remain compatible.
-- Resize selected elements from any of their four corners or four edges.
-
 - Custom card dimensions in millimetres, inches or pixels, with always-visible output pixel dimensions at the selected DPI. Both the template and individual elements show size in the selected unit and export pixels. Changing DPI preserves the physical layout and updates its pixel resolution.
-- Visual template editor with draggable and resizable text, image frames, shapes, gradients and borders.
+- Visual template editor with draggable text, image frames and shapes, with resize handles on all edges and corners, plus gradients and borders.
+- Resize handles follow pointer movement without drift or directional lag. Fitted image frames retain their starting frame aspect ratio on corner drags; edge drags can adjust one dimension freely.
 - Scroll the workspace vertically or horizontally when the card exceeds the viewport; zoom controls keep the current viewing area centred.
+- Independent opacity controls for background (or the framed image), border, and text where applicable. Older projects retain their existing appearance.
 - Copy, cut and paste template elements using toolbar buttons or Ctrl/Cmd+C, X and V. Copies keep styling, image assignment and dimensions; cut-and-paste preserves staged card data.
 - **Conditional visibility:** Text boxes default to **Invisible if empty**; an empty spreadsheet/card value hides the full text box (including its fill and border) on that card. Shapes and image frames can follow a named text box's visibility via **Visibility link**. Template mode still displays empty fields and linked elements for editing, while cards previews and individual/batch PNG exports apply the rules.
 - **Text auto-sizing:** independently auto-fit width and height to each card's text, anchored by horizontal and vertical alignment; set left/right/top/bottom gutters separately for background and border padding. Preview and PNG export share the same text layout.
