@@ -489,7 +489,14 @@ function handleProp(input) {
         (0, interface_1.patchElement)(model_1.S.selected, { [key]: v });
     }
 }
-(0, dom_1.$)('#inspector').addEventListener('input', event => { const inp = event.target; if (inp.dataset.cardvalue) {
+// Ignore delayed input/change events from the previously selected element or card.
+function activeInspectorInput(inp) {
+    const d = inp.dataset;
+    if (!d) return false;
+    if (d.editOwner === undefined) return true; // Programmatic/legacy inputs.
+    return d.editOwner === (model_1.S.selected || '') && d.editMode === model_1.S.mode && Number(d.editCard) === model_1.S.cardIndex;
+}
+(0, dom_1.$)('#inspector').addEventListener('input', event => { const inp = event.target; if (!activeInspectorInput(inp)) return; if (inp.dataset.cardvalue) {
     const c = (0, model_1.card)();
     if (c) {
         c.values ??= {};
@@ -504,7 +511,7 @@ function handleProp(input) {
     (0, interface_1.updateDimensionReadouts)();
     (0, dom_1.$)('#projectTitle').textContent = model_1.S.projectName;
 } });
-(0, dom_1.$)('#inspector').addEventListener('change', event => { const inp = event.target; if (inp.dataset.cardvalue) {
+(0, dom_1.$)('#inspector').addEventListener('change', event => { const inp = event.target; if (!activeInspectorInput(inp)) return; if (inp.dataset.cardvalue) {
     (0, interface_1.renderLeft)();
     return;
 } if (inp.dataset.prop) {
@@ -877,9 +884,11 @@ function renderLeft() {
     out += '<div class="set-list">' + model_1.S.sets.map(set => `<div class="asset-row"><div class="asset-title"><span>▧</span><span style="overflow:hidden;text-overflow:ellipsis">${(0, model_1.escapeHTML)(set.name)}</span><span class="count">${set.images.length} files</span></div><div class="asset-thumbs">${set.images.slice(0, 6).map(x => `<img alt="${(0, model_1.escapeHTML)(x.name)}" title="${(0, model_1.escapeHTML)(x.name)}" src="${x.data}">`).join('')}</div><div class="asset-actions"><button data-action="manage-images" data-set="${set.id}">Manage images</button><button data-action="remove-set" data-set="${set.id}">Delete set</button></div></div>`).join('') + '</div>';
     v.innerHTML = out;
 }
-function field(label, key, value, type = 'text', extra = '') { return `<div class="field"><label>${(0, model_1.escapeHTML)(label)}</label><input data-prop="${key}" type="${type}" value="${(0, model_1.escapeHTML)(value)}" ${extra}></div>`; }
-function selectionField(label, key, items, value) { return `<div class="field"><label>${(0, model_1.escapeHTML)(label)}</label><select data-prop="${key}">${items.map(([v, l]) => `<option value="${(0, model_1.escapeHTML)(v)}" ${String(v) === String(value) ? 'selected' : ''}>${(0, model_1.escapeHTML)(l)}</option>`).join('')}</select></div>`; }
-function checkbox(label, key, value) { return `<label class="toggle-line"><input type="checkbox" data-prop="${key}" ${value ? 'checked' : ''}>${(0, model_1.escapeHTML)(label)}</label>`; }
+// Bind each control to the inspector selection and card at creation time.
+function editorScope() { return `data-edit-owner="${(0, model_1.escapeHTML)(model_1.S.selected || '')}" data-edit-mode="${model_1.S.mode}" data-edit-card="${model_1.S.cardIndex}"`; }
+function field(label, key, value, type = 'text', extra = '') { return `<div class="field"><label>${(0, model_1.escapeHTML)(label)}</label><input ${editorScope()} data-prop="${key}" type="${type}" value="${(0, model_1.escapeHTML)(value)}" ${extra}></div>`; }
+function selectionField(label, key, items, value) { return `<div class="field"><label>${(0, model_1.escapeHTML)(label)}</label><select ${editorScope()} data-prop="${key}">${items.map(([v, l]) => `<option value="${(0, model_1.escapeHTML)(v)}" ${String(v) === String(value) ? 'selected' : ''}>${(0, model_1.escapeHTML)(l)}</option>`).join('')}</select></div>`; }
+function checkbox(label, key, value) { return `<label class="toggle-line"><input ${editorScope()} type="checkbox" data-prop="${key}" ${value ? 'checked' : ''}>${(0, model_1.escapeHTML)(label)}</label>`; }
 // All pixel labels are export-image pixels at the selected resolution.
 const sizeReadout = () => { const { w, h } = (0, model_1.templateExportSize)(); return `${w.toLocaleString('en-US')} × ${h.toLocaleString('en-US')} px at ${model_1.S.template.dpi} DPI`; };
 const elementReadout = () => {
@@ -909,11 +918,11 @@ function renderInspector() {
         out += `<div class="section-title">Element values</div><div class="small" style="padding:0 0 14px">These fields change only this card. Select a layer to adjust its position or formatting.</div>`;
         for (const e of entries) {
             if (e.kind === 'text')
-                out += `<div class="field"><label>${(0, model_1.escapeHTML)(e.name)}</label><textarea data-cardvalue="${e.id}" style="min-height:62px">${(0, model_1.escapeHTML)((0, model_1.actualValue)(e))}</textarea></div>`;
+                out += `<div class="field"><label>${(0, model_1.escapeHTML)(e.name)}</label><textarea ${editorScope()} data-cardvalue="${e.id}" style="min-height:62px">${(0, model_1.escapeHTML)((0, model_1.actualValue)(e))}</textarea></div>`;
             else if (e.autoMode === 'single')
                 out += '<div class="field"><label>'+(0, model_1.escapeHTML)(e.name)+' — fixed image</label><div class="small" style="padding:0">'+(0, model_1.escapeHTML)(e.singleImage || '(no image selected)')+' · Set in Template mode; identical on every card.</div></div>';
             else
-                out += `<div class="field"><label>${(0, model_1.escapeHTML)(e.name)} — image filename</label><input data-cardvalue="${e.id}" value="${(0, model_1.escapeHTML)((0, model_1.card)()?.values?.[e.id] || '')}" placeholder="Blank = automatic" list="allImageFiles"></div>`;
+                out += `<div class="field"><label>${(0, model_1.escapeHTML)(e.name)} — image filename</label><input ${editorScope()} data-cardvalue="${e.id}" value="${(0, model_1.escapeHTML)((0, model_1.card)()?.values?.[e.id] || '')}" placeholder="Blank = automatic" list="allImageFiles"></div>`;
         }
         out += `<datalist id="allImageFiles">${model_1.S.sets.flatMap(set => set.images.map(im => `<option value="${(0, model_1.escapeHTML)(set.name + '/' + im.name)}"></option>`)).join('')}</datalist>`;
         box.innerHTML = out;
@@ -947,11 +956,11 @@ function renderInspector() {
         html += `<div class="warn">Changes here affect only <b>${(0, model_1.escapeHTML)((0, model_1.card)()?.name)}</b>. Switch to Template to edit every card.</div>`;
     if (model_1.S.mode === 'cards' && model_1.textKinds.includes(raw.kind)) {
         if (raw.kind === 'text')
-            html += `<div class="field"><label>Card text</label><textarea data-cardvalue="${raw.id}">${(0, model_1.escapeHTML)((0, model_1.actualValue)(raw))}</textarea></div>`;
+            html += `<div class="field"><label>Card text</label><textarea ${editorScope()} data-cardvalue="${raw.id}">${(0, model_1.escapeHTML)((0, model_1.actualValue)(raw))}</textarea></div>`;
         if (raw.kind === 'image' && raw.autoMode === 'single')
             html += '<div class="small" style="padding:0 0 10px">Fixed image: <b>'+(0, model_1.escapeHTML)(raw.singleImage || '(none selected)')+'</b>. Change it in Template mode; card-specific image values are ignored.</div>';
         else if (raw.kind === 'image')
-            html += `<div class="field"><label>Image filename (blank = automatic)</label><input data-cardvalue="${raw.id}" value="${(0, model_1.escapeHTML)((0, model_1.card)()?.values?.[raw.id] || '')}" list="imageFiles" placeholder="Set name/image.png"><datalist id="imageFiles">${model_1.S.sets.flatMap(s => s.images.map(im => `<option value="${(0, model_1.escapeHTML)(s.name + '/' + im.name)}"></option>`)).join('')}</datalist></div><div class="small" style="padding:0 0 10px">Enter <b>none</b> to leave this frame empty.</div>`;
+            html += `<div class="field"><label>Image filename (blank = automatic)</label><input ${editorScope()} data-cardvalue="${raw.id}" value="${(0, model_1.escapeHTML)((0, model_1.card)()?.values?.[raw.id] || '')}" list="imageFiles" placeholder="Set name/image.png"><datalist id="imageFiles">${model_1.S.sets.flatMap(s => s.images.map(im => `<option value="${(0, model_1.escapeHTML)(s.name + '/' + im.name)}"></option>`)).join('')}</datalist></div><div class="small" style="padding:0 0 10px">Enter <b>none</b> to leave this frame empty.</div>`;
     }
     const f = (0, model_1.unitFactor)(model_1.S.template.unit, model_1.S.template.dpi);
     html += `<div class="section-title">Position and size (${model_1.S.template.unit})</div><div class="fields-two">${field('X (' + model_1.S.template.unit + ')', 'x', (0, model_1.fmt)(geometry.x / f), 'number', 'step="any"')}${field('Y (' + model_1.S.template.unit + ')', 'y', (0, model_1.fmt)(geometry.y / f), 'number', 'step="any"')}${field('Width (' + model_1.S.template.unit + ')', 'w', (0, model_1.fmt)(geometry.w / f), 'number', 'min="0.01" step="any"')}${field('Height (' + model_1.S.template.unit + ')', 'h', (0, model_1.fmt)(geometry.h / f), 'number', 'min="0.01" step="any"')}</div><div class="small" style="padding:4px 0 12px" id="elementPixelReadout">${elementReadout()}</div>`;
@@ -961,7 +970,7 @@ function renderInspector() {
             `<div class="small" style="padding:0 0 12px">Turn this off for non-printing guides, such as cut lines and bleed markers. These elements appear only in the Template editor, not in Cards previews or PNG exports.</div>`;
     if (raw.kind === 'text') {
         if (model_1.S.mode === 'template')
-            html += `<div class="field"><label>Default text</label><textarea data-prop="text">${(0, model_1.escapeHTML)(e.text)}</textarea></div>`;
+            html += `<div class="field"><label>Default text</label><textarea ${editorScope()} data-prop="text">${(0, model_1.escapeHTML)(e.text)}</textarea></div>`;
         html += `<div class="section-title">Visibility</div>` + checkbox('Invisible if empty', 'invisibleIfEmpty', e.invisibleIfEmpty !== false) +
             `<div class="small" style="padding:0 0 10px">Hide this entire text box on cards where its spreadsheet or card text is blank (including its fill and border). Empty text remains editable in Template mode.</div>`;
         html += `<div class="section-title">Automatic text box sizing</div>` +
@@ -976,7 +985,7 @@ function renderInspector() {
             field('Bottom (' + unit + ')', 'gutterBottom', (0, model_1.fmt)((e.gutterBottom || 0) / factor), 'number', 'min="0" step="any"') +
             `</div><div class="small" style="padding:0 0 12px">Background and border cover the full box; the text stays inside these four clearances.</div>`;
         html += `<div class="section-title">Typography</div>`;
-        html += `<div class="field"><label>Font family</label><input data-prop="font" list="fontOptions" value="${(0, model_1.escapeHTML)(e.font)}"><datalist id="fontOptions">${knownFonts.map(x => `<option value="${(0, model_1.escapeHTML)(x)}"></option>`).join('')}</datalist></div><button class="secondary" style="margin:-4px 0 12px" data-action="scan-fonts">Find installed fonts</button>`;
+        html += `<div class="field"><label>Font family</label><input ${editorScope()} data-prop="font" list="fontOptions" value="${(0, model_1.escapeHTML)(e.font)}"><datalist id="fontOptions">${knownFonts.map(x => `<option value="${(0, model_1.escapeHTML)(x)}"></option>`).join('')}</datalist></div><button class="secondary" style="margin:-4px 0 12px" data-action="scan-fonts">Find installed fonts</button>`;
         html += `<div class="fields-two">${field('Font size (pt)', 'fontSize', e.fontSize, 'number', 'min="1" step="0.5"')}${selectionField('Weight', 'fontWeight', [[100, 'Thin'], [300, 'Light'], [400, 'Regular'], [500, 'Medium'], [600, 'Semibold'], [700, 'Bold'], [800, 'Extra bold'], [900, 'Black']], e.fontWeight)}</div>`;
         html += checkbox('Italic', 'italic', e.italic) + checkbox('Underline', 'underline', e.underline);
         html += `<div class="fields-two">${selectionField('Horizontal', 'align', [['left', 'Left'], ['center', 'Center'], ['right', 'Right']], e.align)}${selectionField('Vertical', 'valign', [['top', 'Top'], ['middle', 'Middle'], ['bottom', 'Bottom']], e.valign)}${field('Line height', 'lineHeight', e.lineHeight, 'number', 'min="0.5" max="4" step="0.05"')}${field('Letter spacing (px)', 'letterSpacing', e.letterSpacing, 'number', 'step="0.2"')}</div>${field('Text colour', 'color', e.color, 'color')}`;
