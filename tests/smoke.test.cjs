@@ -1,4 +1,4 @@
-const vm=require('vm'),fs=require('fs'),path=require('path');const JSZip=require('/opt/nvm/versions/node/v22.16.0/lib/node_modules/pptxgenjs/node_modules/jszip');
+const vm=require('vm'),fs=require('fs'),path=require('path');const JSZip=require('../vendor/jszip.min.js');
 let lastBlob=null,downloads=[];class MockEl{constructor(id){this.id=id;this.style={};this.dataset={};this.attrs={};this.children=[];this.files=[];this.classList={add(){},remove(){},toggle(){}};this.innerHTML='';this.textContent='';this.value='';this.disabled=false;this.listeners={};}addEventListener(type,handler){(this.listeners[type]??=[]).push(handler)}emit(type,event){for(const fn of this.listeners[type]??[])fn(event)}click(){}append(){}remove(){}setAttribute(k,v){this.attrs[k]=v}closest(){return null}}
 const nodes=new Map();const get=s=>{if(!nodes.has(s))nodes.set(s,new MockEl(s));return nodes.get(s)};
 const document={querySelector:get,querySelectorAll(){return[]},createElement(tag){return new MockEl(tag)},listeners:{},addEventListener(type,handler){(this.listeners[type]??=[]).push(handler)},body:{append(){}},activeElement:{tagName:'BODY'}};
