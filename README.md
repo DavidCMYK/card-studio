@@ -51,6 +51,34 @@ Pixel-unit templates are DPI-aware too: changing DPI preserves physical card siz
 
 The editor is written in TypeScript and uses the existing DOM-based canvas editor with a separate HTML5 Canvas export renderer. The renderer has **not** been replaced with Fabric.js; keeping the existing behavior intact was intentional for this structural refactor.
 
+## Deploy to Cloudflare Pages
+
+Connect this GitHub repository directly to **Cloudflare Pages** (Workers & Pages → Create application → Pages → Import an existing Git repository). No Cloudflare API token or additional GitHub Actions workflow is needed; Cloudflare builds on each push to the production branch and creates preview deployments for other branches or pull requests.
+
+Use these Cloudflare Pages settings:
+
+| Setting | Value |
+| --- | --- |
+| Framework preset | None |
+| Production branch | `main` |
+| Root directory | `/` (repository root) |
+| Build command | `npm run build:pages` |
+| Build output directory | `public` |
+| Node.js | 22 (`.node-version` in this repository) |
+
+The `build:pages` command first builds and tests the app, then assembles **only** `index.html`, `styles.css`, `dist/app.js` and `vendor/jszip.min.js` inside `public/`, preserving their paths. A failing test stops deployment. The `public/` directory is generated and ignored by Git.
+
+After the first deploy, Cloudflare provides a `*.pages.dev` URL. To put it on your domain, open the Pages project's **Custom domains** section and add your chosen subdomain (for example `cards.example.com`); follow Cloudflare's DNS instructions. Using a subdomain keeps the existing website unaffected.
+
+To check the deployment build locally:
+
+```sh
+npm install
+npm run build:pages
+```
+
+New commits to `main` will then automatically rebuild and publish the site. The browser editor still runs entirely on the visitor's device; projects and images are not uploaded to Cloudflare.
+
 ## Develop
 
 Requires Node.js and TypeScript (installed with the development dependencies):

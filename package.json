@@ -5,6 +5,7 @@
   "description": "Game card layout editor",
   "scripts": {
     "build": "tsc -p tsconfig.json && node scripts/bundle.cjs",
+    "build:pages": "npm test && node scripts/build-pages.cjs",
     "test": "npm run build && node --test tests/*.test.cjs",
     "check": "tsc -p tsconfig.json --noEmit"
   },
