@@ -23,6 +23,10 @@ export interface CardElement {
   italic: boolean; underline: boolean; color: string;
   align: 'left' | 'center' | 'right'; valign: 'top' | 'middle' | 'bottom';
   lineHeight: number; letterSpacing: number;
+  /** Auto-fit text separately along each axis. Missing means off (legacy compatibility). */
+  autoWidth?: boolean; autoHeight?: boolean;
+  /** Interior clearances in 96-DPI design pixels, excluding text but retaining fill/border. */
+  gutterLeft?: number; gutterRight?: number; gutterTop?: number; gutterBottom?: number;
   imageFit: 'cover' | 'contain' | 'width' | 'height' | 'stretch' | 'free';
   imgScale: number; imgOffsetX: number; imgOffsetY: number;
   autoSet: string; autoMode: 'cycle' | 'sequence' | 'random';
