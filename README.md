@@ -17,7 +17,7 @@ A browser-based card layout editor for creating game card templates, staging car
 - **Edge anchoring:** Link a shape or image frame to a text element, then lock individual left, right, top and bottom edges. Anchor distances follow moving or auto-sizing text, and two opposing anchors stretch the linked element without changing the template layout for other cards.
 - **Editor-only elements:** Select any element in Template mode and untick **Include in exported images**. Such layers remain in the Template editor (for cut lines, bleed markers and guides) but are hidden in Cards mode and excluded from all PNG exports. Older saved projects default to including their existing elements in exports.
 - Installed font selection (browser support/permission permitting), text formatting and image fitting options.
-- Named image sets with sequential, cycling and deterministic random placement.
+- Named image sets with sequential, cycling, deterministic random, or **Single Image** assignment. Single Image lets you select one filename from a chosen set and uses that same image on every card, regardless of spreadsheet image values.
 - Export an XLSX staging spreadsheet using text/image element names, then import completed XLSX or CSV card data.
 - Per-card layout and content overrides without changing the shared template.
 - File menu with New, Open, Save and Save As for projects and templates. In Chrome/Edge, browser-granted file handles let Save overwrite the previously opened or saved file; Save As selects a different filename. Other browsers use downloads and cannot overwrite an existing local file.
