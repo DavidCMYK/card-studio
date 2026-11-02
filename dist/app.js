@@ -462,8 +462,16 @@ function handleProp(input) {
         if (key === 'borderWidth')
             v = Math.max(0, v);
     }
-    if (model_1.S.selected)
+    if (model_1.S.selected) {
+        // Changing sets invalidates the previous fixed-image choice, even when
+        // both sets happen to contain identically named files.
+        if (key === 'autoSet' && model_1.S.mode === 'template') {
+            const image = (0, model_1.templateEl)(model_1.S.selected);
+            if (image?.kind === 'image' && image.autoSet !== v)
+                image.singleImage = '';
+        }
         (0, interface_1.patchElement)(model_1.S.selected, { [key]: v });
+    }
 }
 (0, dom_1.$)('#inspector').addEventListener('input', event => { const inp = event.target; if (inp.dataset.cardvalue) {
     const c = (0, model_1.card)();
@@ -597,6 +605,12 @@ exports.setImageUpdateHandler = setImageUpdateHandler;
 const getImageRef = (el, ci = model_1.S.cardIndex, mode = model_1.S.mode) => {
     if (el.kind !== 'image')
         return null;
+    // Fixed template images take priority over per-card spreadsheet image values.
+    // Return null for an unset or removed file: never silently choose another image.
+    if (el.autoMode === 'single') {
+        const set = model_1.S.sets.find(x => x.id === el.autoSet || x.name === el.autoSet);
+        return set?.images.find(im => im.name === el.singleImage) || null;
+    }
     const c = mode === 'cards' ? model_1.S.cards[ci] : null, manual = c?.values?.[el.id];
     if (manual !== undefined && String(manual).trim() !== '') {
         if (String(manual).toLowerCase() === 'none')
@@ -727,6 +741,8 @@ function renderInspector() {
         for (const e of entries) {
             if (e.kind === 'text')
                 out += `<div class="field"><label>${(0, model_1.escapeHTML)(e.name)}</label><textarea data-cardvalue="${e.id}" style="min-height:62px">${(0, model_1.escapeHTML)((0, model_1.actualValue)(e))}</textarea></div>`;
+            else if (e.autoMode === 'single')
+                out += '<div class="field"><label>'+(0, model_1.escapeHTML)(e.name)+' — fixed image</label><div class="small" style="padding:0">'+(0, model_1.escapeHTML)(e.singleImage || '(no image selected)')+' · Set in Template mode; identical on every card.</div></div>';
             else
                 out += `<div class="field"><label>${(0, model_1.escapeHTML)(e.name)} — image filename</label><input data-cardvalue="${e.id}" value="${(0, model_1.escapeHTML)((0, model_1.card)()?.values?.[e.id] || '')}" placeholder="Blank = automatic" list="allImageFiles"></div>`;
         }
@@ -763,7 +779,9 @@ function renderInspector() {
     if (model_1.S.mode === 'cards' && model_1.textKinds.includes(raw.kind)) {
         if (raw.kind === 'text')
             html += `<div class="field"><label>Card text</label><textarea data-cardvalue="${raw.id}">${(0, model_1.escapeHTML)((0, model_1.actualValue)(raw))}</textarea></div>`;
-        if (raw.kind === 'image')
+        if (raw.kind === 'image' && raw.autoMode === 'single')
+            html += '<div class="small" style="padding:0 0 10px">Fixed image: <b>'+(0, model_1.escapeHTML)(raw.singleImage || '(none selected)')+'</b>. Change it in Template mode; card-specific image values are ignored.</div>';
+        else if (raw.kind === 'image')
             html += `<div class="field"><label>Image filename (blank = automatic)</label><input data-cardvalue="${raw.id}" value="${(0, model_1.escapeHTML)((0, model_1.card)()?.values?.[raw.id] || '')}" list="imageFiles" placeholder="Set name/image.png"><datalist id="imageFiles">${model_1.S.sets.flatMap(s => s.images.map(im => `<option value="${(0, model_1.escapeHTML)(s.name + '/' + im.name)}"></option>`)).join('')}</datalist></div><div class="small" style="padding:0 0 10px">Enter <b>none</b> to leave this frame empty.</div>`;
     }
     const f = (0, model_1.unitFactor)(model_1.S.template.unit, model_1.S.template.dpi);
@@ -799,7 +817,15 @@ function renderInspector() {
         html += selectionField('Fit inside frame', 'imageFit', [['cover', 'Cover frame (crop)'], ['contain', 'Fit whole image'], ['width', 'Fit to frame width'], ['height', 'Fit to frame height'], ['stretch', 'Stretch to frame'], ['free', 'Free / original size']], e.imageFit);
         html += `<div class="fields-two">${field('Free resize scale', 'imgScale', e.imgScale, 'number', 'min="0.01" step="0.1"')}${field('Offset X (px)', 'imgOffsetX', e.imgOffsetX, 'number', 'step="1"')}${field('Offset Y (px)', 'imgOffsetY', e.imgOffsetY, 'number', 'step="1"')}</div>`;
         if (model_1.S.mode === 'template')
-            html += `${selectionField('Automatically use image set', 'autoSet', [['', 'None'], ...model_1.S.sets.map(x => [x.id, x.name])], e.autoSet)}${selectionField('Image assignment', 'autoMode', [['sequence', 'Sequential (no repeat)'], ['cycle', 'Cycle through set'], ['random', 'Deterministic random']], e.autoMode)}`;
+            html += `${selectionField('Automatically use image set', 'autoSet', [['', 'None'], ...model_1.S.sets.map(x => [x.id, x.name])], e.autoSet)}${selectionField('Image assignment', 'autoMode', [['sequence', 'Sequential (no repeat)'], ['cycle', 'Cycle through set'], ['random', 'Deterministic random'], ['single', 'Single Image (same on all cards)']], e.autoMode)}`;
+        if (model_1.S.mode === 'template' && e.autoMode === 'single') {
+            const set = model_1.S.sets.find(s => s.id === e.autoSet || s.name === e.autoSet);
+            if (set?.images.length) {
+                html += selectionField('Single image', 'singleImage', [['', 'Choose an image…'], ...set.images.map(im => [im.name, im.name])], e.singleImage || '');
+            }
+            else
+                html += '<div class="small" style="padding:0 0 10px">' + (set ? 'Add images to this set before choosing a fixed image.' : 'Choose an image set first.') + '</div>';
+        }
     }
     if (raw.kind === 'shape')
         html += `<div class="section-title">Shape</div>${selectionField('Shape', 'shape', [['rect', 'Rectangle'], ['ellipse', 'Ellipse']], e.shape)}`;
@@ -939,7 +965,7 @@ exports.fmt = fmt;
 const opacityFor = (e, component) => (0, exports.clamp)(Number(e[component] ?? e.opacity ?? 100) || 0, 0, 100) / 100;
 exports.opacityFor = opacityFor;
 exports.textKinds = ['text', 'image'];
-const makeElement = (kind, parts = {}) => ({ id: (0, exports.uid)(), kind, name: kind === 'text' ? 'Text' : kind === 'image' ? 'Artwork' : 'Shape', x: 22, y: 35, w: 195, h: 55, locked: false, hidden: false, includeInExport: true, invisibleIfEmpty: true, linkedTextId: '', anchorLeft: false, anchorRight: false, anchorTop: false, anchorBottom: false, shape: 'rect', radius: 0, fillMode: kind === 'shape' ? 'solid' : 'none', fill1: '#ffffff', fill2: '#dde5f1', gradientAngle: 90, borderWidth: 0, borderColor: '#233b58', opacity: 100, fillOpacity: 100, borderOpacity: 100, textOpacity: 100, text: 'Text', font: 'Georgia', fontSize: 19, fontWeight: 400, italic: false, underline: false, color: '#152b43', align: 'left', valign: 'middle', lineHeight: 1.18, letterSpacing: 0, autoWidth: false, autoHeight: false, gutterLeft: 0, gutterRight: 0, gutterTop: 0, gutterBottom: 0, imageFit: 'cover', imgScale: 1, imgOffsetX: 0, imgOffsetY: 0, autoSet: '', autoMode: 'cycle', ...parts });
+const makeElement = (kind, parts = {}) => ({ id: (0, exports.uid)(), kind, name: kind === 'text' ? 'Text' : kind === 'image' ? 'Artwork' : 'Shape', x: 22, y: 35, w: 195, h: 55, locked: false, hidden: false, includeInExport: true, invisibleIfEmpty: true, linkedTextId: '', anchorLeft: false, anchorRight: false, anchorTop: false, anchorBottom: false, shape: 'rect', radius: 0, fillMode: kind === 'shape' ? 'solid' : 'none', fill1: '#ffffff', fill2: '#dde5f1', gradientAngle: 90, borderWidth: 0, borderColor: '#233b58', opacity: 100, fillOpacity: 100, borderOpacity: 100, textOpacity: 100, text: 'Text', font: 'Georgia', fontSize: 19, fontWeight: 400, italic: false, underline: false, color: '#152b43', align: 'left', valign: 'middle', lineHeight: 1.18, letterSpacing: 0, autoWidth: false, autoHeight: false, gutterLeft: 0, gutterRight: 0, gutterTop: 0, gutterBottom: 0, imageFit: 'cover', imgScale: 1, imgOffsetX: 0, imgOffsetY: 0, autoSet: '', autoMode: 'cycle', singleImage: '', ...parts });
 exports.makeElement = makeElement;
 const initialElements = () => [
     (0, exports.makeElement)('shape', { name: 'Card background', x: 0, y: 0, w: (0, exports.px)(63, 'mm'), h: (0, exports.px)(88, 'mm'), fillMode: 'gradient', fill1: '#fcfaf4', fill2: '#dce7ed', gradientAngle: 180 }),
