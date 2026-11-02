@@ -4,17 +4,35 @@ import { renderStage } from './preview';
 import { layoutTextBox } from './text-layout';
 import { elementGeometry, offsetsForRect, anchorEdges } from './anchor-layout';
 export function renderCardControl(){const cc=$('#cardControl');cc.style.display=S.mode==='cards'?'flex':'none';if(S.mode!=='cards')return;cc.innerHTML=`<span style="font-weight:700;color:#62778f">CARD</span><button data-action="prev-card" title="Previous card">‹</button><select id="cardSelector">${S.cards.map((c,i)=>`<option value="${i}" ${i===S.cardIndex?'selected':''}>${escapeHTML(c.name)}</option>`).join('')}</select><button data-action="next-card" title="Next card">›</button><span style="color:#8a98a9;margin-left:auto">${S.cardIndex+1} / ${S.cards.length}</span>`}
-export function renderLeft(){const v=$('#leftBody');$('#btnTemplate').classList.toggle('active',S.mode==='template');$('#btnCards').classList.toggle('active',S.mode==='cards');let out='';
- if(S.mode==='cards'){
- out+=`<div class="side-head"><h2>STAGED CARDS</h2><button data-action="add-card">＋ Add card</button></div>`;
- out+='<div class="card-list">'+S.cards.map((c,i)=>`<div class="card-row ${i===S.cardIndex?'active':''}" data-cardindex="${i}"><span class="mini-art">${String(i+1).padStart(2,'0')}</span><span class="name">${escapeHTML(c.name)}<span class="sub">${Object.keys(c.overrides||{}).length?'Custom layout':'Template layout'}</span></span><button class="small-btn" data-action="duplicate-card" data-cardindex="${i}" title="Duplicate card">⧉</button></div>`).join('')+'</div>';
- out+=`<div class="actionbar"><button class="secondary" data-action="delete-card">Delete card</button><button class="secondary" data-action="reset-card">Reset layout edits</button></div><div class="rule"></div>`;
- }
- out+=`<div class="side-head"><h2>LAYERS</h2><span class="pill">${layerEls().filter(e=>S.mode==='template'||visibleOnCard(e,S.cardIndex,'cards')).length}</span></div><div class="small">Topmost layers are shown first. Select an element to edit it.</div>`;
- out+='<div class="layer-list">'+[...layerEls()].filter(e=>S.mode==='template'||visibleOnCard(e,S.cardIndex,'cards')).reverse().map(e=>`<div class="layer-row ${e.id===S.selected?'active':''}" data-layer="${e.id}"><span style="font-size:15px;color:#7b91ad">${e.kind==='text'?'T':e.kind==='image'?'▧':'◇'}</span><span class="name">${escapeHTML(e.name)}<span class="sub">${e.kind}${e.locked?' · locked':''}${!isExported(e)?' · editor only':''}</span></span></div>`).join('')+'</div>';
- out+=`<div class="rule"></div><div class="side-head"><h2>IMAGE SETS</h2><button data-action="add-set">＋ Load set</button></div><div class="small">Load multiple images as one set. Assign the set to an image frame, then choose sequential, cycling or random assignment.</div>`;
- out+='<div class="set-list">'+S.sets.map(set=>`<div class="asset-row"><div class="asset-title"><span>▧</span><span style="overflow:hidden;text-overflow:ellipsis">${escapeHTML(set.name)}</span><span class="count">${set.images.length} files</span></div><div class="asset-thumbs">${set.images.slice(0,6).map(x=>`<img alt="${escapeHTML(x.name)}" title="${escapeHTML(x.name)}" src="${x.data}">`).join('')}</div><div class="asset-actions"><button data-action="manage-images" data-set="${set.id}">Manage images</button><button data-action="remove-set" data-set="${set.id}">Delete set</button></div></div>`).join('')+'</div>';
+export function renderLeft(){
+ const v=$('#leftBody');
+ const templateButton=$('#btnTemplate'),cardsButton=$('#btnCards');
+ templateButton.classList.toggle('active',S.mode==='template');
+ cardsButton.classList.toggle('active',S.mode==='cards');
+ templateButton.setAttribute?.('aria-pressed',String(S.mode==='template'));
+ cardsButton.setAttribute?.('aria-pressed',String(S.mode==='cards'));
+ // Repaint on selection changes should never jump a toolbox back to its top.
+ const previousScroll=Object.fromEntries(['layersScroll','cardsScroll','setsScroll'].map(id=>[id,document.querySelector('#'+id)?.scrollTop||0]));
+ const layers=[...layerEls()].filter(e=>S.mode==='template'||visibleOnCard(e,S.cardIndex,'cards')).reverse();
+ let out=`<section class="sidebar-panel sidebar-layers" aria-label="Layers toolbox">
+  <div class="side-head"><h2>LAYERS</h2><span class="pill">${layers.length}</span></div>
+  <div class="sidebar-panel-scroll" id="layersScroll"><div class="small">Topmost layers are shown first. Select an element to edit it.</div>
+  <div class="layer-list">${layers.map(e=>`<div class="layer-row ${e.id===S.selected?'active':''}" data-layer="${e.id}"><span style="font-size:15px;color:#7b91ad">${e.kind==='text'?'T':e.kind==='image'?'▧':'◇'}</span><span class="name">${escapeHTML(e.name)}<span class="sub">${e.kind}${e.locked?' · locked':''}${!isExported(e)?' · editor only':''}</span></span></div>`).join('')}</div></div>
+ </section>`;
+ out+=`<section class="sidebar-panel sidebar-cards" aria-label="Staged cards toolbox">
+  <div class="side-head"><h2>STAGED CARDS</h2><button data-action="add-card">＋ Add card</button></div>
+  <div class="sidebar-panel-scroll" id="cardsScroll"><div class="card-list">${S.cards.map((c,i)=>`<div class="card-row ${S.mode==='cards'&&i===S.cardIndex?'active':''}" data-cardindex="${i}"><span class="mini-art">${String(i+1).padStart(2,'0')}</span><span class="name">${escapeHTML(c.name)}<span class="sub">${Object.keys(c.overrides||{}).length?'Custom layout':'Template layout'}</span></span><button class="small-btn" data-action="duplicate-card" data-cardindex="${i}" title="Duplicate card">⧉</button></div>`).join('')}</div></div>
+  ${S.mode==='cards'?'<div class="sidebar-panel-footer actionbar"><button class="secondary" data-action="delete-card">Delete card</button><button class="secondary" data-action="reset-card">Reset layout edits</button></div>':''}
+ </section>`;
+ out+=`<section class="sidebar-panel sidebar-sets" aria-label="Image sets toolbox">
+  <div class="side-head"><h2>IMAGE SETS</h2><button data-action="add-set">＋ Load set</button></div>
+  <div class="sidebar-panel-scroll" id="setsScroll"><div class="small">Load images into sets. Assign a set or a single image to an image frame.</div>
+  <div class="set-list">${S.sets.map(set=>`<div class="asset-row"><div class="asset-title"><span>▧</span><span style="overflow:hidden;text-overflow:ellipsis">${escapeHTML(set.name)}</span><span class="count">${set.images.length} files</span></div><div class="asset-thumbs">${set.images.slice(0,6).map(x=>`<img alt="${escapeHTML(x.name)}" title="${escapeHTML(x.name)}" src="${x.data}">`).join('')}</div><div class="asset-actions"><button data-action="manage-images" data-set="${set.id}">Manage images</button><button data-action="remove-set" data-set="${set.id}">Delete set</button></div></div>`).join('')}</div></div>
+ </section>`;
  v.innerHTML=out;
+ for(const [id,offset] of Object.entries(previousScroll)){
+  const panel=document.querySelector('#'+id);if(panel)panel.scrollTop=offset;
+ }
 }
 // Bind fields to the element and card for which they were rendered. A delayed
 // blur/change after selection changes must not edit the newly selected element.
@@ -167,7 +185,7 @@ export function patchElement(id,patch){
   else{c.overrides??={};c.overrides[id]={...(c.overrides[id]||{}),...p}}
  }else Object.assign(raw,p);
 }
-export function chooseCard(i){S.cardIndex=clamp(i,0,S.cards.length-1);S.selected=null;repaint()}
+export function chooseCard(i){S.mode='cards';S.cardIndex=clamp(i,0,S.cards.length-1);S.selected=null;repaint()}
 export function addElement(kind){const {w,h}=sizePx(),n=S.template.elements.filter(e=>e.kind===kind).length+1;const e=makeElement(kind,{name:uniqName(kind==='text'?`Text ${n}`:kind==='image'?`Image ${n}`:`Shape ${n}`),x:Math.round(w*.15),y:Math.round(h*.15),w:Math.round(w*.7),h:kind==='image'?Math.round(h*.38):kind==='shape'?Math.round(h*.17):65,text:'New text',fontSize:18});if(S.mode==='cards'){card().extraElements??=[];card().extraElements.push(e)}else S.template.elements.push(e);S.selected=e.id;repaint()}
 
 
