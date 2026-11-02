@@ -396,6 +396,17 @@ function mutateAction(action, el = null) {
         case 'export-all':
             (0, png_export_1.exportAll)();
             break;
+        case 'image-rotate-left':
+        case 'image-rotate-right': {
+            const raw = (0, model_1.templateEl)(model_1.S.selected);
+            if (!raw || raw.kind !== 'image')
+                break;
+            const current = (0, model_1.effective)(raw), step = action === 'image-rotate-left' ? -90 : 90;
+            const angle = ((Number(current.imgRotation || 0) + step) % 360 + 360) % 360;
+            (0, interface_1.patchElement)(raw.id, { imgRotation: angle });
+            (0, interface_1.repaint)();
+            break;
+        }
         case 'scan-fonts':
             scanFonts();
             break;
@@ -467,7 +478,7 @@ function handleProp(input) {
         if (key.startsWith('gutter'))
             v = Math.max(0, v);
     }
-    else if (['fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'borderWidth', 'radius', 'opacity', 'fillOpacity', 'borderOpacity', 'textOpacity', 'gradientAngle', 'imgScale', 'imgOffsetX', 'imgOffsetY'].includes(key)) {
+    else if (['fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'borderWidth', 'radius', 'opacity', 'fillOpacity', 'borderOpacity', 'textOpacity', 'gradientAngle', 'imgScale', 'imgOffsetX', 'imgOffsetY', 'imgRotation'].includes(key)) {
         v = Number(v);
         if (['opacity', 'fillOpacity', 'borderOpacity', 'textOpacity'].includes(key))
             v = (0, model_1.clamp)(v, 0, 100);
@@ -994,6 +1005,12 @@ function renderInspector() {
         html += `<div class="section-title">Image options</div>`;
         html += selectionField('Fit inside frame', 'imageFit', [['cover', 'Cover frame (crop)'], ['contain', 'Fit whole image'], ['width', 'Fit to frame width'], ['height', 'Fit to frame height'], ['stretch', 'Stretch to frame'], ['free', 'Free / original size']], e.imageFit);
         html += `<div class="fields-two">${field('Free resize scale', 'imgScale', e.imgScale, 'number', 'min="0.01" step="0.1"')}${field('Offset X (px)', 'imgOffsetX', e.imgOffsetX, 'number', 'step="1"')}${field('Offset Y (px)', 'imgOffsetY', e.imgOffsetY, 'number', 'step="1"')}</div>`;
+        html += `<div class="section-title">Image transform</div>` +
+            checkbox('Flip horizontally', 'imgFlipX', e.imgFlipX === true) +
+            checkbox('Flip vertically', 'imgFlipY', e.imgFlipY === true) +
+            field('Rotation (degrees, clockwise)', 'imgRotation', e.imgRotation ?? 0, 'number', 'step="1"') +
+            `<div class="asset-actions" style="margin:0 0 12px"><button class="secondary" data-action="image-rotate-left">Rotate 90° left</button><button class="secondary" data-action="image-rotate-right">Rotate 90° right</button></div>`;
+        html += `<div class="small" style="padding:0 0 12px">Transforms the image inside its frame. The frame, crop boundary, and border remain unchanged.</div>`;
         if (model_1.S.mode === 'template')
             html += `${selectionField('Automatically use image set', 'autoSet', [['', 'None'], ...model_1.S.sets.map(x => [x.id, x.name])], e.autoSet)}${selectionField('Image assignment', 'autoMode', [['sequence', 'Sequential (no repeat)'], ['cycle', 'Cycle through set'], ['random', 'Deterministic random'], ['single', 'Single Image (same on all cards)']], e.autoMode)}`;
         if (model_1.S.mode === 'template' && e.autoMode === 'single') {
@@ -1143,7 +1160,7 @@ exports.fmt = fmt;
 const opacityFor = (e, component) => (0, exports.clamp)(Number(e[component] ?? e.opacity ?? 100) || 0, 0, 100) / 100;
 exports.opacityFor = opacityFor;
 exports.textKinds = ['text', 'image'];
-const makeElement = (kind, parts = {}) => ({ id: (0, exports.uid)(), kind, name: kind === 'text' ? 'Text' : kind === 'image' ? 'Artwork' : 'Shape', x: 22, y: 35, w: 195, h: 55, locked: false, hidden: false, includeInExport: true, invisibleIfEmpty: true, linkedTextId: '', anchorLeft: false, anchorRight: false, anchorTop: false, anchorBottom: false, shape: 'rect', radius: 0, fillMode: kind === 'shape' ? 'solid' : 'none', fill1: '#ffffff', fill2: '#dde5f1', gradientAngle: 90, borderWidth: 0, borderColor: '#233b58', opacity: 100, fillOpacity: 100, borderOpacity: 100, textOpacity: 100, text: 'Text', font: 'Georgia', fontSize: 19, fontWeight: 400, italic: false, underline: false, color: '#152b43', align: 'left', valign: 'middle', lineHeight: 1.18, letterSpacing: 0, autoWidth: false, autoHeight: false, gutterLeft: 0, gutterRight: 0, gutterTop: 0, gutterBottom: 0, imageFit: 'cover', imgScale: 1, imgOffsetX: 0, imgOffsetY: 0, autoSet: '', autoMode: 'cycle', singleImage: '', ...parts });
+const makeElement = (kind, parts = {}) => ({ id: (0, exports.uid)(), kind, name: kind === 'text' ? 'Text' : kind === 'image' ? 'Artwork' : 'Shape', x: 22, y: 35, w: 195, h: 55, locked: false, hidden: false, includeInExport: true, invisibleIfEmpty: true, linkedTextId: '', anchorLeft: false, anchorRight: false, anchorTop: false, anchorBottom: false, shape: 'rect', radius: 0, fillMode: kind === 'shape' ? 'solid' : 'none', fill1: '#ffffff', fill2: '#dde5f1', gradientAngle: 90, borderWidth: 0, borderColor: '#233b58', opacity: 100, fillOpacity: 100, borderOpacity: 100, textOpacity: 100, text: 'Text', font: 'Georgia', fontSize: 19, fontWeight: 400, italic: false, underline: false, color: '#152b43', align: 'left', valign: 'middle', lineHeight: 1.18, letterSpacing: 0, autoWidth: false, autoHeight: false, gutterLeft: 0, gutterRight: 0, gutterTop: 0, gutterBottom: 0, imageFit: 'cover', imgScale: 1, imgOffsetX: 0, imgOffsetY: 0, imgFlipX: false, imgFlipY: false, imgRotation: 0, autoSet: '', autoMode: 'cycle', singleImage: '', ...parts });
 exports.makeElement = makeElement;
 const initialElements = () => [
     (0, exports.makeElement)('shape', { name: 'Card background', x: 0, y: 0, w: (0, exports.px)(63, 'mm'), h: (0, exports.px)(88, 'mm'), fillMode: 'gradient', fill1: '#fcfaf4', fill2: '#dce7ed', gradientAngle: 180 }),
@@ -1342,7 +1359,17 @@ async function canvasCard(ci, mode = 'cards') {
                 makeShapePath(ctx, e);
                 ctx.clip();
                 const bb = (0, image_sets_1.imgBox)(e, img);
-                ctx.drawImage(img, e.x + bb.x, e.y + bb.y, bb.w, bb.h);
+                // Mirror and rotate only the image pixels, about the frame centre. Its
+                // background, crop shape and border stay in their original positions.
+                const angle = Number(e.imgRotation) || 0, sx = e.imgFlipX === true ? -1 : 1, sy = e.imgFlipY === true ? -1 : 1;
+                if (angle || sx < 0 || sy < 0) {
+                    ctx.translate(e.x + e.w / 2, e.y + e.h / 2);
+                    ctx.rotate(angle * Math.PI / 180);
+                    ctx.scale(sx, sy);
+                    ctx.drawImage(img, bb.x - e.w / 2, bb.y - e.h / 2, bb.w, bb.h);
+                }
+                else
+                    ctx.drawImage(img, e.x + bb.x, e.y + bb.y, bb.w, bb.h);
                 ctx.restore();
             }
         }
@@ -1396,7 +1423,11 @@ function renderStage() {
             const im = (0, image_sets_1.cacheImage)(src);
             if (src && im?.loaded) {
                 const box = (0, image_sets_1.imgBox)({ ...e, ...geom }, im.im);
-                content = `<div class="image-content"><img alt="" draggable="false" src="${src}" style="left:${box.x * z}px;top:${box.y * z}px;width:${box.w * z}px;height:${box.h * z}px"></div>`;
+                // The image is transformed around the FRAME centre, not its cropped bounds.
+                // Pixel transform-origin allows this to work with offsets and all fit modes.
+                const angle = Number(e.imgRotation) || 0, sx = e.imgFlipX === true ? -1 : 1, sy = e.imgFlipY === true ? -1 : 1;
+                const transform = angle || sx < 0 || sy < 0 ? `transform-origin:${(geom.w / 2 - box.x) * z}px ${(geom.h / 2 - box.y) * z}px;transform:rotate(${angle}deg) scale(${sx},${sy});` : '';
+                content = `<div class="image-content"><img alt="" draggable="false" src="${src}" style="left:${box.x * z}px;top:${box.y * z}px;width:${box.w * z}px;height:${box.h * z}px;${transform}"></div>`;
             }
             else
                 content = `<div class="missing">${src ? 'Loading image…' : `IMAGE FRAME<br>${(0, model_1.escapeHTML)(raw.name)}`}</div>`;
