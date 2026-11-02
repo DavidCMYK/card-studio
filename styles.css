@@ -10,3 +10,19 @@
 .top .file-menu-panel button{display:block;width:100%;padding:9px 12px;background:transparent;color:#233851;border:0;border-radius:5px;text-align:left;font-weight:500;font-size:13px}
 .top .file-menu-panel button:hover,.top .file-menu-panel button:focus-visible{background:#e9f2ff;color:#174f9c}
 .file-menu-rule{height:1px;background:#e4e9f0;margin:5px 7px}
+
+/* Image-set manager */
+.image-manager-backdrop{position:fixed;inset:0;background:#0b1c32a8;z-index:200;display:grid;place-items:center;padding:22px}
+.image-manager{width:min(760px,100%);max-height:min(85vh,850px);background:#fff;border:1px solid #c7d5e4;border-radius:12px;box-shadow:0 16px 55px #06142d55;display:flex;flex-direction:column;overflow:hidden}
+.image-manager-header{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:18px 20px;border-bottom:1px solid #dce4ed}
+.image-manager-header h2{font-size:18px;margin:0 0 4px;color:#243850}
+.image-manager-header span,.image-manager-tools span{color:#6f8195;font-size:12px}
+.image-manager-tools{padding:12px 20px;display:flex;gap:12px;align-items:center;border-bottom:1px solid #e5ebf3;flex-wrap:wrap}
+.image-manager-list{overflow:auto;padding:8px 20px 20px;min-height:80px}
+.image-manager-item{display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid #e8edf3}
+.image-manager-item img{flex:none;width:70px;height:70px;object-fit:contain;background:#e9eef5;border:1px solid #d8e0e9;border-radius:6px}
+.image-manager-detail{flex:1;min-width:0}.image-manager-detail label{font-size:11px;color:#657a91;display:block;margin-bottom:5px}
+.image-manager-detail input{width:100%;min-width:0;border:1px solid #d6dfea;border-radius:6px;padding:9px 10px;color:#243850;font-size:13px}
+.image-manager-actions{display:flex;gap:6px;flex-wrap:wrap}.image-manager-actions .danger{color:#b33540}
+.image-manager-empty{text-align:center;padding:38px 10px;color:#74839a}
+@media(max-width:640px){.image-manager-item{flex-wrap:wrap}.image-manager-detail{min-width:160px}.image-manager-actions{width:100%;justify-content:flex-end}}
