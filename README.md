@@ -74,3 +74,5 @@ This is an initial editor. Check the export output and dimensions before product
 ### Save and Save As
 
 In **File**, choose **Save template** to write back to the template that was opened or previously saved via the browser's native file picker. **Save template as…** always asks for a location/name, then subsequent saves target the new file. Projects have independent Save and Save As destinations. The browser may ask permission before writing, and file handles are only retained during the current editor session; reopen the file after restarting the editor. In browsers without the File System Access API, Save downloads a new copy rather than overwriting, because websites are not allowed to modify arbitrary local files.
+
+- Workspace panels: Template/Cards stays in the top toolbar; Layers, Staged Cards, and Image Sets are independent scrollable toolboxes with persistent scroll positions. Click a card in the toolbox to open it in Cards mode.
