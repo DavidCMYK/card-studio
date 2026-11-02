@@ -59,6 +59,7 @@ const spreadsheet_1 = require("./spreadsheet");
 const project_storage_1 = require("./project-storage");
 const assets_1 = require("./assets");
 const text_layout_1 = require("./text-layout");
+const resize_1 = require("./resize");
 (0, image_sets_1.setImageUpdateHandler)(preview_1.renderStage);
 let elementClipboard = null;
 // This is an internal element clipboard, independent of the system text clipboard.
@@ -450,24 +451,16 @@ stage.addEventListener('pointerdown', e => { if (e.button !== 0)
     clearSelection();
     return;
 } const id = node.dataset.id; model_1.S.selected = id; (0, interface_1.renderInspector)(); (0, interface_1.renderLeft)(); const el = (0, model_1.effective)((0, model_1.templateEl)(id)); const handle = e.target.closest('[data-handle]')?.dataset.handle || null; (0, preview_1.renderStage)(); if (el.locked)
-    return; drag = { id, type: handle ? 'resize' : 'move', handle, initialX: e.clientX, initialY: e.clientY, x: el.x, y: el.y, w: el.w, h: el.h, visual: el.kind === 'text' ? (0, text_layout_1.layoutTextBox)(el, (0, model_1.actualValue)((0, model_1.templateEl)(id))) : el }; e.preventDefault(); });
+    return; drag = { id, type: handle ? 'resize' : 'move', handle, initialX: e.clientX, initialY: e.clientY, x: el.x, y: el.y, w: el.w, h: el.h, visual: el.kind === 'text' ? (0, text_layout_1.layoutTextBox)(el, (0, model_1.actualValue)((0, model_1.templateEl)(id))) : { x: el.x, y: el.y, w: el.w, h: el.h }, lockAspect: (0, resize_1.locksImageCornerAspect)(el.kind, el.imageFit, handle) }; e.preventDefault(); });
 document.addEventListener('pointermove', e => { if (!drag)
     return; const { w, h } = (0, model_1.sizePx)(), dx = (e.clientX - drag.initialX) / model_1.S.zoom, dy = (e.clientY - drag.initialY) / model_1.S.zoom; let patch; if (drag.type === 'resize') {
-    let left = drag.visual.x, top = drag.visual.y, right = drag.visual.x + drag.visual.w, bottom = drag.visual.y + drag.visual.h;
-    const maxRight = w * 3, maxBottom = h * 3, minSize = 5, handle = drag.handle || 'se';
-    if (handle.includes('w'))
-        left = (0, model_1.clamp)(Math.round(drag.visual.x + dx), -drag.w + 4, right - minSize);
-    if (handle.includes('e'))
-        right = (0, model_1.clamp)(Math.round(drag.visual.x + drag.visual.w + dx), left + minSize, maxRight);
-    if (handle.includes('n'))
-        top = (0, model_1.clamp)(Math.round(drag.visual.y + dy), -drag.h + 4, bottom - minSize);
-    if (handle.includes('s'))
-        bottom = (0, model_1.clamp)(Math.round(drag.visual.y + drag.visual.h + dy), top + minSize, maxBottom);
+    const rect = (0, resize_1.resizedRect)(drag.visual, drag.handle || 'se', dx, dy, { w, h }, drag.lockAspect);
+    const handle = drag.handle || 'se';
     patch = {};
     if (handle.includes('w') || handle.includes('e'))
-        Object.assign(patch, { x: left, w: right - left, autoWidth: false });
+        Object.assign(patch, { x: rect.x, w: rect.w, autoWidth: false });
     if (handle.includes('n') || handle.includes('s'))
-        Object.assign(patch, { y: top, h: bottom - top, autoHeight: false });
+        Object.assign(patch, { y: rect.y, h: rect.h, autoHeight: false });
 }
 else
     patch = { x: Math.round((0, model_1.clamp)(drag.x + dx, -drag.w + 4, w - 4)), y: Math.round((0, model_1.clamp)(drag.y + dy, -drag.h + 4, h - 4)) }; (0, interface_1.patchElement)(drag.id, patch); (0, preview_1.renderStage)(); (0, interface_1.renderInspector)(); });
@@ -961,21 +954,41 @@ else if (e.radius > 0 && ctx.roundRect)
 else
     ctx.rect(e.x, e.y, e.w, e.h); }
 function canvasFillShape(ctx, e) { ctx.save(); makeShapePath(ctx, e); ctx.clip(); fillCanvas(ctx, e, e.x, e.y, e.w, e.h); ctx.restore(); }
-function canvasDrawText(ctx,e,value,layout) {
- ctx.save();ctx.beginPath();ctx.rect(e.x+layout.left,e.y+layout.top,layout.innerW,layout.innerH);ctx.clip();
- ctx.font=`${e.italic?'italic ':''}${e.fontWeight||400} ${layout.fontPx}px "${String(e.font||'Georgia').replace(/"/g,'')}"`;
- ctx.fillStyle=e.color;ctx.textBaseline='top';
- if('letterSpacing' in ctx)ctx.letterSpacing=(e.letterSpacing||0)+'px';
- const {lines,linePx,fontPx}=layout;
- let y=e.y+layout.top+(e.valign==='bottom'?layout.innerH-layout.textHeight:e.valign==='middle'?(layout.innerH-layout.textHeight)/2:0);
- let x=e.x+layout.left;
- ctx.textAlign=e.align==='center'?'center':e.align==='right'?'right':'left';
- if(e.align==='center')x+=layout.innerW/2;else if(e.align==='right')x+=layout.innerW;
- for(const line of lines){if(y+linePx>e.y+layout.top&&y<e.y+e.h-layout.bottom){
-  ctx.fillText(line,x,y);
-  if(e.underline){const tw=ctx.measureText(line).width;const ux=e.align==='center'?x-tw/2:e.align==='right'?x-tw:x;ctx.beginPath();ctx.moveTo(ux,y+fontPx*1.02);ctx.lineTo(ux+tw,y+fontPx*1.02);ctx.lineWidth=Math.max(.6,fontPx/18);ctx.strokeStyle=e.color;ctx.stroke()}
- }y+=linePx}
- ctx.restore();
+function canvasDrawText(ctx, e, value, layout) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(e.x + layout.left, e.y + layout.top, layout.innerW, layout.innerH);
+    ctx.clip();
+    ctx.font = `${e.italic ? 'italic ' : ''}${e.fontWeight || 400} ${layout.fontPx}px "${String(e.font || 'Georgia').replace(/"/g, '')}"`;
+    ctx.fillStyle = e.color;
+    ctx.textBaseline = 'top';
+    if ('letterSpacing' in ctx)
+        ctx.letterSpacing = (e.letterSpacing || 0) + 'px';
+    const { lines, linePx, fontPx } = layout;
+    let y = e.y + layout.top + (e.valign === 'bottom' ? layout.innerH - layout.textHeight : e.valign === 'middle' ? (layout.innerH - layout.textHeight) / 2 : 0);
+    let x = e.x + layout.left;
+    ctx.textAlign = e.align === 'center' ? 'center' : e.align === 'right' ? 'right' : 'left';
+    if (e.align === 'center')
+        x += layout.innerW / 2;
+    else if (e.align === 'right')
+        x += layout.innerW;
+    for (const line of lines) {
+        if (y + linePx > e.y + layout.top && y < e.y + e.h - layout.bottom) {
+            ctx.fillText(line, x, y);
+            if (e.underline) {
+                const tw = ctx.measureText(line).width;
+                const ux = e.align === 'center' ? x - tw / 2 : e.align === 'right' ? x - tw : x;
+                ctx.beginPath();
+                ctx.moveTo(ux, y + fontPx * 1.02);
+                ctx.lineTo(ux + tw, y + fontPx * 1.02);
+                ctx.lineWidth = Math.max(.6, fontPx / 18);
+                ctx.strokeStyle = e.color;
+                ctx.stroke();
+            }
+        }
+        y += linePx;
+    }
+    ctx.restore();
 }
 async function canvasCard(ci, mode = 'cards') {
     const { w, h } = (0, model_1.sizePx)(), { w: W, h: H } = (0, model_1.templateExportSize)();
@@ -1251,6 +1264,58 @@ async function openJSON(file, onlyTemplate = false, handle = null) {
 }
 
 },
+"resize": function(module, exports, require) {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.resizedRect = resizedRect;
+exports.locksImageCornerAspect = locksImageCornerAspect;
+const clamp = (n, a, b) => Math.max(a, Math.min(n, b));
+const precision = (n) => Math.round(n * 1000) / 1000;
+/**
+ * Opposite edges/corners stay anchored. Side handles track the pointer directly.
+ * For corner aspect-lock, the pointer delta is projected onto the original
+ * rectangle's aspect-ratio diagonal (the nearest constrained handle position).
+ * No previously computed rectangle is used as a new drag origin.
+ */
+function resizedRect(start, handle, dx, dy, stage, lockCornerAspect = false) {
+    const west = handle.includes('w'), east = handle.includes('e');
+    const north = handle.includes('n'), south = handle.includes('s');
+    const right = start.x + start.w, bottom = start.y + start.h;
+    const minSize = 5;
+    const minLeft = -start.w + 4, minTop = -start.h + 4;
+    const maxRight = stage.w * 3, maxBottom = stage.h * 3;
+    if (lockCornerAspect && (west || east) && (north || south) && start.w > 0 && start.h > 0) {
+        const dw = (east ? 1 : -1) * dx;
+        const dh = (south ? 1 : -1) * dy;
+        // Orthogonal projection onto the scale direction. This handles drags in
+        // either direction, including reversing before pointerup, without drift.
+        const scaleDelta = (start.w * dw + start.h * dh) / (start.w * start.w + start.h * start.h);
+        const widthLimit = east ? maxRight - start.x : right - minLeft;
+        const heightLimit = south ? maxBottom - start.y : bottom - minTop;
+        const minScale = Math.max(minSize / start.w, minSize / start.h);
+        const maxScale = Math.max(minScale, Math.min(widthLimit / start.w, heightLimit / start.h));
+        const scale = clamp(1 + scaleDelta, minScale, maxScale);
+        const width = start.w * scale, height = start.h * scale;
+        return { x: precision(west ? right - width : start.x), y: precision(north ? bottom - height : start.y), w: precision(width), h: precision(height) };
+    }
+    let left = start.x, top = start.y, r = right, b = bottom;
+    if (west)
+        left = clamp(start.x + dx, minLeft, right - minSize);
+    if (east)
+        r = clamp(right + dx, start.x + minSize, maxRight);
+    if (north)
+        top = clamp(start.y + dy, minTop, bottom - minSize);
+    if (south)
+        b = clamp(bottom + dy, start.y + minSize, maxBottom);
+    return { x: precision(left), y: precision(top), w: precision(r - left), h: precision(b - top) };
+}
+/** Preserve image/frame proportions only for fit modes when a corner is dragged. */
+function locksImageCornerAspect(kind, fit, handle) {
+    return kind === 'image' && /^(nw|ne|sw|se)$/.test(handle) &&
+        ['contain', 'cover', 'width', 'height'].includes(fit);
+}
+
+},
 "spreadsheet": function(module, exports, require) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -1391,62 +1456,102 @@ catch (err) {
 } }
 
 },
-
 "text-layout": function(module, exports, require) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.layoutTextBox = layoutTextBox;
-const margin=n=>Math.max(0,Number(n)||0);
-const fontCSS=(e,size)=>`${e.italic?'italic ':''}${e.fontWeight||400} ${size}px "${String(e.font||'Georgia').replace(/["\\]/g,'')}"`;
-const cache=new WeakMap();
-function measureContext(){
- if(typeof document==='undefined')return null;
- let ctx=cache.get(document);
- if(!ctx){ctx=document.createElement('canvas')?.getContext?.('2d')||null;if(ctx)cache.set(document,ctx);}
- return ctx||null;
+const margin = (n) => Math.max(0, Number(n) || 0);
+const isFinitePositive = (n) => Number.isFinite(n) && n > 0;
+function fontCSS(e, size) {
+    const name = String(e.font || 'Georgia').replace(/["\\]/g, '');
+    return `${e.italic ? 'italic ' : ''}${e.fontWeight || 400} ${size}px "${name}"`;
 }
-function widthOf(text,ctx,size,spacing){
- const base=ctx?.measureText?.(text)?.width??[...text].length*size*.53;
- return Math.max(0,base+(ctx&&'letterSpacing' in ctx?0:Math.max(0,[...text].length-1)*spacing));
+const canvasCache = new WeakMap();
+function measureContext() {
+    if (typeof document === 'undefined')
+        return null;
+    let ctx = canvasCache.get(document);
+    if (!ctx) {
+        ctx = document.createElement('canvas')?.getContext?.('2d') || null;
+        if (ctx)
+            canvasCache.set(document, ctx);
+    }
+    return ctx || null;
 }
-function lineWrap(value,maxWidth,width){
- const result=[];
- for(const para of String(value??'').replace(/\r\n?/g,'\n').split('\n')){
-  if(!para){result.push('');continue;}
-  let line='';
-  for(const word of para.split(/\s+/)){
-   if(width(word)>maxWidth){
-    if(line){result.push(line);line='';}
-    let part='';
-    for(const ch of [...word]){if(part&&width(part+ch)>maxWidth){result.push(part);part=ch;}else part+=ch;}
-    line=part;
-   }else if(line&&width(line+' '+word)>maxWidth){result.push(line);line=word;}
-   else line+=(line?' ':'')+word;
-  }
-  result.push(line);
- }
- return result;
+function widthOf(text, ctx, size, spacing) {
+    const base = ctx?.measureText?.(text)?.width ?? [...text].length * size * .53;
+    // Some 2D contexts do not support letterSpacing. Emulate CSS spacing in that case.
+    const extra = ctx && 'letterSpacing' in ctx ? 0 : Math.max(0, [...text].length - 1) * spacing;
+    return Math.max(0, base + extra);
 }
-function layoutTextBox(e,value){
- const fontPx=Math.max(1,Number(e.fontSize)||16)*96/72;
- const linePx=fontPx*(Number.isFinite(Number(e.lineHeight))&&Number(e.lineHeight)>0?Number(e.lineHeight):1.2);
- const left=margin(e.gutterLeft),right=margin(e.gutterRight),top=margin(e.gutterTop),bottom=margin(e.gutterBottom);
- const ctx=measureContext(),spacing=Number(e.letterSpacing)||0;
- if(ctx){ctx.font=fontCSS(e,fontPx);if('letterSpacing' in ctx)ctx.letterSpacing=spacing+'px';}
- const measure=t=>widthOf(t,ctx,fontPx,spacing);
- const str=String(value??'').replace(/\r\n?/g,'\n');
- const autoW=e.autoWidth===true,autoH=e.autoHeight===true;
- const naturalLines=str.split('\n');
- const maxLine=Math.max(0,...naturalLines.map(measure));
- const w=autoW?Math.max(1,Math.ceil(maxLine+left+right+2)):Math.max(1,e.w);
- const innerW=Math.max(1,w-left-right);
- const lines=autoW?naturalLines:lineWrap(str,innerW,measure);
- const textHeight=lines.length*linePx;
- const h=autoH?Math.max(1,Math.ceil(textHeight+top+bottom)):Math.max(1,e.h);
- const x=e.x+(autoW?(e.align==='right'?e.w-w:e.align==='center'?(e.w-w)/2:0):0);
- const y=e.y+(autoH?(e.valign==='bottom'?e.h-h:e.valign==='middle'?(e.h-h)/2:0):0);
- return {x,y,w,h,left,right,top,bottom,innerW,innerH:Math.max(1,h-top-bottom),fontPx,linePx,lines,textHeight};
+function lineWrap(value, maxWidth, width) {
+    const result = [];
+    for (const para of String(value ?? '').replace(/\r\n?/g, '\n').split('\n')) {
+        if (!para) {
+            result.push('');
+            continue;
+        }
+        let line = '';
+        for (const word of para.split(/\s+/)) {
+            if (width(word) > maxWidth) {
+                if (line) {
+                    result.push(line);
+                    line = '';
+                }
+                let part = '';
+                for (const ch of [...word]) {
+                    if (part && width(part + ch) > maxWidth) {
+                        result.push(part);
+                        part = ch;
+                    }
+                    else
+                        part += ch;
+                }
+                line = part;
+            }
+            else if (line && width(line + ' ' + word) > maxWidth) {
+                result.push(line);
+                line = word;
+            }
+            else
+                line += (line ? ' ' : '') + word;
+        }
+        result.push(line);
+    }
+    return result;
 }
+/**
+ * Stored x/y/w/h define the anchor rectangle. Auto width grows right from a left
+ * anchor, symmetrically from centre, or left from a right anchor. Auto height grows
+ * down from top, symmetrically from middle, or up from bottom.
+ * All computed dimensions are transient, so per-card text never changes the template.
+ */
+function layoutTextBox(e, value) {
+    const fontPx = Math.max(1, Number(e.fontSize) || 16) * 96 / 72;
+    const linePx = fontPx * (isFinitePositive(Number(e.lineHeight)) ? Number(e.lineHeight) : 1.2);
+    const left = margin(e.gutterLeft), right = margin(e.gutterRight), top = margin(e.gutterTop), bottom = margin(e.gutterBottom);
+    const ctx = measureContext();
+    const spacing = Number(e.letterSpacing) || 0;
+    if (ctx) {
+        ctx.font = fontCSS(e, fontPx);
+        if ('letterSpacing' in ctx)
+            ctx.letterSpacing = spacing + 'px';
+    }
+    const measure = (t) => widthOf(t, ctx, fontPx, spacing);
+    const str = String(value ?? '').replace(/\r\n?/g, '\n');
+    const autoW = e.autoWidth === true, autoH = e.autoHeight === true;
+    const naturalLines = str.split('\n');
+    const maxLine = Math.max(0, ...naturalLines.map(measure));
+    const w = autoW ? Math.max(1, Math.ceil(maxLine + left + right + 2)) : Math.max(1, e.w);
+    const innerW = Math.max(1, w - left - right);
+    const lines = autoW ? naturalLines : lineWrap(str, innerW, measure);
+    const textHeight = lines.length * linePx;
+    const h = autoH ? Math.max(1, Math.ceil(textHeight + top + bottom)) : Math.max(1, e.h);
+    const x = e.x + (autoW ? (e.align === 'right' ? e.w - w : e.align === 'center' ? (e.w - w) / 2 : 0) : 0);
+    const y = e.y + (autoH ? (e.valign === 'bottom' ? e.h - h : e.valign === 'middle' ? (e.h - h) / 2 : 0) : 0);
+    return { x, y, w, h, left, right, top, bottom, innerW, innerH: Math.max(1, h - top - bottom), fontPx, linePx, lines, textHeight };
+}
+
 },
 "types": function(module, exports, require) {
 "use strict";
