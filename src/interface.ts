@@ -1,6 +1,7 @@
 import { S, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, clamp, px, fmt, sizePx, makeElement, textKinds, escapeHTML, unitFactor, exportPixels, templateExportSize, isExported, visibleOnCard, opacityFor } from './model';
 import { $ } from './dom';
 import { renderStage } from './preview';
+import { layoutTextBox } from './text-layout';
 export function renderCardControl(){const cc=$('#cardControl');cc.style.display=S.mode==='cards'?'flex':'none';if(S.mode!=='cards')return;cc.innerHTML=`<span style="font-weight:700;color:#62778f">CARD</span><button data-action="prev-card" title="Previous card">‹</button><select id="cardSelector">${S.cards.map((c,i)=>`<option value="${i}" ${i===S.cardIndex?'selected':''}>${escapeHTML(c.name)}</option>`).join('')}</select><button data-action="next-card" title="Next card">›</button><span style="color:#8a98a9;margin-left:auto">${S.cardIndex+1} / ${S.cards.length}</span>`}
 export function renderLeft(){const v=$('#leftBody');$('#btnTemplate').classList.toggle('active',S.mode==='template');$('#btnCards').classList.toggle('active',S.mode==='cards');let out='';
  if(S.mode==='cards'){
@@ -23,7 +24,8 @@ const elementReadout=()=>{
  const raw=templateEl(S.selected);
  if(!raw)return '';
  const e=effective(raw),dpi=S.template.dpi;
- return `Export pixels at ${dpi} DPI: X ${exportPixels(e.x,dpi)} · Y ${exportPixels(e.y,dpi)} · Width ${exportPixels(e.w,dpi)} px · Height ${exportPixels(e.h,dpi)} px`;
+ const visual=e.kind==='text'?layoutTextBox(e,actualValue(raw)):e;
+ return `${e.kind==='text'&&(e.autoWidth||e.autoHeight)?'Auto-sized ':''}Export pixels at ${dpi} DPI: X ${exportPixels(visual.x,dpi)} · Y ${exportPixels(visual.y,dpi)} · Width ${exportPixels(visual.w,dpi)} px · Height ${exportPixels(visual.h,dpi)} px`;
 };
 export function updateDimensionReadouts(){
  const templateNode=document.querySelector('#templatePixelReadout');
@@ -67,6 +69,17 @@ export function renderInspector(){const box=$('#inspector');if(!S.selected&&S.mo
  if(S.mode==='template')html+=`<div class="field"><label>Default text</label><textarea data-prop="text">${escapeHTML(e.text)}</textarea></div>`;
  html+=`<div class="section-title">Visibility</div>`+checkbox('Invisible if empty','invisibleIfEmpty',e.invisibleIfEmpty!==false)+
  `<div class="small" style="padding:0 0 10px">Hide this entire text box on cards where its spreadsheet or card text is blank (including its fill and border). Empty text remains editable in Template mode.</div>`;
+ html+=`<div class="section-title">Automatic text box sizing</div>`+
+ checkbox('Auto width (expand horizontally)','autoWidth',e.autoWidth===true)+
+ checkbox('Auto height (expand vertically)','autoHeight',e.autoHeight===true)+
+ `<div class="small" style="padding:0 0 12px">The box grows from the selected text alignment: left/right/centre and top/bottom/middle. Width and Height above are the anchor dimensions when auto-sizing is active.</div>`;
+ const unit=S.template.unit, factor=unitFactor(unit,S.template.dpi);
+ html+=`<div class="section-title">Text gutters (${unit})</div><div class="fields-two">`+
+ field('Left ('+unit+')','gutterLeft',fmt((e.gutterLeft||0)/factor),'number','min="0" step="any"')+
+ field('Right ('+unit+')','gutterRight',fmt((e.gutterRight||0)/factor),'number','min="0" step="any"')+
+ field('Top ('+unit+')','gutterTop',fmt((e.gutterTop||0)/factor),'number','min="0" step="any"')+
+ field('Bottom ('+unit+')','gutterBottom',fmt((e.gutterBottom||0)/factor),'number','min="0" step="any"')+
+ `</div><div class="small" style="padding:0 0 12px">Background and border cover the full box; the text stays inside these four clearances.</div>`;
  html+=`<div class="section-title">Typography</div>`;
  html+=`<div class="field"><label>Font family</label><input data-prop="font" list="fontOptions" value="${escapeHTML(e.font)}"><datalist id="fontOptions">${knownFonts.map(x=>`<option value="${escapeHTML(x)}"></option>`).join('')}</datalist></div><button class="secondary" style="margin:-4px 0 12px" data-action="scan-fonts">Find installed fonts</button>`;
  html+=`<div class="fields-two">${field('Font size (pt)','fontSize',e.fontSize,'number','min="1" step="0.5"')}${selectionField('Weight','fontWeight',[[100,'Thin'],[300,'Light'],[400,'Regular'],[500,'Medium'],[600,'Semibold'],[700,'Bold'],[800,'Extra bold'],[900,'Black']],e.fontWeight)}</div>`;
