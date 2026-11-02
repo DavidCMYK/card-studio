@@ -19,7 +19,7 @@ function dom(){
 function setup(options={}){
  const state=model.initial();
  const e=model.makeElement('text',{name:'Auto label',x:100,y:200,w:100,h:80,
-  text:'A',fontSize:12,lineHeight:1.25,fillMode:'solid',
+  text:'A',fontSize:12,lineHeight:1.25,valign:'top',fillMode:'solid',
   autoWidth:true,autoHeight:true,gutterLeft:5,gutterRight:7,gutterTop:4,gutterBottom:6,...options});
  state.template.elements=[e];model.replaceState(state);return {state,e};
 }
