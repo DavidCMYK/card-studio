@@ -100,6 +100,12 @@ case 'reset-element':if(card()){if(isExtra(S.selected)){card().extraElements=car
 case 'prev-card':chooseCard(S.cardIndex-1);break;case 'next-card':chooseCard(S.cardIndex+1);break;
 case 'export-sheet':exportXLSX().catch(err=>alert(err.message));break;case 'import-sheet':$('#openSheetFile').click();break;
 case 'export-current':exportPNG();break;case 'export-all':exportAll();break;
+case 'image-rotate-left':case 'image-rotate-right':{
+ const raw=templateEl(S.selected);if(!raw||raw.kind!=='image')break;
+ const current=effective(raw),step=action==='image-rotate-left'?-90:90;
+ const angle=((Number(current.imgRotation||0)+step)%360+360)%360;
+ patchElement(raw.id,{imgRotation:angle});repaint();break;
+}
 case 'scan-fonts':scanFonts();break;
 }}
 async function scanFonts(){if(!('queryLocalFonts' in window)){alert('This browser does not provide installed-font listing. You can still type the name of any installed font in the Font family field. Chrome or Edge on desktop may support font listing.');return}try{const fonts=await window.queryLocalFonts(),names=[...new Set(fonts.map(f=>f.family))].sort();setKnownFonts([...new Set([...baseFonts(),...names])]);renderInspector();toast(`Found ${names.length} installed font families`)}catch(err){alert('Font access was not granted. You can type an installed font name manually.')} }
@@ -131,7 +137,7 @@ function handleProp(input){const key=input.dataset.prop;if(!key)return;let v=inp
  if(key==='card.name'){if(card())card().name=String(v)||'Untitled card';return}
  if(key==='name'){const e=templateEl(S.selected);if(e)e.name=uniqName(v,e.id);return}
  if(['x','y','w','h','gutterLeft','gutterRight','gutterTop','gutterBottom'].includes(key)){v=px(Number(v),S.template.unit,S.template.dpi);if(key==='w'||key==='h')v=Math.max(1,v);if(key.startsWith('gutter'))v=Math.max(0,v)}
- else if(['fontSize','fontWeight','lineHeight','letterSpacing','borderWidth','radius','opacity','fillOpacity','borderOpacity','textOpacity','gradientAngle','imgScale','imgOffsetX','imgOffsetY'].includes(key)){v=Number(v);if(['opacity','fillOpacity','borderOpacity','textOpacity'].includes(key))v=clamp(v,0,100);if(key==='fontSize')v=Math.max(1,v);if(key==='imgScale')v=Math.max(.01,v);if(key==='borderWidth')v=Math.max(0,v)}
+ else if(['fontSize','fontWeight','lineHeight','letterSpacing','borderWidth','radius','opacity','fillOpacity','borderOpacity','textOpacity','gradientAngle','imgScale','imgOffsetX','imgOffsetY','imgRotation'].includes(key)){v=Number(v);if(['opacity','fillOpacity','borderOpacity','textOpacity'].includes(key))v=clamp(v,0,100);if(key==='fontSize')v=Math.max(1,v);if(key==='imgScale')v=Math.max(.01,v);if(key==='borderWidth')v=Math.max(0,v)}
  if(S.selected){
   // Changing sets invalidates the previous fixed-image choice, even when
   // both sets happen to contain identically named files.
