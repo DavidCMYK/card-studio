@@ -96,6 +96,12 @@ export function renderInspector(){const box=$('#inspector');if(!S.selected&&S.mo
  html+=`<div class="section-title">Image options</div>`;
  html+=selectionField('Fit inside frame','imageFit', [['cover','Cover frame (crop)'],['contain','Fit whole image'],['width','Fit to frame width'],['height','Fit to frame height'],['stretch','Stretch to frame'],['free','Free / original size']],e.imageFit);
  html+=`<div class="fields-two">${field('Free resize scale','imgScale',e.imgScale,'number','min="0.01" step="0.1"')}${field('Offset X (px)','imgOffsetX',e.imgOffsetX,'number','step="1"')}${field('Offset Y (px)','imgOffsetY',e.imgOffsetY,'number','step="1"')}</div>`;
+ html+=`<div class="section-title">Image transform</div>`+
+  checkbox('Flip horizontally','imgFlipX',e.imgFlipX===true)+
+  checkbox('Flip vertically','imgFlipY',e.imgFlipY===true)+
+  field('Rotation (degrees, clockwise)','imgRotation',e.imgRotation??0,'number','step="1"')+
+  `<div class="asset-actions" style="margin:0 0 12px"><button class="secondary" data-action="image-rotate-left">Rotate 90° left</button><button class="secondary" data-action="image-rotate-right">Rotate 90° right</button></div>`;
+ html+=`<div class="small" style="padding:0 0 12px">Transforms the image inside its frame. The frame, crop boundary, and border remain unchanged.</div>`;
  if(S.mode==='template')html+=`${selectionField('Automatically use image set','autoSet',[['','None'],...S.sets.map(x=>[x.id,x.name])],e.autoSet)}${selectionField('Image assignment','autoMode',[['sequence','Sequential (no repeat)'],['cycle','Cycle through set'],['random','Deterministic random'],['single','Single Image (same on all cards)']],e.autoMode)}`;
  if(S.mode==='template'&&e.autoMode==='single'){
   const set=S.sets.find(s=>s.id===e.autoSet||s.name===e.autoSet);
