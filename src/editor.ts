@@ -7,6 +7,7 @@ import { exportPNG, exportAll } from './png-export';
 import { exportXLSX, readSheet } from './spreadsheet';
 import { saveProject, saveProjectAs, saveTemplate, saveTemplateAs, openFromDisk, openJSON, resetFileHandles } from './project-storage';
 import { importImages, setTargetImageSet } from './assets';
+import { openImageManager, closeImageManager, renderImageManager, imageManagerAction } from './image-manager';
 import { layoutTextBox } from './text-layout';
 import { resizedRect, locksImageCornerAspect } from './resize';
 import { elementGeometry } from './anchor-layout';
@@ -87,7 +88,10 @@ case 'layer-up':case 'layer-down':{if(S.mode==='cards'&&!isExtra(S.selected)){to
 case 'zoom-in':changeZoom(.1);break;
 case 'zoom-out':changeZoom(-.1);break;
 case 'add-set':{const name=prompt('Name this image set (e.g. Creature Artwork):');if(!name?.trim())return;const set={id:uid(),name:name.trim(),images:[]};S.sets.push(set);setTargetImageSet(set.id);$('#assetFiles').click();repaint();break}
-case 'add-to-set':setTargetImageSet(el.dataset.set);$('#assetFiles').click();break;
+case 'manage-images':openImageManager(el.dataset.set);break;
+case 'manage-close':closeImageManager();break;
+case 'manage-add':imageManagerAction('manage-add',-1);break;
+case 'manage-rename':case 'manage-remove':imageManagerAction(action,Number(el.dataset.index));break;
 case 'remove-set':{const id=el.dataset.set,set=S.sets.find(x=>x.id===id);if(set&&confirm(`Remove image set "${set.name}" and its ${set.images.length} images?`)){S.sets=S.sets.filter(x=>x.id!==id);imageCache.clear();repaint()}break}
 case 'add-card':newCard();break;case 'duplicate-card':newCard(S.cards[Number(el.dataset.cardindex)]);break;
 case 'delete-card':if(S.cards.length<=1){toast('At least one card must remain');return}if(confirm('Delete the selected card?')){S.cards.splice(S.cardIndex,1);chooseCard(Math.min(S.cardIndex,S.cards.length-1))}break;
@@ -146,7 +150,8 @@ $('#cardControl').addEventListener('change',e=>{if(e.target.id==='cardSelector')
 $('#openProjectFile').addEventListener('change',async e=>{if(e.target.files[0])await openJSON(e.target.files[0]);e.target.value=''});
 $('#openTemplateFile').addEventListener('change',async e=>{if(e.target.files[0])await openJSON(e.target.files[0],true);e.target.value=''});
 $('#openSheetFile').addEventListener('change',async e=>{if(e.target.files[0])await readSheet(e.target.files[0]);e.target.value=''});
-$('#assetFiles').addEventListener('change',async e=>{if(e.target.files.length)await importImages(e.target.files);e.target.value=''});
+$('#assetFiles').addEventListener('change',async e=>{if(e.target.files.length){await importImages(e.target.files);renderImageManager()}e.target.value=''});
+$('#dialogHolder').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('[data-manager-name]')){e.preventDefault();imageManagerAction('manage-rename',Number(e.target.dataset.managerName))}});
 let drag: any = null;
 function clearSelection(){if(S.selected===null)return;S.selected=null;renderInspector();renderLeft();renderStage()}
 const stage=$('#stage');
@@ -157,7 +162,7 @@ $('#canvasOuter').addEventListener('pointerdown',e=>{if(e.button===0&&!e.compose
 stage.addEventListener('pointerdown',e=>{if(e.button!==0)return;const node=e.target.closest('.element');if(!node){clearSelection();return}const id=node.dataset.id;S.selected=id;renderInspector();renderLeft();const el=effective(templateEl(id)),rect=elementGeometry(templateEl(id));const handle=e.target.closest('[data-handle]')?.dataset.handle||null;renderStage();if(el.locked)return;drag={id,type:handle?'resize':'move',handle,initialX:e.clientX,initialY:e.clientY,x:rect.x,y:rect.y,w:rect.w,h:rect.h,visual:{...rect},lockAspect:locksImageCornerAspect(el.kind,el.imageFit,handle)};e.preventDefault()});
 document.addEventListener('pointermove',e=>{if(!drag)return;const {w,h}=sizePx(),dx=(e.clientX-drag.initialX)/S.zoom,dy=(e.clientY-drag.initialY)/S.zoom;let patch;if(drag.type==='resize'){const rect=resizedRect(drag.visual,drag.handle||'se',dx,dy,{w,h},drag.lockAspect);const handle=drag.handle||'se';patch={};if(handle.includes('w')||handle.includes('e'))Object.assign(patch,{x:rect.x,w:rect.w,autoWidth:false});if(handle.includes('n')||handle.includes('s'))Object.assign(patch,{y:rect.y,h:rect.h,autoHeight:false})}else patch={x:Math.round(clamp(drag.x+dx,-drag.w+4,w-4)),y:Math.round(clamp(drag.y+dy,-drag.h+4,h-4))};patchElement(drag.id,patch);renderStage();renderInspector()});
 document.addEventListener('pointerup',()=>{if(drag){drag=null;renderInspector();renderLeft();renderStage()}});
-document.addEventListener('keydown',e=>{const active=document.activeElement,tag=active?.tagName;
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.querySelector('.image-manager')){closeImageManager();e.preventDefault();return}const active=document.activeElement,tag=active?.tagName;
 if(['INPUT','TEXTAREA','SELECT'].includes(tag)||(active as HTMLElement)?.isContentEditable)return;
 if((e.ctrlKey||e.metaKey)&&!e.altKey&&!e.shiftKey&&S.mode==='template'){
  const action={c:'copy-element',x:'cut-element',v:'paste-element'}[e.key.toLowerCase()];
