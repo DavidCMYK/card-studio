@@ -4,6 +4,12 @@ let onImageLoaded = () => {};
 export const setImageUpdateHandler = (callback: () => void) => { onImageLoaded = callback; };
 export const getImageRef=(el,ci=S.cardIndex,mode=S.mode)=>{
  if(el.kind!=='image')return null;
+ // Fixed template images take priority over per-card spreadsheet image values.
+ // Return null for an unset or removed file: never silently choose another image.
+ if(el.autoMode==='single'){
+  const set=S.sets.find(x=>x.id===el.autoSet||x.name===el.autoSet);
+  return set?.images.find(im=>im.name===el.singleImage)||null;
+ }
  const c=mode==='cards'?S.cards[ci]:null,manual=c?.values?.[el.id];
  if(manual!==undefined&&String(manual).trim()!==''){
   if(String(manual).toLowerCase()==='none')return null;
