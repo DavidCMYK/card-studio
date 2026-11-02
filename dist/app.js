@@ -879,21 +879,35 @@ const preview_1 = require("./preview");
 const anchor_layout_1 = require("./anchor-layout");
 function renderCardControl() { const cc = (0, dom_1.$)('#cardControl'); cc.style.display = model_1.S.mode === 'cards' ? 'flex' : 'none'; if (model_1.S.mode !== 'cards')
     return; cc.innerHTML = `<span style="font-weight:700;color:#62778f">CARD</span><button data-action="prev-card" title="Previous card">‹</button><select id="cardSelector">${model_1.S.cards.map((c, i) => `<option value="${i}" ${i === model_1.S.cardIndex ? 'selected' : ''}>${(0, model_1.escapeHTML)(c.name)}</option>`).join('')}</select><button data-action="next-card" title="Next card">›</button><span style="color:#8a98a9;margin-left:auto">${model_1.S.cardIndex + 1} / ${model_1.S.cards.length}</span>`; }
-function renderLeft() {
-    const v = (0, dom_1.$)('#leftBody');
-    (0, dom_1.$)('#btnTemplate').classList.toggle('active', model_1.S.mode === 'template');
-    (0, dom_1.$)('#btnCards').classList.toggle('active', model_1.S.mode === 'cards');
-    let out = '';
-    if (model_1.S.mode === 'cards') {
-        out += `<div class="side-head"><h2>STAGED CARDS</h2><button data-action="add-card">＋ Add card</button></div>`;
-        out += '<div class="card-list">' + model_1.S.cards.map((c, i) => `<div class="card-row ${i === model_1.S.cardIndex ? 'active' : ''}" data-cardindex="${i}"><span class="mini-art">${String(i + 1).padStart(2, '0')}</span><span class="name">${(0, model_1.escapeHTML)(c.name)}<span class="sub">${Object.keys(c.overrides || {}).length ? 'Custom layout' : 'Template layout'}</span></span><button class="small-btn" data-action="duplicate-card" data-cardindex="${i}" title="Duplicate card">⧉</button></div>`).join('') + '</div>';
-        out += `<div class="actionbar"><button class="secondary" data-action="delete-card">Delete card</button><button class="secondary" data-action="reset-card">Reset layout edits</button></div><div class="rule"></div>`;
-    }
-    out += `<div class="side-head"><h2>LAYERS</h2><span class="pill">${(0, model_1.layerEls)().filter(e => model_1.S.mode === 'template' || (0, model_1.visibleOnCard)(e, model_1.S.cardIndex, 'cards')).length}</span></div><div class="small">Topmost layers are shown first. Select an element to edit it.</div>`;
-    out += '<div class="layer-list">' + [...(0, model_1.layerEls)()].filter(e => model_1.S.mode === 'template' || (0, model_1.visibleOnCard)(e, model_1.S.cardIndex, 'cards')).reverse().map(e => `<div class="layer-row ${e.id === model_1.S.selected ? 'active' : ''}" data-layer="${e.id}"><span style="font-size:15px;color:#7b91ad">${e.kind === 'text' ? 'T' : e.kind === 'image' ? '▧' : '◇'}</span><span class="name">${(0, model_1.escapeHTML)(e.name)}<span class="sub">${e.kind}${e.locked ? ' · locked' : ''}${!(0, model_1.isExported)(e) ? ' · editor only' : ''}</span></span></div>`).join('') + '</div>';
-    out += `<div class="rule"></div><div class="side-head"><h2>IMAGE SETS</h2><button data-action="add-set">＋ Load set</button></div><div class="small">Load multiple images as one set. Assign the set to an image frame, then choose sequential, cycling or random assignment.</div>`;
-    out += '<div class="set-list">' + model_1.S.sets.map(set => `<div class="asset-row"><div class="asset-title"><span>▧</span><span style="overflow:hidden;text-overflow:ellipsis">${(0, model_1.escapeHTML)(set.name)}</span><span class="count">${set.images.length} files</span></div><div class="asset-thumbs">${set.images.slice(0, 6).map(x => `<img alt="${(0, model_1.escapeHTML)(x.name)}" title="${(0, model_1.escapeHTML)(x.name)}" src="${x.data}">`).join('')}</div><div class="asset-actions"><button data-action="manage-images" data-set="${set.id}">Manage images</button><button data-action="remove-set" data-set="${set.id}">Delete set</button></div></div>`).join('') + '</div>';
-    v.innerHTML = out;
+function renderLeft(){
+ const v=(0, dom_1.$)('#leftBody');
+ const templateButton=(0, dom_1.$)('#btnTemplate'),cardsButton=(0, dom_1.$)('#btnCards');
+ templateButton.classList.toggle('active',model_1.S.mode==='template');
+ cardsButton.classList.toggle('active',model_1.S.mode==='cards');
+ templateButton.setAttribute?.('aria-pressed',String(model_1.S.mode==='template'));
+ cardsButton.setAttribute?.('aria-pressed',String(model_1.S.mode==='cards'));
+ // Repaint on selection changes should never jump a toolbox back to its top.
+ const previousScroll=Object.fromEntries(['layersScroll','cardsScroll','setsScroll'].map(id=>[id,document.querySelector('#'+id)?.scrollTop||0]));
+ const layers=[...(0, model_1.layerEls)()].filter(e=>model_1.S.mode==='template'||(0, model_1.visibleOnCard)(e,model_1.S.cardIndex,'cards')).reverse();
+ let out=`<section class="sidebar-panel sidebar-layers" aria-label="Layers toolbox">
+  <div class="side-head"><h2>LAYERS</h2><span class="pill">${layers.length}</span></div>
+  <div class="sidebar-panel-scroll" id="layersScroll"><div class="small">Topmost layers are shown first. Select an element to edit it.</div>
+  <div class="layer-list">${layers.map(e=>`<div class="layer-row ${e.id===model_1.S.selected?'active':''}" data-layer="${e.id}"><span style="font-size:15px;color:#7b91ad">${e.kind==='text'?'T':e.kind==='image'?'▧':'◇'}</span><span class="name">${(0, model_1.escapeHTML)(e.name)}<span class="sub">${e.kind}${e.locked?' · locked':''}${!(0, model_1.isExported)(e)?' · editor only':''}</span></span></div>`).join('')}</div></div>
+ </section>`;
+ out+=`<section class="sidebar-panel sidebar-cards" aria-label="Staged cards toolbox">
+  <div class="side-head"><h2>STAGED CARDS</h2><button data-action="add-card">＋ Add card</button></div>
+  <div class="sidebar-panel-scroll" id="cardsScroll"><div class="card-list">${model_1.S.cards.map((c,i)=>`<div class="card-row ${model_1.S.mode==='cards'&&i===model_1.S.cardIndex?'active':''}" data-cardindex="${i}"><span class="mini-art">${String(i+1).padStart(2,'0')}</span><span class="name">${(0, model_1.escapeHTML)(c.name)}<span class="sub">${Object.keys(c.overrides||{}).length?'Custom layout':'Template layout'}</span></span><button class="small-btn" data-action="duplicate-card" data-cardindex="${i}" title="Duplicate card">⧉</button></div>`).join('')}</div></div>
+  ${model_1.S.mode==='cards'?'<div class="sidebar-panel-footer actionbar"><button class="secondary" data-action="delete-card">Delete card</button><button class="secondary" data-action="reset-card">Reset layout edits</button></div>':''}
+ </section>`;
+ out+=`<section class="sidebar-panel sidebar-sets" aria-label="Image sets toolbox">
+  <div class="side-head"><h2>IMAGE SETS</h2><button data-action="add-set">＋ Load set</button></div>
+  <div class="sidebar-panel-scroll" id="setsScroll"><div class="small">Load images into sets. Assign a set or a single image to an image frame.</div>
+  <div class="set-list">${model_1.S.sets.map(set=>`<div class="asset-row"><div class="asset-title"><span>▧</span><span style="overflow:hidden;text-overflow:ellipsis">${(0, model_1.escapeHTML)(set.name)}</span><span class="count">${set.images.length} files</span></div><div class="asset-thumbs">${set.images.slice(0,6).map(x=>`<img alt="${(0, model_1.escapeHTML)(x.name)}" title="${(0, model_1.escapeHTML)(x.name)}" src="${x.data}">`).join('')}</div><div class="asset-actions"><button data-action="manage-images" data-set="${set.id}">Manage images</button><button data-action="remove-set" data-set="${set.id}">Delete set</button></div></div>`).join('')}</div></div>
+ </section>`;
+ v.innerHTML=out;
+ for(const [id,offset] of Object.entries(previousScroll)){
+  const panel=document.querySelector('#'+id);if(panel)panel.scrollTop=offset;
+ }
 }
 // Bind each control to the inspector selection and card at creation time.
 function editorScope() { return `data-edit-owner="${(0, model_1.escapeHTML)(model_1.S.selected || '')}" data-edit-mode="${model_1.S.mode}" data-edit-card="${model_1.S.cardIndex}"`; }
@@ -1107,7 +1121,7 @@ function patchElement(id, patch) {
     else
         Object.assign(raw, p);
 }
-function chooseCard(i) { model_1.S.cardIndex = (0, model_1.clamp)(i, 0, model_1.S.cards.length - 1); model_1.S.selected = null; repaint(); }
+function chooseCard(i) { model_1.S.mode = 'cards'; model_1.S.cardIndex = (0, model_1.clamp)(i, 0, model_1.S.cards.length - 1); model_1.S.selected = null; repaint(); }
 function addElement(kind) { const { w, h } = (0, model_1.sizePx)(), n = model_1.S.template.elements.filter(e => e.kind === kind).length + 1; const e = (0, model_1.makeElement)(kind, { name: (0, model_1.uniqName)(kind === 'text' ? `Text ${n}` : kind === 'image' ? `Image ${n}` : `Shape ${n}`), x: Math.round(w * .15), y: Math.round(h * .15), w: Math.round(w * .7), h: kind === 'image' ? Math.round(h * .38) : kind === 'shape' ? Math.round(h * .17) : 65, text: 'New text', fontSize: 18 }); if (model_1.S.mode === 'cards') {
     (0, model_1.card)().extraElements ??= [];
     (0, model_1.card)().extraElements.push(e);
