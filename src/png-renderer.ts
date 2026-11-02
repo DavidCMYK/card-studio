@@ -32,7 +32,15 @@ export async function canvasCard(ci,mode: 'template'|'cards'='cards'){
  ctx.save();
  ctx.globalAlpha=opacityFor(e,'fillOpacity');
  canvasFillShape(ctx,e);
- if(raw.kind==='image'){const src=getImageData(raw,ci,mode),img=await loadedImage(src);if(img){ctx.save();makeShapePath(ctx,e);ctx.clip();const bb=imgBox(e,img);ctx.drawImage(img,e.x+bb.x,e.y+bb.y,bb.w,bb.h);ctx.restore()}}
+ if(raw.kind==='image'){const src=getImageData(raw,ci,mode),img=await loadedImage(src);if(img){ctx.save();makeShapePath(ctx,e);ctx.clip();const bb=imgBox(e,img);
+  // Mirror and rotate only the image pixels, about the frame centre. Its
+  // background, crop shape and border stay in their original positions.
+  const angle=Number(e.imgRotation)||0,sx=e.imgFlipX===true?-1:1,sy=e.imgFlipY===true?-1:1;
+  if(angle||sx<0||sy<0){
+   ctx.translate(e.x+e.w/2,e.y+e.h/2);ctx.rotate(angle*Math.PI/180);ctx.scale(sx,sy);
+   ctx.drawImage(img,bb.x-e.w/2,bb.y-e.h/2,bb.w,bb.h);
+  }else ctx.drawImage(img,e.x+bb.x,e.y+bb.y,bb.w,bb.h);
+  ctx.restore()}}
  if(raw.kind==='text'){
    ctx.globalAlpha=opacityFor(e,'textOpacity');
    canvasDrawText(ctx,e,value,layout!);
