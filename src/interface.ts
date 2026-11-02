@@ -2,6 +2,7 @@ import { S, card, templateEl, layerEls, isExtra, effective, actualValue, uniqNam
 import { $ } from './dom';
 import { renderStage } from './preview';
 import { layoutTextBox } from './text-layout';
+import { elementGeometry, offsetsForRect, anchorEdges } from './anchor-layout';
 export function renderCardControl(){const cc=$('#cardControl');cc.style.display=S.mode==='cards'?'flex':'none';if(S.mode!=='cards')return;cc.innerHTML=`<span style="font-weight:700;color:#62778f">CARD</span><button data-action="prev-card" title="Previous card">‹</button><select id="cardSelector">${S.cards.map((c,i)=>`<option value="${i}" ${i===S.cardIndex?'selected':''}>${escapeHTML(c.name)}</option>`).join('')}</select><button data-action="next-card" title="Next card">›</button><span style="color:#8a98a9;margin-left:auto">${S.cardIndex+1} / ${S.cards.length}</span>`}
 export function renderLeft(){const v=$('#leftBody');$('#btnTemplate').classList.toggle('active',S.mode==='template');$('#btnCards').classList.toggle('active',S.mode==='cards');let out='';
  if(S.mode==='cards'){
@@ -24,7 +25,7 @@ const elementReadout=()=>{
  const raw=templateEl(S.selected);
  if(!raw)return '';
  const e=effective(raw),dpi=S.template.dpi;
- const visual=e.kind==='text'?layoutTextBox(e,actualValue(raw)):e;
+ const visual=elementGeometry(raw);
  return `${e.kind==='text'&&(e.autoWidth||e.autoHeight)?'Auto-sized ':''}Export pixels at ${dpi} DPI: X ${exportPixels(visual.x,dpi)} · Y ${exportPixels(visual.y,dpi)} · Width ${exportPixels(visual.w,dpi)} px · Height ${exportPixels(visual.h,dpi)} px`;
 };
 export function updateDimensionReadouts(){
@@ -52,7 +53,7 @@ export function renderInspector(){const box=$('#inspector');if(!S.selected&&S.mo
  ${field('Background colour','template.background',S.template.background,'color')}
  <div class="rule"></div><div class="section-title">Project</div>${field('Project name','projectName',S.projectName)}
  <div class="small" style="padding:0">Select a layer or click an element on the card to change its properties. Use the Cards tab to edit a single card independently.</div>`;return}
- const raw=templateEl(S.selected);if(!raw){S.selected=null;return renderInspector()};const e=effective(raw);$('#rightTitle').textContent='Element properties';
+ const raw=templateEl(S.selected);if(!raw){S.selected=null;return renderInspector()};const e=effective(raw),geometry=elementGeometry(raw);$('#rightTitle').textContent='Element properties';
  let html=`<div class="inspector-heading">${escapeHTML(raw.name)}</div><div class="inspector-sub">${escapeHTML(raw.kind.toUpperCase())} ${S.mode==='cards'?'· Card-only changes':'· Template-wide changes'}</div>`;
  if(S.mode==='template')html+=field('Element name (spreadsheet column)','name',raw.name);
  else html+=`<div class="warn">Changes here affect only <b>${escapeHTML(card()?.name)}</b>. Switch to Template to edit every card.</div>`;
@@ -61,7 +62,7 @@ export function renderInspector(){const box=$('#inspector');if(!S.selected&&S.mo
  if(raw.kind==='image')html+=`<div class="field"><label>Image filename (blank = automatic)</label><input data-cardvalue="${raw.id}" value="${escapeHTML(card()?.values?.[raw.id]||'')}" list="imageFiles" placeholder="Set name/image.png"><datalist id="imageFiles">${S.sets.flatMap(s=>s.images.map(im=>`<option value="${escapeHTML(s.name+'/'+im.name)}"></option>`)).join('')}</datalist></div><div class="small" style="padding:0 0 10px">Enter <b>none</b> to leave this frame empty.</div>`;
  }
  const f=unitFactor(S.template.unit,S.template.dpi);
- html+=`<div class="section-title">Position and size (${S.template.unit})</div><div class="fields-two">${field('X ('+S.template.unit+')','x',fmt(e.x/f),'number','step="any"')}${field('Y ('+S.template.unit+')','y',fmt(e.y/f),'number','step="any"')}${field('Width ('+S.template.unit+')','w',fmt(e.w/f),'number','min="0.01" step="any"')}${field('Height ('+S.template.unit+')','h',fmt(e.h/f),'number','min="0.01" step="any"')}</div><div class="small" style="padding:4px 0 12px" id="elementPixelReadout">${elementReadout()}</div>`;
+ html+=`<div class="section-title">Position and size (${S.template.unit})</div><div class="fields-two">${field('X ('+S.template.unit+')','x',fmt(geometry.x/f),'number','step="any"')}${field('Y ('+S.template.unit+')','y',fmt(geometry.y/f),'number','step="any"')}${field('Width ('+S.template.unit+')','w',fmt(geometry.w/f),'number','min="0.01" step="any"')}${field('Height ('+S.template.unit+')','h',fmt(geometry.h/f),'number','min="0.01" step="any"')}</div><div class="small" style="padding:4px 0 12px" id="elementPixelReadout">${elementReadout()}</div>`;
  html+=checkbox('Hide element','hidden',e.hidden)+checkbox('Lock position','locked',e.locked);
  if(S.mode==='template')html+=checkbox('Include in exported images','includeInExport',isExported(e))+
  `<div class="small" style="padding:0 0 12px">Turn this off for non-printing guides, such as cut lines and bleed markers. These elements appear only in the Template editor, not in Cards previews or PNG exports.</div>`;
@@ -98,6 +99,10 @@ export function renderInspector(){const box=$('#inspector');if(!S.selected&&S.mo
   html+=`<div class="section-title">Visibility link</div>`+
    selectionField('Follow text visibility','linkedTextId',[['','None (always independent)'],...texts.map(item=>[item.id,item.name])],e.linkedTextId||'')+
    `<div class="small" style="padding:0 0 10px">Hide this entire ${raw.kind==='image'?'image frame':'shape'} when the chosen text box is invisible on this card.</div>`;
+  if(e.linkedTextId)html+=`<div class="section-title">Anchor edges to text</div>`+
+   `<div class="small" style="padding:0 0 8px">Anchor the selected edges to the text box, keeping their current distances. Opposite edges make the element stretch as the text box changes size.</div>`+
+   `<div class="fields-two">${anchorEdges.map(side=>checkbox(`Lock ${side.toLowerCase()} edge`,`anchor${side}`,!!e[`anchor${side}`])).join('')}</div>`;
+
  }
  html+=`<div class="section-title">Appearance</div>${selectionField('Fill','fillMode',[['none','Transparent'],['solid','Solid colour'],['gradient','Linear gradient']],e.fillMode)}`;
  if(e.fillMode!=='none')html+=`<div class="fields-two">${field('Fill colour 1','fill1',e.fill1,'color')}${e.fillMode==='gradient'?field('Fill colour 2','fill2',e.fill2,'color'):''}</div>${e.fillMode==='gradient'?field('Gradient angle (degrees)','gradientAngle',e.gradientAngle,'number','step="5"'):''}`;
@@ -111,7 +116,40 @@ export function renderInspector(){const box=$('#inspector');if(!S.selected&&S.mo
  box.innerHTML=html;
 }
 export function repaint(all=true){if(all){renderLeft();renderCardControl();renderInspector()}renderStage();$('#projectTitle').textContent=S.projectName}
-export function patchElement(id,patch){if(S.mode==='cards'){const c=card();if(!c)return;if(isExtra(id))Object.assign(c.extraElements.find(e=>e.id===id),patch);else{c.overrides??={};c.overrides[id]={...(c.overrides[id]||{}),...patch}}}else Object.assign(templateEl(id),patch)}
+export function patchElement(id,patch){
+ const raw=templateEl(id);if(!raw)return;
+ const before=effective(raw),visual=elementGeometry(raw);
+ const p={...patch};
+ if(raw.kind!=='text'){
+  const linkChanged=Object.prototype.hasOwnProperty.call(p,'linkedTextId')&&p.linkedTextId!==before.linkedTextId;
+  if(linkChanged){
+   // The previous position is the starting position for a new link.
+   Object.assign(p,visual,{anchorLeft:false,anchorRight:false,anchorTop:false,anchorBottom:false,
+    anchorOffsetLeft:undefined,anchorOffsetRight:undefined,anchorOffsetTop:undefined,anchorOffsetBottom:undefined});
+  }
+  const after={...before,...p};
+  const geometryChanged=['x','y','w','h'].some(k=>Object.prototype.hasOwnProperty.call(p,k));
+  const anchorsChanged=anchorEdges.some(side=>Object.prototype.hasOwnProperty.call(p,`anchor${side}`));
+  if(geometryChanged||anchorsChanged){
+   const desired={...visual};
+   for(const k of ['x','y','w','h'])if(Object.prototype.hasOwnProperty.call(p,k))desired[k]=p[k];
+   // Removing an anchor must not cause the element to snap to its former saved coordinates.
+   if(anchorsChanged){Object.assign(p,{x:desired.x,y:desired.y,w:desired.w,h:desired.h});}
+   const offsets=offsetsForRect(after,desired);
+   for(const side of anchorEdges){
+    const key=`anchorOffset${side}`;
+    if(!after[`anchor${side}`]){if(anchorsChanged)p[key]=undefined;continue;}
+    const axis=side==='Left'||side==='Right'?['x','w']:['y','h'];
+    if(Object.prototype.hasOwnProperty.call(p,`anchor${side}`)||axis.some(k=>Object.prototype.hasOwnProperty.call(p,k)))p[key]=offsets[key];
+   }
+  }
+ }
+ if(S.mode==='cards'){
+  const c=card();if(!c)return;
+  if(isExtra(id))Object.assign(c.extraElements.find(e=>e.id===id),p);
+  else{c.overrides??={};c.overrides[id]={...(c.overrides[id]||{}),...p}}
+ }else Object.assign(raw,p);
+}
 export function chooseCard(i){S.cardIndex=clamp(i,0,S.cards.length-1);S.selected=null;repaint()}
 export function addElement(kind){const {w,h}=sizePx(),n=S.template.elements.filter(e=>e.kind===kind).length+1;const e=makeElement(kind,{name:uniqName(kind==='text'?`Text ${n}`:kind==='image'?`Image ${n}`:`Shape ${n}`),x:Math.round(w*.15),y:Math.round(h*.15),w:Math.round(w*.7),h:kind==='image'?Math.round(h*.38):kind==='shape'?Math.round(h*.17):65,text:'New text',fontSize:18});if(S.mode==='cards'){card().extraElements??=[];card().extraElements.push(e)}else S.template.elements.push(e);S.selected=e.id;repaint()}
 

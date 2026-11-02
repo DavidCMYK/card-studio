@@ -2,6 +2,81 @@
 (function(){
 'use strict';
 const factories={
+"anchor-layout": function(module, exports, require) {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.hasAnchors = exports.anchorEdges = void 0;
+exports.linkedSource = linkedSource;
+exports.textGeometry = textGeometry;
+exports.elementGeometry = elementGeometry;
+exports.offsetsForRect = offsetsForRect;
+const model_1 = require("./model");
+const text_layout_1 = require("./text-layout");
+exports.anchorEdges = ['Left', 'Right', 'Top', 'Bottom'];
+const hasAnchors = (e) => exports.anchorEdges.some(side => e[`anchor${side}`]);
+exports.hasAnchors = hasAnchors;
+function linkedSource(e, ci, mode) {
+    if (!e.linkedTextId)
+        return null;
+    return [...model_1.S.template.elements, ...(mode === 'cards' ? (model_1.S.cards[ci]?.extraElements || []) : [])].find(item => item.id === e.linkedTextId && item.kind === 'text') || null;
+}
+function textGeometry(raw, ci, mode) {
+    const e = mode === 'cards' ? { ...raw, ...(model_1.S.cards[ci]?.overrides?.[raw.id] || {}) } : raw;
+    const values = mode === 'cards' ? model_1.S.cards[ci]?.values || {} : {};
+    const value = Object.prototype.hasOwnProperty.call(values, raw.id) ? values[raw.id] : e.text;
+    return (0, text_layout_1.layoutTextBox)(e, String(value ?? ''));
+}
+const offset = (e, side, child, source) => {
+    const saved = e[`anchorOffset${side}`];
+    if (typeof saved === 'number' && Number.isFinite(saved))
+        return saved;
+    if (side === 'Left')
+        return child.x - source.x;
+    if (side === 'Right')
+        return child.x + child.w - source.x - source.w;
+    if (side === 'Top')
+        return child.y - source.y;
+    return child.y + child.h - source.y - source.h;
+};
+/** Compute the actual rectangle WITHOUT mutating persisted element dimensions. */
+function elementGeometry(raw, ci = model_1.S.cardIndex, mode = model_1.S.mode) {
+    const e = mode === 'cards' ? { ...raw, ...(model_1.S.cards[ci]?.overrides?.[raw.id] || {}) } : raw;
+    if (e.kind === 'text')
+        return textGeometry(raw, ci, mode);
+    const child = { x: e.x, y: e.y, w: e.w, h: e.h };
+    if (!(0, exports.hasAnchors)(e))
+        return child;
+    const sourceRaw = linkedSource(e, ci, mode);
+    if (!sourceRaw)
+        return child; // Orphaned links do not move or resize an element.
+    const source = textGeometry(sourceRaw, ci, mode);
+    const l = source.x + offset(e, 'Left', child, source), r = source.x + source.w + offset(e, 'Right', child, source);
+    const t = source.y + offset(e, 'Top', child, source), b = source.y + source.h + offset(e, 'Bottom', child, source);
+    const width = e.anchorLeft && e.anchorRight ? Math.max(1, r - l) : child.w;
+    const height = e.anchorTop && e.anchorBottom ? Math.max(1, b - t) : child.h;
+    const x = e.anchorLeft ? l : e.anchorRight ? r - width : child.x;
+    const y = e.anchorTop ? t : e.anchorBottom ? b - height : child.y;
+    return { x, y, w: width, h: height };
+}
+/** Capture offsets at the moment anchors are enabled or the child is dragged. */
+function offsetsForRect(e, rect, ci = model_1.S.cardIndex, mode = model_1.S.mode) {
+    const sourceRaw = linkedSource(e, ci, mode);
+    if (!sourceRaw)
+        return {};
+    const source = textGeometry(sourceRaw, ci, mode);
+    const patch = {};
+    if (e.anchorLeft)
+        patch.anchorOffsetLeft = rect.x - source.x;
+    if (e.anchorRight)
+        patch.anchorOffsetRight = rect.x + rect.w - source.x - source.w;
+    if (e.anchorTop)
+        patch.anchorOffsetTop = rect.y - source.y;
+    if (e.anchorBottom)
+        patch.anchorOffsetBottom = rect.y + rect.h - source.y - source.h;
+    return patch;
+}
+
+},
 "assets": function(module, exports, require) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -58,8 +133,8 @@ const png_export_1 = require("./png-export");
 const spreadsheet_1 = require("./spreadsheet");
 const project_storage_1 = require("./project-storage");
 const assets_1 = require("./assets");
-const text_layout_1 = require("./text-layout");
 const resize_1 = require("./resize");
+const anchor_layout_1 = require("./anchor-layout");
 (0, image_sets_1.setImageUpdateHandler)(preview_1.renderStage);
 let elementClipboard = null;
 // This is an internal element clipboard, independent of the system text clipboard.
@@ -450,8 +525,8 @@ stage.addEventListener('pointerdown', e => { if (e.button !== 0)
     return; const node = e.target.closest('.element'); if (!node) {
     clearSelection();
     return;
-} const id = node.dataset.id; model_1.S.selected = id; (0, interface_1.renderInspector)(); (0, interface_1.renderLeft)(); const el = (0, model_1.effective)((0, model_1.templateEl)(id)); const handle = e.target.closest('[data-handle]')?.dataset.handle || null; (0, preview_1.renderStage)(); if (el.locked)
-    return; drag = { id, type: handle ? 'resize' : 'move', handle, initialX: e.clientX, initialY: e.clientY, x: el.x, y: el.y, w: el.w, h: el.h, visual: el.kind === 'text' ? (0, text_layout_1.layoutTextBox)(el, (0, model_1.actualValue)((0, model_1.templateEl)(id))) : { x: el.x, y: el.y, w: el.w, h: el.h }, lockAspect: (0, resize_1.locksImageCornerAspect)(el.kind, el.imageFit, handle) }; e.preventDefault(); });
+} const id = node.dataset.id; model_1.S.selected = id; (0, interface_1.renderInspector)(); (0, interface_1.renderLeft)(); const el = (0, model_1.effective)((0, model_1.templateEl)(id)), rect = (0, anchor_layout_1.elementGeometry)((0, model_1.templateEl)(id)); const handle = e.target.closest('[data-handle]')?.dataset.handle || null; (0, preview_1.renderStage)(); if (el.locked)
+    return; drag = { id, type: handle ? 'resize' : 'move', handle, initialX: e.clientX, initialY: e.clientY, x: rect.x, y: rect.y, w: rect.w, h: rect.h, visual: { ...rect }, lockAspect: (0, resize_1.locksImageCornerAspect)(el.kind, el.imageFit, handle) }; e.preventDefault(); });
 document.addEventListener('pointermove', e => { if (!drag)
     return; const { w, h } = (0, model_1.sizePx)(), dx = (e.clientX - drag.initialX) / model_1.S.zoom, dy = (e.clientY - drag.initialY) / model_1.S.zoom; let patch; if (drag.type === 'resize') {
     const rect = (0, resize_1.resizedRect)(drag.visual, drag.handle || 'se', dx, dy, { w, h }, drag.lockAspect);
@@ -493,12 +568,12 @@ document.addEventListener('keydown', e => {
     }
     const delta = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
     if (delta) {
-        const el = (0, model_1.effective)((0, model_1.templateEl)(model_1.S.selected));
+        const el = (0, model_1.effective)((0, model_1.templateEl)(model_1.S.selected)), rect = (0, anchor_layout_1.elementGeometry)((0, model_1.templateEl)(model_1.S.selected));
         if (el.locked)
             return;
         e.preventDefault();
         const step = e.shiftKey ? 10 : 1;
-        (0, interface_1.patchElement)(model_1.S.selected, { x: el.x + delta[0] * step, y: el.y + delta[1] * step });
+        (0, interface_1.patchElement)(model_1.S.selected, { x: rect.x + delta[0] * step, y: rect.y + delta[1] * step });
         (0, preview_1.renderStage)();
         (0, interface_1.renderInspector)();
     }
@@ -600,7 +675,7 @@ exports.baseFonts = baseFonts;
 const model_1 = require("./model");
 const dom_1 = require("./dom");
 const preview_1 = require("./preview");
-const text_layout_1 = require("./text-layout");
+const anchor_layout_1 = require("./anchor-layout");
 function renderCardControl() { const cc = (0, dom_1.$)('#cardControl'); cc.style.display = model_1.S.mode === 'cards' ? 'flex' : 'none'; if (model_1.S.mode !== 'cards')
     return; cc.innerHTML = `<span style="font-weight:700;color:#62778f">CARD</span><button data-action="prev-card" title="Previous card">‹</button><select id="cardSelector">${model_1.S.cards.map((c, i) => `<option value="${i}" ${i === model_1.S.cardIndex ? 'selected' : ''}>${(0, model_1.escapeHTML)(c.name)}</option>`).join('')}</select><button data-action="next-card" title="Next card">›</button><span style="color:#8a98a9;margin-left:auto">${model_1.S.cardIndex + 1} / ${model_1.S.cards.length}</span>`; }
 function renderLeft() {
@@ -629,7 +704,7 @@ const elementReadout = () => {
     if (!raw)
         return '';
     const e = (0, model_1.effective)(raw), dpi = model_1.S.template.dpi;
-    const visual = e.kind === 'text' ? (0, text_layout_1.layoutTextBox)(e, (0, model_1.actualValue)(raw)) : e;
+    const visual = (0, anchor_layout_1.elementGeometry)(raw);
     return `${e.kind === 'text' && (e.autoWidth || e.autoHeight) ? 'Auto-sized ' : ''}Export pixels at ${dpi} DPI: X ${(0, model_1.exportPixels)(visual.x, dpi)} · Y ${(0, model_1.exportPixels)(visual.y, dpi)} · Width ${(0, model_1.exportPixels)(visual.w, dpi)} px · Height ${(0, model_1.exportPixels)(visual.h, dpi)} px`;
 };
 function updateDimensionReadouts() {
@@ -678,7 +753,7 @@ function renderInspector() {
         return renderInspector();
     }
     ;
-    const e = (0, model_1.effective)(raw);
+    const e = (0, model_1.effective)(raw), geometry = (0, anchor_layout_1.elementGeometry)(raw);
     (0, dom_1.$)('#rightTitle').textContent = 'Element properties';
     let html = `<div class="inspector-heading">${(0, model_1.escapeHTML)(raw.name)}</div><div class="inspector-sub">${(0, model_1.escapeHTML)(raw.kind.toUpperCase())} ${model_1.S.mode === 'cards' ? '· Card-only changes' : '· Template-wide changes'}</div>`;
     if (model_1.S.mode === 'template')
@@ -692,7 +767,7 @@ function renderInspector() {
             html += `<div class="field"><label>Image filename (blank = automatic)</label><input data-cardvalue="${raw.id}" value="${(0, model_1.escapeHTML)((0, model_1.card)()?.values?.[raw.id] || '')}" list="imageFiles" placeholder="Set name/image.png"><datalist id="imageFiles">${model_1.S.sets.flatMap(s => s.images.map(im => `<option value="${(0, model_1.escapeHTML)(s.name + '/' + im.name)}"></option>`)).join('')}</datalist></div><div class="small" style="padding:0 0 10px">Enter <b>none</b> to leave this frame empty.</div>`;
     }
     const f = (0, model_1.unitFactor)(model_1.S.template.unit, model_1.S.template.dpi);
-    html += `<div class="section-title">Position and size (${model_1.S.template.unit})</div><div class="fields-two">${field('X (' + model_1.S.template.unit + ')', 'x', (0, model_1.fmt)(e.x / f), 'number', 'step="any"')}${field('Y (' + model_1.S.template.unit + ')', 'y', (0, model_1.fmt)(e.y / f), 'number', 'step="any"')}${field('Width (' + model_1.S.template.unit + ')', 'w', (0, model_1.fmt)(e.w / f), 'number', 'min="0.01" step="any"')}${field('Height (' + model_1.S.template.unit + ')', 'h', (0, model_1.fmt)(e.h / f), 'number', 'min="0.01" step="any"')}</div><div class="small" style="padding:4px 0 12px" id="elementPixelReadout">${elementReadout()}</div>`;
+    html += `<div class="section-title">Position and size (${model_1.S.template.unit})</div><div class="fields-two">${field('X (' + model_1.S.template.unit + ')', 'x', (0, model_1.fmt)(geometry.x / f), 'number', 'step="any"')}${field('Y (' + model_1.S.template.unit + ')', 'y', (0, model_1.fmt)(geometry.y / f), 'number', 'step="any"')}${field('Width (' + model_1.S.template.unit + ')', 'w', (0, model_1.fmt)(geometry.w / f), 'number', 'min="0.01" step="any"')}${field('Height (' + model_1.S.template.unit + ')', 'h', (0, model_1.fmt)(geometry.h / f), 'number', 'min="0.01" step="any"')}</div><div class="small" style="padding:4px 0 12px" id="elementPixelReadout">${elementReadout()}</div>`;
     html += checkbox('Hide element', 'hidden', e.hidden) + checkbox('Lock position', 'locked', e.locked);
     if (model_1.S.mode === 'template')
         html += checkbox('Include in exported images', 'includeInExport', (0, model_1.isExported)(e)) +
@@ -733,6 +808,10 @@ function renderInspector() {
         html += `<div class="section-title">Visibility link</div>` +
             selectionField('Follow text visibility', 'linkedTextId', [['', 'None (always independent)'], ...texts.map(item => [item.id, item.name])], e.linkedTextId || '') +
             `<div class="small" style="padding:0 0 10px">Hide this entire ${raw.kind === 'image' ? 'image frame' : 'shape'} when the chosen text box is invisible on this card.</div>`;
+        if (e.linkedTextId)
+            html += `<div class="section-title">Anchor edges to text</div>` +
+                `<div class="small" style="padding:0 0 8px">Anchor the selected edges to the text box, keeping their current distances. Opposite edges make the element stretch as the text box changes size.</div>` +
+                `<div class="fields-two">${anchor_layout_1.anchorEdges.map(side => checkbox(`Lock ${side.toLowerCase()} edge`, `anchor${side}`, !!e[`anchor${side}`])).join('')}</div>`;
     }
     html += `<div class="section-title">Appearance</div>${selectionField('Fill', 'fillMode', [['none', 'Transparent'], ['solid', 'Solid colour'], ['gradient', 'Linear gradient']], e.fillMode)}`;
     if (e.fillMode !== 'none')
@@ -754,19 +833,59 @@ function repaint(all = true) { if (all) {
     renderCardControl();
     renderInspector();
 } (0, preview_1.renderStage)(); (0, dom_1.$)('#projectTitle').textContent = model_1.S.projectName; }
-function patchElement(id, patch) { if (model_1.S.mode === 'cards') {
-    const c = (0, model_1.card)();
-    if (!c)
+function patchElement(id, patch) {
+    const raw = (0, model_1.templateEl)(id);
+    if (!raw)
         return;
-    if ((0, model_1.isExtra)(id))
-        Object.assign(c.extraElements.find(e => e.id === id), patch);
-    else {
-        c.overrides ??= {};
-        c.overrides[id] = { ...(c.overrides[id] || {}), ...patch };
+    const before = (0, model_1.effective)(raw), visual = (0, anchor_layout_1.elementGeometry)(raw);
+    const p = { ...patch };
+    if (raw.kind !== 'text') {
+        const linkChanged = Object.prototype.hasOwnProperty.call(p, 'linkedTextId') && p.linkedTextId !== before.linkedTextId;
+        if (linkChanged) {
+            // The previous position is the starting position for a new link.
+            Object.assign(p, visual, { anchorLeft: false, anchorRight: false, anchorTop: false, anchorBottom: false,
+                anchorOffsetLeft: undefined, anchorOffsetRight: undefined, anchorOffsetTop: undefined, anchorOffsetBottom: undefined });
+        }
+        const after = { ...before, ...p };
+        const geometryChanged = ['x', 'y', 'w', 'h'].some(k => Object.prototype.hasOwnProperty.call(p, k));
+        const anchorsChanged = anchor_layout_1.anchorEdges.some(side => Object.prototype.hasOwnProperty.call(p, `anchor${side}`));
+        if (geometryChanged || anchorsChanged) {
+            const desired = { ...visual };
+            for (const k of ['x', 'y', 'w', 'h'])
+                if (Object.prototype.hasOwnProperty.call(p, k))
+                    desired[k] = p[k];
+            // Removing an anchor must not cause the element to snap to its former saved coordinates.
+            if (anchorsChanged) {
+                Object.assign(p, { x: desired.x, y: desired.y, w: desired.w, h: desired.h });
+            }
+            const offsets = (0, anchor_layout_1.offsetsForRect)(after, desired);
+            for (const side of anchor_layout_1.anchorEdges) {
+                const key = `anchorOffset${side}`;
+                if (!after[`anchor${side}`]) {
+                    if (anchorsChanged)
+                        p[key] = undefined;
+                    continue;
+                }
+                const axis = side === 'Left' || side === 'Right' ? ['x', 'w'] : ['y', 'h'];
+                if (Object.prototype.hasOwnProperty.call(p, `anchor${side}`) || axis.some(k => Object.prototype.hasOwnProperty.call(p, k)))
+                    p[key] = offsets[key];
+            }
+        }
     }
+    if (model_1.S.mode === 'cards') {
+        const c = (0, model_1.card)();
+        if (!c)
+            return;
+        if ((0, model_1.isExtra)(id))
+            Object.assign(c.extraElements.find(e => e.id === id), p);
+        else {
+            c.overrides ??= {};
+            c.overrides[id] = { ...(c.overrides[id] || {}), ...p };
+        }
+    }
+    else
+        Object.assign(raw, p);
 }
-else
-    Object.assign((0, model_1.templateEl)(id), patch); }
 function chooseCard(i) { model_1.S.cardIndex = (0, model_1.clamp)(i, 0, model_1.S.cards.length - 1); model_1.S.selected = null; repaint(); }
 function addElement(kind) { const { w, h } = (0, model_1.sizePx)(), n = model_1.S.template.elements.filter(e => e.kind === kind).length + 1; const e = (0, model_1.makeElement)(kind, { name: (0, model_1.uniqName)(kind === 'text' ? `Text ${n}` : kind === 'image' ? `Image ${n}` : `Shape ${n}`), x: Math.round(w * .15), y: Math.round(h * .15), w: Math.round(w * .7), h: kind === 'image' ? Math.round(h * .38) : kind === 'shape' ? Math.round(h * .17) : 65, text: 'New text', fontSize: 18 }); if (model_1.S.mode === 'cards') {
     (0, model_1.card)().extraElements ??= [];
@@ -820,7 +939,7 @@ exports.fmt = fmt;
 const opacityFor = (e, component) => (0, exports.clamp)(Number(e[component] ?? e.opacity ?? 100) || 0, 0, 100) / 100;
 exports.opacityFor = opacityFor;
 exports.textKinds = ['text', 'image'];
-const makeElement = (kind, parts = {}) => ({ id: (0, exports.uid)(), kind, name: kind === 'text' ? 'Text' : kind === 'image' ? 'Artwork' : 'Shape', x: 22, y: 35, w: 195, h: 55, locked: false, hidden: false, includeInExport: true, invisibleIfEmpty: true, linkedTextId: '', shape: 'rect', radius: 0, fillMode: kind === 'shape' ? 'solid' : 'none', fill1: '#ffffff', fill2: '#dde5f1', gradientAngle: 90, borderWidth: 0, borderColor: '#233b58', opacity: 100, fillOpacity: 100, borderOpacity: 100, textOpacity: 100, text: 'Text', font: 'Georgia', fontSize: 19, fontWeight: 400, italic: false, underline: false, color: '#152b43', align: 'left', valign: 'middle', lineHeight: 1.18, letterSpacing: 0, autoWidth: false, autoHeight: false, gutterLeft: 0, gutterRight: 0, gutterTop: 0, gutterBottom: 0, imageFit: 'cover', imgScale: 1, imgOffsetX: 0, imgOffsetY: 0, autoSet: '', autoMode: 'cycle', ...parts });
+const makeElement = (kind, parts = {}) => ({ id: (0, exports.uid)(), kind, name: kind === 'text' ? 'Text' : kind === 'image' ? 'Artwork' : 'Shape', x: 22, y: 35, w: 195, h: 55, locked: false, hidden: false, includeInExport: true, invisibleIfEmpty: true, linkedTextId: '', anchorLeft: false, anchorRight: false, anchorTop: false, anchorBottom: false, shape: 'rect', radius: 0, fillMode: kind === 'shape' ? 'solid' : 'none', fill1: '#ffffff', fill2: '#dde5f1', gradientAngle: 90, borderWidth: 0, borderColor: '#233b58', opacity: 100, fillOpacity: 100, borderOpacity: 100, textOpacity: 100, text: 'Text', font: 'Georgia', fontSize: 19, fontWeight: 400, italic: false, underline: false, color: '#152b43', align: 'left', valign: 'middle', lineHeight: 1.18, letterSpacing: 0, autoWidth: false, autoHeight: false, gutterLeft: 0, gutterRight: 0, gutterTop: 0, gutterBottom: 0, imageFit: 'cover', imgScale: 1, imgOffsetX: 0, imgOffsetY: 0, autoSet: '', autoMode: 'cycle', ...parts });
 exports.makeElement = makeElement;
 const initialElements = () => [
     (0, exports.makeElement)('shape', { name: 'Card background', x: 0, y: 0, w: (0, exports.px)(63, 'mm'), h: (0, exports.px)(88, 'mm'), fillMode: 'gradient', fill1: '#fcfaf4', fill2: '#dce7ed', gradientAngle: 180 }),
@@ -937,6 +1056,7 @@ exports.canvasCard = canvasCard;
 const model_1 = require("./model");
 const image_sets_1 = require("./image-sets");
 const text_layout_1 = require("./text-layout");
+const anchor_layout_1 = require("./anchor-layout");
 function fillCanvas(ctx, e, x, y, w, h) { if (e.fillMode === 'none')
     return; ctx.save(); if (e.fillMode === 'solid')
     ctx.fillStyle = e.fill1;
@@ -1007,7 +1127,7 @@ async function canvasCard(ci, mode = 'cards') {
             continue;
         const value = raw.kind === 'text' ? (mode === 'cards' && Object.prototype.hasOwnProperty.call(model_1.S.cards[ci]?.values || {}, raw.id) ? model_1.S.cards[ci].values[raw.id] : raw.text) : '';
         const layout = raw.kind === 'text' ? (0, text_layout_1.layoutTextBox)(effective, value) : null;
-        const e = layout ? { ...effective, x: layout.x, y: layout.y, w: layout.w, h: layout.h } : effective;
+        const e = { ...effective, ...(0, anchor_layout_1.elementGeometry)(raw, ci, mode) };
         ctx.save();
         ctx.globalAlpha = (0, model_1.opacityFor)(e, 'fillOpacity');
         canvasFillShape(ctx, e);
@@ -1047,6 +1167,7 @@ const model_1 = require("./model");
 const dom_1 = require("./dom");
 const image_sets_1 = require("./image-sets");
 const text_layout_1 = require("./text-layout");
+const anchor_layout_1 = require("./anchor-layout");
 const gradientCSS = e => e.fillMode === 'solid' ? e.fill1 : e.fillMode === 'gradient' ? `linear-gradient(${e.gradientAngle}deg,${e.fill1},${e.fill2})` : 'transparent';
 function renderStage() {
     const st = (0, dom_1.$)('#stage'), { w, h } = (0, model_1.sizePx)(), z = model_1.S.zoom;
@@ -1060,6 +1181,7 @@ function renderStage() {
         if (model_1.S.mode === 'template' ? e.hidden : !(0, model_1.visibleOnCard)(raw, model_1.S.cardIndex, 'cards'))
             continue;
         const selected = model_1.S.selected === raw.id, src = (0, image_sets_1.getImageData)(raw, model_1.S.cardIndex, model_1.S.mode);
+        const geom = (0, anchor_layout_1.elementGeometry)(raw, model_1.S.cardIndex, model_1.S.mode);
         let content = '';
         if (e.kind === 'text') {
             const layout = (0, text_layout_1.layoutTextBox)(e, (0, model_1.actualValue)(raw));
@@ -1069,13 +1191,12 @@ function renderStage() {
         else if (e.kind === 'image') {
             const im = (0, image_sets_1.cacheImage)(src);
             if (src && im?.loaded) {
-                const box = (0, image_sets_1.imgBox)(e, im.im);
+                const box = (0, image_sets_1.imgBox)({ ...e, ...geom }, im.im);
                 content = `<div class="image-content"><img alt="" draggable="false" src="${src}" style="left:${box.x * z}px;top:${box.y * z}px;width:${box.w * z}px;height:${box.h * z}px"></div>`;
             }
             else
                 content = `<div class="missing">${src ? 'Loading image…' : `IMAGE FRAME<br>${(0, model_1.escapeHTML)(raw.name)}`}</div>`;
         }
-        const geom = e.kind === 'text' ? (0, text_layout_1.layoutTextBox)(e, (0, model_1.actualValue)(raw)) : e;
         const border = e.borderWidth > 0 ? `${e.borderWidth * z}px solid ${e.borderColor}` : 'none';
         const base = `left:${geom.x * z}px;top:${geom.y * z}px;width:${geom.w * z}px;height:${geom.h * z}px;border-radius:${e.shape === 'ellipse' ? '50%' : `${(e.radius || 0) * z}px`};`;
         const fill = `<div class="element-fill" style="background:${gradientCSS(e)};opacity:${(0, model_1.opacityFor)(e, 'fillOpacity')}"></div>`;

@@ -11,21 +11,28 @@ export interface CardElement {
   invisibleIfEmpty?: boolean;
   /** Shape/image: link visibility to the selected text element's ID. */
   linkedTextId?: string;
+  /** Optional positional/size anchors to the linked text box. */
+  anchorLeft?: boolean; anchorRight?: boolean; anchorTop?: boolean; anchorBottom?: boolean;
+  /** Signed edge offsets from the linked text rectangle, in design pixels. */
+  anchorOffsetLeft?: number; anchorOffsetRight?: number;
+  anchorOffsetTop?: number; anchorOffsetBottom?: number;
   shape: 'rect' | 'ellipse'; radius: number;
   fillMode: 'none' | 'solid' | 'gradient';
   fill1: string; fill2: string; gradientAngle: number;
   borderWidth: number; borderColor: string;
-  /** Legacy overall opacity, retained for older project files. */
+  /** Legacy overall opacity (0–100), used as the fallback for older documents. */
   opacity?: number;
-  /** Independent component opacities in percent (0–100). */
-  fillOpacity?: number; borderOpacity?: number; textOpacity?: number;
+  /** Independent component opacities (0–100). Missing values use legacy opacity or 100. */
+  fillOpacity?: number;
+  borderOpacity?: number;
+  textOpacity?: number;
   text: string; font: string; fontSize: number; fontWeight: number;
   italic: boolean; underline: boolean; color: string;
   align: 'left' | 'center' | 'right'; valign: 'top' | 'middle' | 'bottom';
   lineHeight: number; letterSpacing: number;
   /** Auto-fit text separately along each axis. Missing means off (legacy compatibility). */
   autoWidth?: boolean; autoHeight?: boolean;
-  /** Interior clearances in 96-DPI design pixels, excluding text but retaining fill/border. */
+  /** Non-text margins inside the coloured/bordered text box, in 96-DPI design pixels. */
   gutterLeft?: number; gutterRight?: number; gutterTop?: number; gutterBottom?: number;
   imageFit: 'cover' | 'contain' | 'width' | 'height' | 'stretch' | 'free';
   imgScale: number; imgOffsetX: number; imgOffsetY: number;

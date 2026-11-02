@@ -9,6 +9,7 @@ import { saveProject, saveProjectAs, saveTemplate, saveTemplateAs, openFromDisk,
 import { importImages, setTargetImageSet } from './assets';
 import { layoutTextBox } from './text-layout';
 import { resizedRect, locksImageCornerAspect } from './resize';
+import { elementGeometry } from './anchor-layout';
 setImageUpdateHandler(renderStage);
 
 
@@ -145,7 +146,7 @@ const stage=$('#stage');
 // Use the event's original propagation path: renderStage() can replace the clicked
 // element before the event bubbles here, so target.closest('#stage') becomes false.
 $('#canvasOuter').addEventListener('pointerdown',e=>{if(e.button===0&&!e.composedPath().includes(stage))clearSelection()});
-stage.addEventListener('pointerdown',e=>{if(e.button!==0)return;const node=e.target.closest('.element');if(!node){clearSelection();return}const id=node.dataset.id;S.selected=id;renderInspector();renderLeft();const el=effective(templateEl(id));const handle=e.target.closest('[data-handle]')?.dataset.handle||null;renderStage();if(el.locked)return;drag={id,type:handle?'resize':'move',handle,initialX:e.clientX,initialY:e.clientY,x:el.x,y:el.y,w:el.w,h:el.h,visual:el.kind==='text'?layoutTextBox(el,actualValue(templateEl(id))):{x:el.x,y:el.y,w:el.w,h:el.h},lockAspect:locksImageCornerAspect(el.kind,el.imageFit,handle)};e.preventDefault()});
+stage.addEventListener('pointerdown',e=>{if(e.button!==0)return;const node=e.target.closest('.element');if(!node){clearSelection();return}const id=node.dataset.id;S.selected=id;renderInspector();renderLeft();const el=effective(templateEl(id)),rect=elementGeometry(templateEl(id));const handle=e.target.closest('[data-handle]')?.dataset.handle||null;renderStage();if(el.locked)return;drag={id,type:handle?'resize':'move',handle,initialX:e.clientX,initialY:e.clientY,x:rect.x,y:rect.y,w:rect.w,h:rect.h,visual:{...rect},lockAspect:locksImageCornerAspect(el.kind,el.imageFit,handle)};e.preventDefault()});
 document.addEventListener('pointermove',e=>{if(!drag)return;const {w,h}=sizePx(),dx=(e.clientX-drag.initialX)/S.zoom,dy=(e.clientY-drag.initialY)/S.zoom;let patch;if(drag.type==='resize'){const rect=resizedRect(drag.visual,drag.handle||'se',dx,dy,{w,h},drag.lockAspect);const handle=drag.handle||'se';patch={};if(handle.includes('w')||handle.includes('e'))Object.assign(patch,{x:rect.x,w:rect.w,autoWidth:false});if(handle.includes('n')||handle.includes('s'))Object.assign(patch,{y:rect.y,h:rect.h,autoHeight:false})}else patch={x:Math.round(clamp(drag.x+dx,-drag.w+4,w-4)),y:Math.round(clamp(drag.y+dy,-drag.h+4,h-4))};patchElement(drag.id,patch);renderStage();renderInspector()});
 document.addEventListener('pointerup',()=>{if(drag){drag=null;renderInspector();renderLeft();renderStage()}});
 document.addEventListener('keydown',e=>{const active=document.activeElement,tag=active?.tagName;
@@ -156,7 +157,7 @@ if((e.ctrlKey||e.metaKey)&&!e.altKey&&!e.shiftKey&&S.mode==='template'){
    e.preventDefault();mutateAction(action);return;
  }
 }
-if(e.ctrlKey||e.altKey||e.metaKey)return;if(!S.selected)return;if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();mutateAction('delete-element');return}const delta={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];if(delta){const el=effective(templateEl(S.selected));if(el.locked)return;e.preventDefault();const step=e.shiftKey?10:1;patchElement(S.selected,{x:el.x+delta[0]*step,y:el.y+delta[1]*step});renderStage();renderInspector()}});
+if(e.ctrlKey||e.altKey||e.metaKey)return;if(!S.selected)return;if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();mutateAction('delete-element');return}const delta={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];if(delta){const el=effective(templateEl(S.selected)),rect=elementGeometry(templateEl(S.selected));if(el.locked)return;e.preventDefault();const step=e.shiftKey?10:1;patchElement(S.selected,{x:rect.x+delta[0]*step,y:rect.y+delta[1]*step});renderStage();renderInspector()}});
 window.addEventListener('resize',()=>{});
 
 repaint();
