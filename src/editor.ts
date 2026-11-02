@@ -142,8 +142,16 @@ function handleProp(input){const key=input.dataset.prop;if(!key)return;let v=inp
   patchElement(S.selected,{[key]:v});
  }
 }
-$('#inspector').addEventListener('input',event=>{const inp=event.target;if(inp.dataset.cardvalue){const c=card();if(c){c.values??={};c.values[inp.dataset.cardvalue]=inp.value;renderStage();updateDimensionReadouts()}return}if(inp.dataset.prop){handleProp(inp);renderStage();updateDimensionReadouts();$('#projectTitle').textContent=S.projectName}});
-$('#inspector').addEventListener('change',event=>{const inp=event.target;if(inp.dataset.cardvalue){renderLeft();return}if(inp.dataset.prop){handleProp(inp);repaint()}});
+// Ignore delayed input/change events from an inspector that no longer
+// belongs to the selected element or card.
+function activeInspectorInput(inp){
+ const d=inp.dataset;
+ if(!d)return false;
+ if(d.editOwner===undefined)return true; // Programmatic/legacy inputs.
+ return d.editOwner===(S.selected||'')&&d.editMode===S.mode&&Number(d.editCard)===S.cardIndex;
+}
+$('#inspector').addEventListener('input',event=>{const inp=event.target;if(!activeInspectorInput(inp))return;if(inp.dataset.cardvalue){const c=card();if(c){c.values??={};c.values[inp.dataset.cardvalue]=inp.value;renderStage();updateDimensionReadouts()}return}if(inp.dataset.prop){handleProp(inp);renderStage();updateDimensionReadouts();$('#projectTitle').textContent=S.projectName}});
+$('#inspector').addEventListener('change',event=>{const inp=event.target;if(!activeInspectorInput(inp))return;if(inp.dataset.cardvalue){renderLeft();return}if(inp.dataset.prop){handleProp(inp);repaint()}});
 function listenClick(e){const menu=$('#fileMenu');const actionEl=e.target.closest('[data-action]');if(actionEl){menu.open=false;e.stopPropagation();mutateAction(actionEl.dataset.action,actionEl);return}if(menu.open&&!e.target.closest('#fileMenu'))menu.open=false;const listRow=e.target.closest('[data-layer]');if(listRow){S.selected=listRow.dataset.layer;repaint();return}const cardRow=e.target.closest('[data-cardindex]');if(cardRow){chooseCard(Number(cardRow.dataset.cardindex));return}}
 document.addEventListener('click',listenClick);
 $('#cardControl').addEventListener('change',e=>{if(e.target.id==='cardSelector')chooseCard(Number(e.target.value))});
