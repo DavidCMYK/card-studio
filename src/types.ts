@@ -36,7 +36,9 @@ export interface CardElement {
   gutterLeft?: number; gutterRight?: number; gutterTop?: number; gutterBottom?: number;
   imageFit: 'cover' | 'contain' | 'width' | 'height' | 'stretch' | 'free';
   imgScale: number; imgOffsetX: number; imgOffsetY: number;
-  autoSet: string; autoMode: 'cycle' | 'sequence' | 'random';
+  autoSet: string; autoMode: 'cycle' | 'sequence' | 'random' | 'single';
+  /** Filename in autoSet used for every card when autoMode is single. */
+  singleImage?: string;
 }
 export interface CardTemplate { name: string; width: number; height: number; unit: Units; dpi: number; background: string; elements: CardElement[]; }
 export interface ImageAsset { name: string; data: string; }
