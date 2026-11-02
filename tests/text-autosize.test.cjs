@@ -25,27 +25,27 @@ function setup(options={}){
 }
 test('independent horizontal and vertical auto fit with four gutters',()=>{
  dom();const {e}=setup();
- let result=layoutTextBox(e,'ABCDEFG\\nX');
+ let result=layoutTextBox(e,'ABCDEFG\nX');
  assert.deepEqual([result.x,result.y,result.w,result.h],[100,200,84,50]);
  e.autoWidth=false;
  result=layoutTextBox(e,'ABCDEFG');
  assert.equal(result.w,100);assert.equal(result.h,30);
  e.autoWidth=true;e.autoHeight=false;
- result=layoutTextBox(e,'ABCDEFG\\nX');
+ result=layoutTextBox(e,'ABCDEFG\nX');
  assert.equal(result.w,84);assert.equal(result.h,80);
 });
 test('centred/bottom text grows symmetrically horizontally and upwards',()=>{
  dom();const {e}=setup({align:'center',valign:'bottom'});
  let result=layoutTextBox(e,'AB');
  assert.deepEqual([result.x,result.y,result.w,result.h],[133,250,34,30]);
- result=layoutTextBox(e,'ABCDEFGHIJK\\nABC');
+ result=layoutTextBox(e,'ABCDEFGHIJK\nABC');
  assert.deepEqual([result.x,result.y,result.w,result.h],[88,230,124,50]);
 });
 test('different cards auto fit independently in preview and PNG',async()=>{
  const {nodes,draws}=dom();const {state,e}=setup();
  state.cards=[
  {id:'1',name:'A',values:{[e.id]:'A'},overrides:{},extraElements:[]},
- {id:'2',name:'B',values:{[e.id]:'ABCDEFG\\nX'},overrides:{},extraElements:[]}];
+ {id:'2',name:'B',values:{[e.id]:'ABCDEFG\nX'},overrides:{},extraElements:[]}];
  state.mode='cards';
  for(let i=0;i<2;i++){
   state.cardIndex=i;
