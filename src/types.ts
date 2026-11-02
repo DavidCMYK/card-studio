@@ -36,6 +36,8 @@ export interface CardElement {
   gutterLeft?: number; gutterRight?: number; gutterTop?: number; gutterBottom?: number;
   imageFit: 'cover' | 'contain' | 'width' | 'height' | 'stretch' | 'free';
   imgScale: number; imgOffsetX: number; imgOffsetY: number;
+  /** Transform image content about the frame centre, leaving frame and border intact. */
+  imgFlipX?: boolean; imgFlipY?: boolean; imgRotation?: number;
   autoSet: string; autoMode: 'cycle' | 'sequence' | 'random' | 'single';
   /** Filename in autoSet used for every card when autoMode is single. */
   singleImage?: string;
