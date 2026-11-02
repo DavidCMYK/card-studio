@@ -1,4 +1,4 @@
-import { S, initial, replaceState, card, templateEl, layerEls, isExtra, effective, uniqName, px, unitFactor, sizePx, clamp, uid } from './model';
+import { S, initial, replaceState, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, px, unitFactor, sizePx, clamp, uid } from './model';
 import { $ , toast } from './dom';
 import { renderStage } from './preview';
 import { repaint, renderInspector, renderLeft, chooseCard, patchElement, addElement, updateDimensionReadouts, setKnownFonts, baseFonts } from './interface';
@@ -7,6 +7,7 @@ import { exportPNG, exportAll } from './png-export';
 import { exportXLSX, readSheet } from './spreadsheet';
 import { saveProject, saveProjectAs, saveTemplate, saveTemplateAs, openFromDisk, openJSON, resetFileHandles } from './project-storage';
 import { importImages, setTargetImageSet } from './assets';
+import { layoutTextBox } from './text-layout';
 setImageUpdateHandler(renderStage);
 
 
@@ -123,11 +124,11 @@ function handleProp(input){const key=input.dataset.prop;if(!key)return;let v=inp
  if(key==='projectName'){S.projectName=String(v);return}
  if(key==='card.name'){if(card())card().name=String(v)||'Untitled card';return}
  if(key==='name'){const e=templateEl(S.selected);if(e)e.name=uniqName(v,e.id);return}
- if(['x','y','w','h'].includes(key)){v=px(Number(v),S.template.unit,S.template.dpi);if(key==='w'||key==='h')v=Math.max(1,v)}
+ if(['x','y','w','h','gutterLeft','gutterRight','gutterTop','gutterBottom'].includes(key)){v=px(Number(v),S.template.unit,S.template.dpi);if(key==='w'||key==='h')v=Math.max(1,v);if(key.startsWith('gutter'))v=Math.max(0,v)}
  else if(['fontSize','fontWeight','lineHeight','letterSpacing','borderWidth','radius','opacity','fillOpacity','borderOpacity','textOpacity','gradientAngle','imgScale','imgOffsetX','imgOffsetY'].includes(key)){v=Number(v);if(['opacity','fillOpacity','borderOpacity','textOpacity'].includes(key))v=clamp(v,0,100);if(key==='fontSize')v=Math.max(1,v);if(key==='imgScale')v=Math.max(.01,v);if(key==='borderWidth')v=Math.max(0,v)}
  if(S.selected)patchElement(S.selected,{[key]:v});
 }
-$('#inspector').addEventListener('input',event=>{const inp=event.target;if(inp.dataset.cardvalue){const c=card();if(c){c.values??={};c.values[inp.dataset.cardvalue]=inp.value;renderStage()}return}if(inp.dataset.prop){handleProp(inp);renderStage();updateDimensionReadouts();$('#projectTitle').textContent=S.projectName}});
+$('#inspector').addEventListener('input',event=>{const inp=event.target;if(inp.dataset.cardvalue){const c=card();if(c){c.values??={};c.values[inp.dataset.cardvalue]=inp.value;renderStage();updateDimensionReadouts()}return}if(inp.dataset.prop){handleProp(inp);renderStage();updateDimensionReadouts();$('#projectTitle').textContent=S.projectName}});
 $('#inspector').addEventListener('change',event=>{const inp=event.target;if(inp.dataset.cardvalue){renderLeft();return}if(inp.dataset.prop){handleProp(inp);repaint()}});
 function listenClick(e){const menu=$('#fileMenu');const actionEl=e.target.closest('[data-action]');if(actionEl){menu.open=false;e.stopPropagation();mutateAction(actionEl.dataset.action,actionEl);return}if(menu.open&&!e.target.closest('#fileMenu'))menu.open=false;const listRow=e.target.closest('[data-layer]');if(listRow){S.selected=listRow.dataset.layer;repaint();return}const cardRow=e.target.closest('[data-cardindex]');if(cardRow){chooseCard(Number(cardRow.dataset.cardindex));return}}
 document.addEventListener('click',listenClick);
@@ -143,8 +144,8 @@ const stage=$('#stage');
 // Use the event's original propagation path: renderStage() can replace the clicked
 // element before the event bubbles here, so target.closest('#stage') becomes false.
 $('#canvasOuter').addEventListener('pointerdown',e=>{if(e.button===0&&!e.composedPath().includes(stage))clearSelection()});
-stage.addEventListener('pointerdown',e=>{if(e.button!==0)return;const node=e.target.closest('.element');if(!node){clearSelection();return}const id=node.dataset.id;S.selected=id;renderInspector();renderLeft();const el=effective(templateEl(id));const handle=e.target.closest('[data-handle]')?.dataset.handle||null;renderStage();if(el.locked)return;drag={id,type:handle?'resize':'move',handle,initialX:e.clientX,initialY:e.clientY,x:el.x,y:el.y,w:el.w,h:el.h};e.preventDefault()});
-document.addEventListener('pointermove',e=>{if(!drag)return;const {w,h}=sizePx(),dx=(e.clientX-drag.initialX)/S.zoom,dy=(e.clientY-drag.initialY)/S.zoom;let patch;if(drag.type==='resize'){let left=drag.x,top=drag.y,right=drag.x+drag.w,bottom=drag.y+drag.h;const maxRight=w*3,maxBottom=h*3,minSize=5,handle=drag.handle||'se';if(handle.includes('w'))left=clamp(Math.round(drag.x+dx),-drag.w+4,right-minSize);if(handle.includes('e'))right=clamp(Math.round(drag.x+drag.w+dx),left+minSize,maxRight);if(handle.includes('n'))top=clamp(Math.round(drag.y+dy),-drag.h+4,bottom-minSize);if(handle.includes('s'))bottom=clamp(Math.round(drag.y+drag.h+dy),top+minSize,maxBottom);patch={x:left,y:top,w:right-left,h:bottom-top}}else patch={x:Math.round(clamp(drag.x+dx,-drag.w+4,w-4)),y:Math.round(clamp(drag.y+dy,-drag.h+4,h-4))};patchElement(drag.id,patch);renderStage();renderInspector()});
+stage.addEventListener('pointerdown',e=>{if(e.button!==0)return;const node=e.target.closest('.element');if(!node){clearSelection();return}const id=node.dataset.id;S.selected=id;renderInspector();renderLeft();const el=effective(templateEl(id));const handle=e.target.closest('[data-handle]')?.dataset.handle||null;renderStage();if(el.locked)return;drag={id,type:handle?'resize':'move',handle,initialX:e.clientX,initialY:e.clientY,x:el.x,y:el.y,w:el.w,h:el.h,visual:el.kind==='text'?layoutTextBox(el,actualValue(templateEl(id))):el};e.preventDefault()});
+document.addEventListener('pointermove',e=>{if(!drag)return;const {w,h}=sizePx(),dx=(e.clientX-drag.initialX)/S.zoom,dy=(e.clientY-drag.initialY)/S.zoom;let patch;if(drag.type==='resize'){let left=drag.visual.x,top=drag.visual.y,right=left+drag.visual.w,bottom=top+drag.visual.h;const maxRight=w*3,maxBottom=h*3,minSize=5,handle=drag.handle||'se';if(handle.includes('w'))left=clamp(Math.round(drag.visual.x+dx),-drag.w+4,right-minSize);if(handle.includes('e'))right=clamp(Math.round(drag.visual.x+drag.visual.w+dx),left+minSize,maxRight);if(handle.includes('n'))top=clamp(Math.round(drag.visual.y+dy),-drag.h+4,bottom-minSize);if(handle.includes('s'))bottom=clamp(Math.round(drag.visual.y+drag.visual.h+dy),top+minSize,maxBottom);patch={};if(handle.includes('w')||handle.includes('e'))Object.assign(patch,{x:left,w:right-left,autoWidth:false});if(handle.includes('n')||handle.includes('s'))Object.assign(patch,{y:top,h:bottom-top,autoHeight:false})}else patch={x:Math.round(clamp(drag.x+dx,-drag.w+4,w-4)),y:Math.round(clamp(drag.y+dy,-drag.h+4,h-4))};patchElement(drag.id,patch);renderStage();renderInspector()});
 document.addEventListener('pointerup',()=>{if(drag){drag=null;renderInspector();renderLeft();renderStage()}});
 document.addEventListener('keydown',e=>{const active=document.activeElement,tag=active?.tagName;
 if(['INPUT','TEXTAREA','SELECT'].includes(tag)||(active as HTMLElement)?.isContentEditable)return;
