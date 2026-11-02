@@ -51,33 +51,23 @@ Pixel-unit templates are DPI-aware too: changing DPI preserves physical card siz
 
 The editor is written in TypeScript and uses the existing DOM-based canvas editor with a separate HTML5 Canvas export renderer. The renderer has **not** been replaced with Fabric.js; keeping the existing behavior intact was intentional for this structural refactor.
 
-## Deploy to Cloudflare Pages
+## Deploy to Cloudflare Workers (static assets)
 
-Connect this GitHub repository directly to **Cloudflare Pages** (Workers & Pages → Create application → Pages → Import an existing Git repository). No Cloudflare API token or additional GitHub Actions workflow is needed; Cloudflare builds on each push to the production branch and creates preview deployments for other branches or pull requests.
+Card Studio is a static browser application. The supported deployment is a **Cloudflare Worker with static assets**, connected to the GitHub repository. The checked-in `wrangler.jsonc` tells Wrangler to deploy the `public/` build output as a static site; no Worker script, database, or API keys are needed.
 
-Use these Cloudflare Pages settings:
+Cloudflare dashboard setup:
 
-| Setting | Value |
-| --- | --- |
-| Framework preset | None |
-| Production branch | `main` |
-| Root directory | Leave blank (repository root) |
-| Build command | `npm run build:pages` |
-| Build output directory | `public` |
-| Node.js | 22 (`.node-version` in this repository) |
+1. Go to **Workers & Pages → Create application**, then choose **GitHub** and import `DavidCMYK/card-studio`.
+2. Select production branch `main` and application name `card-studio`.
+3. Set **Build command** to `npm run build:pages`.
+4. Set **Deploy command** to `npx wrangler deploy` (the normal Workers default).
+5. Leave **Root directory** empty, and save/deploy. The site becomes available at the assigned `*.workers.dev` URL.
 
-The `build:pages` command first builds and tests the app, then assembles **only** `index.html`, `styles.css`, `dist/app.js` and `vendor/jszip.min.js` inside `public/`, preserving their paths. A failing test stops deployment. The `public/` directory is generated and ignored by Git.
+The build command runs the automated tests, builds the browser bundle, and assembles `public/index.html`, `public/styles.css`, `public/dist/app.js`, and `public/vendor/jszip.min.js`. Wrangler deploys those files as Workers Static Assets. New commits to `main` automatically rebuild and deploy through the Git integration.
 
-After the first deploy, Cloudflare provides a `*.pages.dev` URL. To put it on your domain, open the Pages project's **Custom domains** section and add your chosen subdomain (for example `cards.example.com`); follow Cloudflare's DNS instructions. Using a subdomain keeps the existing website unaffected.
+Local verification: `npm install && npm run build:pages`. Manual deployment (after Cloudflare login): `npm run deploy`.
 
-To check the deployment build locally:
-
-```sh
-npm install
-npm run build:pages
-```
-
-New commits to `main` will then automatically rebuild and publish the site. The browser editor still runs entirely on the visitor's device; projects and images are not uploaded to Cloudflare.
+**Custom domain:** Workers custom domains require an active Cloudflare-managed DNS zone. You may continue hosting the website itself at IONOS, but do not change your domain's nameservers without first carefully copying all existing IONOS website and email DNS records. Until the domain is configured, use the `workers.dev` address, linked from your existing site.
 
 ## Develop
 

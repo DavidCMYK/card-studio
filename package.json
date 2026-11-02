@@ -7,9 +7,12 @@
     "build": "tsc -p tsconfig.json && node scripts/bundle.cjs",
     "build:pages": "npm test && node scripts/build-pages.cjs",
     "test": "npm run build && node --test tests/*.test.cjs",
-    "check": "tsc -p tsconfig.json --noEmit"
+    "check": "tsc -p tsconfig.json --noEmit",
+    "deploy:worker": "wrangler deploy",
+    "deploy": "npm run build:pages && wrangler deploy"
   },
   "devDependencies": {
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "wrangler": "^4.0.0"
   }
 }
