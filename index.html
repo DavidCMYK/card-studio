@@ -3,6 +3,7 @@
   <header class="top">
     <div class="logo"><span class="logo-mark">▣</span><span>Card Studio</span></div><div class="top-sep"></div>
     <span id="projectTitle" class="project-title">Untitled project</span>
+    <nav class="mode-switch" aria-label="Editing mode"><button id="btnTemplate" class="active" data-action="mode-template" aria-pressed="true">Template</button><button id="btnCards" data-action="mode-cards" aria-pressed="false">Cards</button></nav>
     <details id="fileMenu" class="file-menu"><summary>File</summary><div class="file-menu-panel" role="group" aria-label="File commands">
       <button data-action="new-project">New project</button>
       <button data-action="open-project">Open project…</button>
@@ -18,9 +19,8 @@
     <div class="top-sep"></div><button class="accent" data-action="export-current">Export PNG</button><button class="accent" data-action="export-all">Export all ZIP</button>
   </header>
   <div class="main">
-    <aside class="side side-left">
-      <div class="seg"><button id="btnTemplate" class="active" data-action="mode-template">Template</button><button id="btnCards" data-action="mode-cards">Cards</button></div>
-      <div id="leftBody"></div>
+    <aside class="side side-left" aria-label="Workspace toolboxes">
+      <div id="leftBody" class="sidebar-stack"></div>
     </aside>
     <section class="viewport">
       <div class="work-tools">
