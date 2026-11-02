@@ -58,6 +58,7 @@ const png_export_1 = require("./png-export");
 const spreadsheet_1 = require("./spreadsheet");
 const project_storage_1 = require("./project-storage");
 const assets_1 = require("./assets");
+const text_layout_1 = require("./text-layout");
 (0, image_sets_1.setImageUpdateHandler)(preview_1.renderStage);
 let elementClipboard = null;
 // This is an internal element clipboard, independent of the system text clipboard.
@@ -367,10 +368,12 @@ function handleProp(input) {
             e.name = (0, model_1.uniqName)(v, e.id);
         return;
     }
-    if (['x', 'y', 'w', 'h'].includes(key)) {
+    if (['x', 'y', 'w', 'h', 'gutterLeft', 'gutterRight', 'gutterTop', 'gutterBottom'].includes(key)) {
         v = (0, model_1.px)(Number(v), model_1.S.template.unit, model_1.S.template.dpi);
         if (key === 'w' || key === 'h')
             v = Math.max(1, v);
+        if (key.startsWith('gutter'))
+            v = Math.max(0, v);
     }
     else if (['fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'borderWidth', 'radius', 'opacity', 'fillOpacity', 'borderOpacity', 'textOpacity', 'gradientAngle', 'imgScale', 'imgOffsetX', 'imgOffsetY'].includes(key)) {
         v = Number(v);
@@ -392,6 +395,7 @@ function handleProp(input) {
         c.values ??= {};
         c.values[inp.dataset.cardvalue] = inp.value;
         (0, preview_1.renderStage)();
+        (0, interface_1.updateDimensionReadouts)();
     }
     return;
 } if (inp.dataset.prop) {
@@ -446,20 +450,24 @@ stage.addEventListener('pointerdown', e => { if (e.button !== 0)
     clearSelection();
     return;
 } const id = node.dataset.id; model_1.S.selected = id; (0, interface_1.renderInspector)(); (0, interface_1.renderLeft)(); const el = (0, model_1.effective)((0, model_1.templateEl)(id)); const handle = e.target.closest('[data-handle]')?.dataset.handle || null; (0, preview_1.renderStage)(); if (el.locked)
-    return; drag = { id, type: handle ? 'resize' : 'move', handle, initialX: e.clientX, initialY: e.clientY, x: el.x, y: el.y, w: el.w, h: el.h }; e.preventDefault(); });
+    return; drag = { id, type: handle ? 'resize' : 'move', handle, initialX: e.clientX, initialY: e.clientY, x: el.x, y: el.y, w: el.w, h: el.h, visual: el.kind === 'text' ? (0, text_layout_1.layoutTextBox)(el, (0, model_1.actualValue)((0, model_1.templateEl)(id))) : el }; e.preventDefault(); });
 document.addEventListener('pointermove', e => { if (!drag)
     return; const { w, h } = (0, model_1.sizePx)(), dx = (e.clientX - drag.initialX) / model_1.S.zoom, dy = (e.clientY - drag.initialY) / model_1.S.zoom; let patch; if (drag.type === 'resize') {
-    let left = drag.x, top = drag.y, right = drag.x + drag.w, bottom = drag.y + drag.h;
+    let left = drag.visual.x, top = drag.visual.y, right = drag.visual.x + drag.visual.w, bottom = drag.visual.y + drag.visual.h;
     const maxRight = w * 3, maxBottom = h * 3, minSize = 5, handle = drag.handle || 'se';
     if (handle.includes('w'))
-        left = (0, model_1.clamp)(Math.round(drag.x + dx), -drag.w + 4, right - minSize);
+        left = (0, model_1.clamp)(Math.round(drag.visual.x + dx), -drag.w + 4, right - minSize);
     if (handle.includes('e'))
-        right = (0, model_1.clamp)(Math.round(drag.x + drag.w + dx), left + minSize, maxRight);
+        right = (0, model_1.clamp)(Math.round(drag.visual.x + drag.visual.w + dx), left + minSize, maxRight);
     if (handle.includes('n'))
-        top = (0, model_1.clamp)(Math.round(drag.y + dy), -drag.h + 4, bottom - minSize);
+        top = (0, model_1.clamp)(Math.round(drag.visual.y + dy), -drag.h + 4, bottom - minSize);
     if (handle.includes('s'))
-        bottom = (0, model_1.clamp)(Math.round(drag.y + drag.h + dy), top + minSize, maxBottom);
-    patch = { x: left, y: top, w: right - left, h: bottom - top };
+        bottom = (0, model_1.clamp)(Math.round(drag.visual.y + drag.visual.h + dy), top + minSize, maxBottom);
+    patch = {};
+    if (handle.includes('w') || handle.includes('e'))
+        Object.assign(patch, { x: left, w: right - left, autoWidth: false });
+    if (handle.includes('n') || handle.includes('s'))
+        Object.assign(patch, { y: top, h: bottom - top, autoHeight: false });
 }
 else
     patch = { x: Math.round((0, model_1.clamp)(drag.x + dx, -drag.w + 4, w - 4)), y: Math.round((0, model_1.clamp)(drag.y + dy, -drag.h + 4, h - 4)) }; (0, interface_1.patchElement)(drag.id, patch); (0, preview_1.renderStage)(); (0, interface_1.renderInspector)(); });
@@ -599,6 +607,7 @@ exports.baseFonts = baseFonts;
 const model_1 = require("./model");
 const dom_1 = require("./dom");
 const preview_1 = require("./preview");
+const text_layout_1 = require("./text-layout");
 function renderCardControl() { const cc = (0, dom_1.$)('#cardControl'); cc.style.display = model_1.S.mode === 'cards' ? 'flex' : 'none'; if (model_1.S.mode !== 'cards')
     return; cc.innerHTML = `<span style="font-weight:700;color:#62778f">CARD</span><button data-action="prev-card" title="Previous card">‹</button><select id="cardSelector">${model_1.S.cards.map((c, i) => `<option value="${i}" ${i === model_1.S.cardIndex ? 'selected' : ''}>${(0, model_1.escapeHTML)(c.name)}</option>`).join('')}</select><button data-action="next-card" title="Next card">›</button><span style="color:#8a98a9;margin-left:auto">${model_1.S.cardIndex + 1} / ${model_1.S.cards.length}</span>`; }
 function renderLeft() {
@@ -627,7 +636,8 @@ const elementReadout = () => {
     if (!raw)
         return '';
     const e = (0, model_1.effective)(raw), dpi = model_1.S.template.dpi;
-    return `Export pixels at ${dpi} DPI: X ${(0, model_1.exportPixels)(e.x, dpi)} · Y ${(0, model_1.exportPixels)(e.y, dpi)} · Width ${(0, model_1.exportPixels)(e.w, dpi)} px · Height ${(0, model_1.exportPixels)(e.h, dpi)} px`;
+    const visual = e.kind === 'text' ? (0, text_layout_1.layoutTextBox)(e, (0, model_1.actualValue)(raw)) : e;
+    return `${e.kind === 'text' && (e.autoWidth || e.autoHeight) ? 'Auto-sized ' : ''}Export pixels at ${dpi} DPI: X ${(0, model_1.exportPixels)(visual.x, dpi)} · Y ${(0, model_1.exportPixels)(visual.y, dpi)} · Width ${(0, model_1.exportPixels)(visual.w, dpi)} px · Height ${(0, model_1.exportPixels)(visual.h, dpi)} px`;
 };
 function updateDimensionReadouts() {
     const templateNode = document.querySelector('#templatePixelReadout');
@@ -699,6 +709,17 @@ function renderInspector() {
             html += `<div class="field"><label>Default text</label><textarea data-prop="text">${(0, model_1.escapeHTML)(e.text)}</textarea></div>`;
         html += `<div class="section-title">Visibility</div>` + checkbox('Invisible if empty', 'invisibleIfEmpty', e.invisibleIfEmpty !== false) +
             `<div class="small" style="padding:0 0 10px">Hide this entire text box on cards where its spreadsheet or card text is blank (including its fill and border). Empty text remains editable in Template mode.</div>`;
+        html += `<div class="section-title">Automatic text box sizing</div>` +
+            checkbox('Auto width (expand horizontally)', 'autoWidth', e.autoWidth === true) +
+            checkbox('Auto height (expand vertically)', 'autoHeight', e.autoHeight === true) +
+            `<div class="small" style="padding:0 0 12px">The box grows from the selected text alignment: left/right/centre and top/bottom/middle. Width and Height above are the anchor dimensions when auto-sizing is active.</div>`;
+        const unit = model_1.S.template.unit, factor = (0, model_1.unitFactor)(unit, model_1.S.template.dpi);
+        html += `<div class="section-title">Text gutters (${unit})</div><div class="fields-two">` +
+            field('Left (' + unit + ')', 'gutterLeft', (0, model_1.fmt)((e.gutterLeft || 0) / factor), 'number', 'min="0" step="any"') +
+            field('Right (' + unit + ')', 'gutterRight', (0, model_1.fmt)((e.gutterRight || 0) / factor), 'number', 'min="0" step="any"') +
+            field('Top (' + unit + ')', 'gutterTop', (0, model_1.fmt)((e.gutterTop || 0) / factor), 'number', 'min="0" step="any"') +
+            field('Bottom (' + unit + ')', 'gutterBottom', (0, model_1.fmt)((e.gutterBottom || 0) / factor), 'number', 'min="0" step="any"') +
+            `</div><div class="small" style="padding:0 0 12px">Background and border cover the full box; the text stays inside these four clearances.</div>`;
         html += `<div class="section-title">Typography</div>`;
         html += `<div class="field"><label>Font family</label><input data-prop="font" list="fontOptions" value="${(0, model_1.escapeHTML)(e.font)}"><datalist id="fontOptions">${knownFonts.map(x => `<option value="${(0, model_1.escapeHTML)(x)}"></option>`).join('')}</datalist></div><button class="secondary" style="margin:-4px 0 12px" data-action="scan-fonts">Find installed fonts</button>`;
         html += `<div class="fields-two">${field('Font size (pt)', 'fontSize', e.fontSize, 'number', 'min="1" step="0.5"')}${selectionField('Weight', 'fontWeight', [[100, 'Thin'], [300, 'Light'], [400, 'Regular'], [500, 'Medium'], [600, 'Semibold'], [700, 'Bold'], [800, 'Extra bold'], [900, 'Black']], e.fontWeight)}</div>`;
@@ -806,7 +827,7 @@ exports.fmt = fmt;
 const opacityFor = (e, component) => (0, exports.clamp)(Number(e[component] ?? e.opacity ?? 100) || 0, 0, 100) / 100;
 exports.opacityFor = opacityFor;
 exports.textKinds = ['text', 'image'];
-const makeElement = (kind, parts = {}) => ({ id: (0, exports.uid)(), kind, name: kind === 'text' ? 'Text' : kind === 'image' ? 'Artwork' : 'Shape', x: 22, y: 35, w: 195, h: 55, locked: false, hidden: false, includeInExport: true, invisibleIfEmpty: true, linkedTextId: '', shape: 'rect', radius: 0, fillMode: kind === 'shape' ? 'solid' : 'none', fill1: '#ffffff', fill2: '#dde5f1', gradientAngle: 90, borderWidth: 0, borderColor: '#233b58', opacity: 100, fillOpacity: 100, borderOpacity: 100, textOpacity: 100, text: 'Text', font: 'Georgia', fontSize: 19, fontWeight: 400, italic: false, underline: false, color: '#152b43', align: 'left', valign: 'middle', lineHeight: 1.18, letterSpacing: 0, imageFit: 'cover', imgScale: 1, imgOffsetX: 0, imgOffsetY: 0, autoSet: '', autoMode: 'cycle', ...parts });
+const makeElement = (kind, parts = {}) => ({ id: (0, exports.uid)(), kind, name: kind === 'text' ? 'Text' : kind === 'image' ? 'Artwork' : 'Shape', x: 22, y: 35, w: 195, h: 55, locked: false, hidden: false, includeInExport: true, invisibleIfEmpty: true, linkedTextId: '', shape: 'rect', radius: 0, fillMode: kind === 'shape' ? 'solid' : 'none', fill1: '#ffffff', fill2: '#dde5f1', gradientAngle: 90, borderWidth: 0, borderColor: '#233b58', opacity: 100, fillOpacity: 100, borderOpacity: 100, textOpacity: 100, text: 'Text', font: 'Georgia', fontSize: 19, fontWeight: 400, italic: false, underline: false, color: '#152b43', align: 'left', valign: 'middle', lineHeight: 1.18, letterSpacing: 0, autoWidth: false, autoHeight: false, gutterLeft: 0, gutterRight: 0, gutterTop: 0, gutterBottom: 0, imageFit: 'cover', imgScale: 1, imgOffsetX: 0, imgOffsetY: 0, autoSet: '', autoMode: 'cycle', ...parts });
 exports.makeElement = makeElement;
 const initialElements = () => [
     (0, exports.makeElement)('shape', { name: 'Card background', x: 0, y: 0, w: (0, exports.px)(63, 'mm'), h: (0, exports.px)(88, 'mm'), fillMode: 'gradient', fill1: '#fcfaf4', fill2: '#dce7ed', gradientAngle: 180 }),
@@ -922,6 +943,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.canvasCard = canvasCard;
 const model_1 = require("./model");
 const image_sets_1 = require("./image-sets");
+const text_layout_1 = require("./text-layout");
 function fillCanvas(ctx, e, x, y, w, h) { if (e.fillMode === 'none')
     return; ctx.save(); if (e.fillMode === 'solid')
     ctx.fillStyle = e.fill1;
@@ -939,59 +961,22 @@ else if (e.radius > 0 && ctx.roundRect)
 else
     ctx.rect(e.x, e.y, e.w, e.h); }
 function canvasFillShape(ctx, e) { ctx.save(); makeShapePath(ctx, e); ctx.clip(); fillCanvas(ctx, e, e.x, e.y, e.w, e.h); ctx.restore(); }
-function wrapText(ctx, value, maxWidth) { let lines = []; for (const para of String(value ?? '').split('\n')) {
-    if (!para) {
-        lines.push('');
-        continue;
-    }
-    let line = '';
-    for (const word of para.split(/\s+/)) {
-        if (ctx.measureText(word).width > maxWidth) {
-            if (line) {
-                lines.push(line);
-                line = '';
-            }
-            let part = '';
-            for (const ch of [...word]) {
-                if (ctx.measureText(part + ch).width > maxWidth && part) {
-                    lines.push(part);
-                    part = ch;
-                }
-                else
-                    part += ch;
-            }
-            line = part;
-            continue;
-        }
-        if (ctx.measureText((line ? line + ' ' : '') + word).width > maxWidth && line) {
-            lines.push(line);
-            line = word;
-        }
-        else
-            line += (line ? ' ' : '') + word;
-    }
-    lines.push(line);
-} return lines; }
-function canvasDrawText(ctx, e, value) { const size = (Number(e.fontSize) || 16) * (96 / 72), lh = size * (Number(e.lineHeight) || 1.2); ctx.save(); ctx.beginPath(); ctx.rect(e.x, e.y, e.w, e.h); ctx.clip(); ctx.font = `${e.italic ? 'italic ' : ''}${e.fontWeight || 400} ${size}px "${String(e.font || 'Georgia').replace(/"/g, '')}"`; ctx.fillStyle = e.color; ctx.textBaseline = 'top'; if ('letterSpacing' in ctx)
-    ctx.letterSpacing = (e.letterSpacing || 0) + 'px'; const lines = wrapText(ctx, value, e.w); let y = e.y + (e.valign === 'bottom' ? e.h - lines.length * lh : e.valign === 'middle' ? (e.h - lines.length * lh) / 2 : 0); let x = e.x; ctx.textAlign = e.align === 'center' ? 'center' : e.align === 'right' ? 'right' : 'left'; if (e.align === 'center')
-    x += e.w / 2;
-else if (e.align === 'right')
-    x += e.w; for (const line of lines) {
-    if (y + lh > e.y && y < e.y + e.h) {
-        ctx.fillText(line, x, y);
-        if (e.underline) {
-            const tw = ctx.measureText(line).width;
-            const ux = e.align === 'center' ? x - tw / 2 : e.align === 'right' ? x - tw : x;
-            ctx.beginPath();
-            ctx.moveTo(ux, y + size * 1.02);
-            ctx.lineTo(ux + tw, y + size * 1.02);
-            ctx.lineWidth = Math.max(.6, size / 18);
-            ctx.strokeStyle = e.color;
-            ctx.stroke();
-        }
-    }
-    y += lh;
-} ctx.restore(); }
+function canvasDrawText(ctx,e,value,layout) {
+ ctx.save();ctx.beginPath();ctx.rect(e.x+layout.left,e.y+layout.top,layout.innerW,layout.innerH);ctx.clip();
+ ctx.font=`${e.italic?'italic ':''}${e.fontWeight||400} ${layout.fontPx}px "${String(e.font||'Georgia').replace(/"/g,'')}"`;
+ ctx.fillStyle=e.color;ctx.textBaseline='top';
+ if('letterSpacing' in ctx)ctx.letterSpacing=(e.letterSpacing||0)+'px';
+ const {lines,linePx,fontPx}=layout;
+ let y=e.y+layout.top+(e.valign==='bottom'?layout.innerH-layout.textHeight:e.valign==='middle'?(layout.innerH-layout.textHeight)/2:0);
+ let x=e.x+layout.left;
+ ctx.textAlign=e.align==='center'?'center':e.align==='right'?'right':'left';
+ if(e.align==='center')x+=layout.innerW/2;else if(e.align==='right')x+=layout.innerW;
+ for(const line of lines){if(y+linePx>e.y+layout.top&&y<e.y+e.h-layout.bottom){
+  ctx.fillText(line,x,y);
+  if(e.underline){const tw=ctx.measureText(line).width;const ux=e.align==='center'?x-tw/2:e.align==='right'?x-tw:x;ctx.beginPath();ctx.moveTo(ux,y+fontPx*1.02);ctx.lineTo(ux+tw,y+fontPx*1.02);ctx.lineWidth=Math.max(.6,fontPx/18);ctx.strokeStyle=e.color;ctx.stroke()}
+ }y+=linePx}
+ ctx.restore();
+}
 async function canvasCard(ci, mode = 'cards') {
     const { w, h } = (0, model_1.sizePx)(), { w: W, h: H } = (0, model_1.templateExportSize)();
     if (W > 12000 || H > 12000 || W * H > 75000000)
@@ -1004,9 +989,12 @@ async function canvasCard(ci, mode = 'cards') {
     ctx.fillStyle = model_1.S.template.background;
     ctx.fillRect(0, 0, w, h);
     for (const raw of [...model_1.S.template.elements, ...(mode === 'cards' ? (model_1.S.cards[ci]?.extraElements || []) : [])]) {
-        const e = mode === 'cards' ? { ...raw, ...(model_1.S.cards[ci]?.overrides?.[raw.id] || {}) } : raw;
+        const effective = mode === 'cards' ? { ...raw, ...(model_1.S.cards[ci]?.overrides?.[raw.id] || {}) } : raw;
         if (!(0, model_1.visibleOnCard)(raw, ci, mode))
             continue;
+        const value = raw.kind === 'text' ? (mode === 'cards' && Object.prototype.hasOwnProperty.call(model_1.S.cards[ci]?.values || {}, raw.id) ? model_1.S.cards[ci].values[raw.id] : raw.text) : '';
+        const layout = raw.kind === 'text' ? (0, text_layout_1.layoutTextBox)(effective, value) : null;
+        const e = layout ? { ...effective, x: layout.x, y: layout.y, w: layout.w, h: layout.h } : effective;
         ctx.save();
         ctx.globalAlpha = (0, model_1.opacityFor)(e, 'fillOpacity');
         canvasFillShape(ctx, e);
@@ -1023,8 +1011,7 @@ async function canvasCard(ci, mode = 'cards') {
         }
         if (raw.kind === 'text') {
             ctx.globalAlpha = (0, model_1.opacityFor)(e, 'textOpacity');
-            const value = mode === 'cards' && Object.prototype.hasOwnProperty.call(model_1.S.cards[ci]?.values || {}, raw.id) ? model_1.S.cards[ci].values[raw.id] : raw.text;
-            canvasDrawText(ctx, e, value);
+            canvasDrawText(ctx, e, value, layout);
         }
         if (e.borderWidth > 0) {
             ctx.globalAlpha = (0, model_1.opacityFor)(e, 'borderOpacity');
@@ -1046,6 +1033,7 @@ exports.renderStage = renderStage;
 const model_1 = require("./model");
 const dom_1 = require("./dom");
 const image_sets_1 = require("./image-sets");
+const text_layout_1 = require("./text-layout");
 const gradientCSS = e => e.fillMode === 'solid' ? e.fill1 : e.fillMode === 'gradient' ? `linear-gradient(${e.gradientAngle}deg,${e.fill1},${e.fill2})` : 'transparent';
 function renderStage() {
     const st = (0, dom_1.$)('#stage'), { w, h } = (0, model_1.sizePx)(), z = model_1.S.zoom;
@@ -1061,8 +1049,9 @@ function renderStage() {
         const selected = model_1.S.selected === raw.id, src = (0, image_sets_1.getImageData)(raw, model_1.S.cardIndex, model_1.S.mode);
         let content = '';
         if (e.kind === 'text') {
-            const style = `font-family:${(0, model_1.escapeHTML)(e.font)},serif;font-size:${e.fontSize * (96 / 72) * z}px;font-weight:${e.fontWeight};font-style:${e.italic ? 'italic' : 'normal'};text-decoration:${e.underline ? 'underline' : 'none'};color:${e.color};text-align:${e.align};line-height:${e.lineHeight};letter-spacing:${e.letterSpacing * z}px;align-items:${e.valign === 'top' ? 'flex-start' : e.valign === 'bottom' ? 'flex-end' : 'center'};`;
-            content = `<div class="txt-inner" style="${style}"><div class="txt-content">${(0, model_1.escapeHTML)((0, model_1.actualValue)(raw))}</div></div>`;
+            const layout = (0, text_layout_1.layoutTextBox)(e, (0, model_1.actualValue)(raw));
+            const style = `font-family:${(0, model_1.escapeHTML)(e.font)},serif;font-size:${layout.fontPx * z}px;font-weight:${e.fontWeight};font-style:${e.italic ? 'italic' : 'normal'};text-decoration:${e.underline ? 'underline' : 'none'};color:${e.color};text-align:${e.align};line-height:${layout.linePx * z}px;letter-spacing:${e.letterSpacing * z}px;align-items:${e.valign === 'top' ? 'flex-start' : e.valign === 'bottom' ? 'flex-end' : 'center'};left:${layout.left * z}px;right:${layout.right * z}px;top:${layout.top * z}px;bottom:${layout.bottom * z}px;`;
+            content = `<div class="txt-inner" style="${style}"><div class="txt-content">${layout.lines.map(line => `<span class="txt-line">${line ? (0, model_1.escapeHTML)(line) : '&nbsp;'}</span>`).join('')}</div></div>`;
         }
         else if (e.kind === 'image') {
             const im = (0, image_sets_1.cacheImage)(src);
@@ -1073,8 +1062,9 @@ function renderStage() {
             else
                 content = `<div class="missing">${src ? 'Loading image…' : `IMAGE FRAME<br>${(0, model_1.escapeHTML)(raw.name)}`}</div>`;
         }
+        const geom = e.kind === 'text' ? (0, text_layout_1.layoutTextBox)(e, (0, model_1.actualValue)(raw)) : e;
         const border = e.borderWidth > 0 ? `${e.borderWidth * z}px solid ${e.borderColor}` : 'none';
-        const base = `left:${e.x * z}px;top:${e.y * z}px;width:${e.w * z}px;height:${e.h * z}px;border-radius:${e.shape === 'ellipse' ? '50%' : `${(e.radius || 0) * z}px`};`;
+        const base = `left:${geom.x * z}px;top:${geom.y * z}px;width:${geom.w * z}px;height:${geom.h * z}px;border-radius:${e.shape === 'ellipse' ? '50%' : `${(e.radius || 0) * z}px`};`;
         const fill = `<div class="element-fill" style="background:${gradientCSS(e)};opacity:${(0, model_1.opacityFor)(e, 'fillOpacity')}"></div>`;
         const borderLayer = e.borderWidth > 0 ? `<div class="element-border" style="border:${border};opacity:${(0, model_1.opacityFor)(e, 'borderOpacity')}"></div>` : '';
         if (e.kind === 'text')
@@ -1400,6 +1390,63 @@ catch (err) {
     alert('Spreadsheet import failed: ' + err.message);
 } }
 
+},
+
+"text-layout": function(module, exports, require) {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.layoutTextBox = layoutTextBox;
+const margin=n=>Math.max(0,Number(n)||0);
+const fontCSS=(e,size)=>`${e.italic?'italic ':''}${e.fontWeight||400} ${size}px "${String(e.font||'Georgia').replace(/["\\]/g,'')}"`;
+const cache=new WeakMap();
+function measureContext(){
+ if(typeof document==='undefined')return null;
+ let ctx=cache.get(document);
+ if(!ctx){ctx=document.createElement('canvas')?.getContext?.('2d')||null;if(ctx)cache.set(document,ctx);}
+ return ctx||null;
+}
+function widthOf(text,ctx,size,spacing){
+ const base=ctx?.measureText?.(text)?.width??[...text].length*size*.53;
+ return Math.max(0,base+(ctx&&'letterSpacing' in ctx?0:Math.max(0,[...text].length-1)*spacing));
+}
+function lineWrap(value,maxWidth,width){
+ const result=[];
+ for(const para of String(value??'').replace(/\r\n?/g,'\n').split('\n')){
+  if(!para){result.push('');continue;}
+  let line='';
+  for(const word of para.split(/\s+/)){
+   if(width(word)>maxWidth){
+    if(line){result.push(line);line='';}
+    let part='';
+    for(const ch of [...word]){if(part&&width(part+ch)>maxWidth){result.push(part);part=ch;}else part+=ch;}
+    line=part;
+   }else if(line&&width(line+' '+word)>maxWidth){result.push(line);line=word;}
+   else line+=(line?' ':'')+word;
+  }
+  result.push(line);
+ }
+ return result;
+}
+function layoutTextBox(e,value){
+ const fontPx=Math.max(1,Number(e.fontSize)||16)*96/72;
+ const linePx=fontPx*(Number.isFinite(Number(e.lineHeight))&&Number(e.lineHeight)>0?Number(e.lineHeight):1.2);
+ const left=margin(e.gutterLeft),right=margin(e.gutterRight),top=margin(e.gutterTop),bottom=margin(e.gutterBottom);
+ const ctx=measureContext(),spacing=Number(e.letterSpacing)||0;
+ if(ctx){ctx.font=fontCSS(e,fontPx);if('letterSpacing' in ctx)ctx.letterSpacing=spacing+'px';}
+ const measure=t=>widthOf(t,ctx,fontPx,spacing);
+ const str=String(value??'').replace(/\r\n?/g,'\n');
+ const autoW=e.autoWidth===true,autoH=e.autoHeight===true;
+ const naturalLines=str.split('\n');
+ const maxLine=Math.max(0,...naturalLines.map(measure));
+ const w=autoW?Math.max(1,Math.ceil(maxLine+left+right+2)):Math.max(1,e.w);
+ const innerW=Math.max(1,w-left-right);
+ const lines=autoW?naturalLines:lineWrap(str,innerW,measure);
+ const textHeight=lines.length*linePx;
+ const h=autoH?Math.max(1,Math.ceil(textHeight+top+bottom)):Math.max(1,e.h);
+ const x=e.x+(autoW?(e.align==='right'?e.w-w:e.align==='center'?(e.w-w)/2:0):0);
+ const y=e.y+(autoH?(e.valign==='bottom'?e.h-h:e.valign==='middle'?(e.h-h)/2:0):0);
+ return {x,y,w,h,left,right,top,bottom,innerW,innerH:Math.max(1,h-top-bottom),fontPx,linePx,lines,textHeight};
+}
 },
 "types": function(module, exports, require) {
 "use strict";
