@@ -24,6 +24,45 @@ if(state.selected!==bg.id)throw Error('Stage click deselected on bubble after DO
 state.mode='cards';
 document.listeners.click[0]({target:{closest(selector){return selector==='[data-action]'?{dataset:{action:'card-setup'}}:null}},stopPropagation(){}});
 if(state.mode!=='template'||state.selected!==null||!get('#inspector').innerHTML.includes('Card dimensions'))throw Error('Card setup toolbar button failed');
+// Resize handles exist on every edge/corner, and top-left resize adjusts position and size.
+state.selected=bg.id;
+const bgW=bg.w,bgH=bg.h;
+get('#stage').emit('pointerdown',{button:0,target:{closest(selector){if(selector==='.element')return {dataset:{id:bg.id}};if(selector==='[data-handle]')return {dataset:{handle:'nw'}};return null}},clientX:100,clientY:100,preventDefault(){}});
+const moveX=100-(10*state.zoom),moveY=100-(12*state.zoom);
+document.listeners.pointermove[0]({clientX:moveX,clientY:moveY});
+if(Math.abs(bg.x+10)>.002||Math.abs(bg.y+12)>.002||Math.abs(bg.w-bgW-10)>.002||Math.abs(bg.h-bgH-12)>.002)throw Error('Top-left resize handle did not adjust x/y/w/h');
+document.listeners.pointerup[0]({});
+
+// Regression: fit image resize must not accumulate deltas from mutated geometry;
+// reversing mouse movement in one gesture must instantly reverse the size.
+const artwork = state.template.elements.find(e => e.name === 'Artwork');
+Object.assign(artwork,{imageFit:'contain',x:50,y:50,w:160,h:120});
+state.selected=artwork.id;
+const startResize=(handle)=>get('#stage').emit('pointerdown',{
+  button:0,target:{closest(sel){return sel==='.element'?{dataset:{id:artwork.id}}:sel==='[data-handle]'?{dataset:{handle}}:null}},
+  clientX:300,clientY:300,preventDefault(){}
+});
+const moveResize=(dx,dy)=>document.listeners.pointermove[0]({clientX:300+dx*state.zoom,clientY:300+dy*state.zoom});
+startResize('se');
+moveResize(-40,-30);
+if(!(artwork.w<160&&artwork.h<120))throw Error('First fit resize did not shrink');
+moveResize(32,24);
+if(!(artwork.w>160&&artwork.h>120))throw Error('Reversing fit resize did not enlarge');
+moveResize(0,0);
+if(Math.abs(artwork.w-160)>.002||Math.abs(artwork.h-120)>.002)throw Error('Fit resize did not return to its original size');
+document.listeners.pointerup[0]({});
+startResize('se');
+moveResize(32,24);
+moveResize(-40,-30);
+if(!(artwork.w<160&&artwork.h<120))throw Error('Enlarge then shrink did not reverse');
+document.listeners.pointerup[0]({});
+Object.assign(artwork,{imageFit:'stretch',w:160,h:120});
+startResize('e');
+moveResize(25,0);
+if(Math.abs(artwork.w-185)>.002||Math.abs(artwork.h-120)>.002)throw Error('Free width handle did not follow pointer');
+moveResize(-25,0);
+if(Math.abs(artwork.w-135)>.002)throw Error('Side handle reversed with incorrect rate');
+document.listeners.pointerup[0]({});
 
 // Copy creates an independent template layer with all element properties intact.
 state.mode='template';
