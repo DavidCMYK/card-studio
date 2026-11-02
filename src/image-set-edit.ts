@@ -36,8 +36,9 @@ function updateReferences(set: {id:string,name:string}, oldName: string, newName
    if((assignedSet === set.id || assignedSet === set.name) && match(override.singleImage || '',oldName))
     override.singleImage = newName || '';
   }
+  const imageIds = new Set([...S.template.elements,...(card.extraElements || [])].filter(e => e.kind === 'image').map(e => e.id));
   for(const [elementId,value] of Object.entries(card.values || {})) {
-   if(typeof value !== 'string') continue;
+   if(!imageIds.has(elementId) || typeof value !== 'string') continue;
    const kind = referencedValue(value,set.name,oldName);
    if(!kind) continue;
    card.values[elementId] = newName === null ? 'none' : kind === 'qualified' ? set.name + '/' + newName : kind === 'basename' ? basename(newName) : newName;
