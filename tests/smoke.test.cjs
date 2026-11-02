@@ -90,6 +90,41 @@ keyboard('v');
 if(state.template.elements.length!==countBefore)throw Error('Card mode shortcuts changed template');
 state.mode='template';
 
+// Regression: editing element A and selecting B must never replay a delayed
+// blur/change from A onto B. All property controls remember their owner.
+state.mode='template';
+const editA=state.template.elements.find(x=>x.name==='Card Title');
+const editB=state.template.elements.find(x=>x.name==='Description');
+const selectEdit=(el)=>{
+ get('#stage').emit('pointerdown',{button:0,target:{closest(selector){return selector==='.element'?{dataset:{id:el.id}}:null}},clientX:0,clientY:0,preventDefault(){}});
+ document.listeners.pointerup[0]({});
+};
+selectEdit(editA);
+if(!get('#inspector').innerHTML.includes(`data-edit-owner="${editA.id}" data-edit-mode="template" data-edit-card="0" data-prop="x"`))throw Error('Inspector does not bind fields to their original element');
+if(!get('#inspector').innerHTML.includes(`data-edit-owner="${editA.id}" data-edit-mode="template" data-edit-card="0" data-prop="text"`))throw Error('Default text field not bound to selected element');
+const staleX={dataset:{prop:'x',editOwner:editA.id,editMode:'template',editCard:'0'},type:'number',value:'17.5'};
+get('#inspector').emit('input',{target:staleX});
+const savedA=editA.x;
+selectEdit(editB);
+const savedBx=editB.x,savedBw=editB.w;
+staleX.value='500';
+get('#inspector').emit('input',{target:staleX});
+get('#inspector').emit('change',{target:staleX});
+const staleWidth={dataset:{prop:'w',editOwner:editA.id,editMode:'template',editCard:'0'},type:'number',value:'999'};
+get('#inspector').emit('change',{target:staleWidth});
+if(editA.x!==savedA||editB.x!==savedBx||editB.w!==savedBw)throw Error('Stale inspector field edited a different element');
+const currentX={dataset:{prop:'x',editOwner:editB.id,editMode:'template',editCard:'0'},type:'number',value:'25'};
+get('#inspector').emit('input',{target:currentX});
+if(Math.abs(editB.x-25*96/25.4)>.001)throw Error('Current selected element field no longer works');
+editA.x=13;editB.x=18;
+state.mode='cards';state.cardIndex=0;state.selected=editB.id;
+const staleCard={dataset:{prop:'w',editOwner:editB.id,editMode:'cards',editCard:'0'},type:'number',value:'300'};
+state.cards.push({id:'event-regression',name:'Other',values:{},overrides:{},extraElements:[]});
+state.cardIndex=1;
+get('#inspector').emit('change',{target:staleCard});
+if(state.cards[1].overrides[editB.id])throw Error('Stale inspector field edited a different card');
+state.cards.pop();state.cardIndex=0;state.mode='template';state.selected=null;
+
 // Exercise real inspector change handlers, including DPI with pixel units.
 state.mode='template';
 state.selected=null;
