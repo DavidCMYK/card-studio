@@ -1,0 +1,28 @@
+name: Verify Card Studio build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Build, test, and prepare Cloudflare Pages output
+        run: npm run build:pages
+      - name: Verify expected site files
+        run: |
+          test -s public/index.html
+          test -s public/styles.css
+          test -s public/dist/app.js
+          test -s public/vendor/jszip.min.js
