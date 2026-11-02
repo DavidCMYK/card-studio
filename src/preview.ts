@@ -11,7 +11,12 @@ export function renderStage(){const st=$('#stage'),{w,h}=sizePx(),z=S.zoom;st.st
  const style=`font-family:${escapeHTML(e.font)},serif;font-size:${layout.fontPx*z}px;font-weight:${e.fontWeight};font-style:${e.italic?'italic':'normal'};text-decoration:${e.underline?'underline':'none'};color:${e.color};text-align:${e.align};line-height:${layout.linePx*z}px;letter-spacing:${e.letterSpacing*z}px;align-items:${e.valign==='top'?'flex-start':e.valign==='bottom'?'flex-end':'center'};left:${layout.left*z}px;right:${layout.right*z}px;top:${layout.top*z}px;bottom:${layout.bottom*z}px;`;
  content=`<div class="txt-inner" style="${style}"><div class="txt-content">${layout.lines.map(line=>`<span class="txt-line">${line?escapeHTML(line):'&nbsp;'}</span>`).join('')}</div></div>`;
  }else if(e.kind==='image'){
- const im=cacheImage(src);if(src&&im?.loaded){const box=imgBox({...e,...geom},im.im);content=`<div class="image-content"><img alt="" draggable="false" src="${src}" style="left:${box.x*z}px;top:${box.y*z}px;width:${box.w*z}px;height:${box.h*z}px"></div>`}
+ const im=cacheImage(src);if(src&&im?.loaded){const box=imgBox({...e,...geom},im.im);
+ // The image is transformed around the FRAME centre, not its cropped bounds.
+ // Pixel transform-origin allows this to work with offsets and all fit modes.
+ const angle=Number(e.imgRotation)||0,sx=e.imgFlipX===true?-1:1,sy=e.imgFlipY===true?-1:1;
+ const transform=angle||sx<0||sy<0?`transform-origin:${(geom.w/2-box.x)*z}px ${(geom.h/2-box.y)*z}px;transform:rotate(${angle}deg) scale(${sx},${sy});`:'';
+ content=`<div class="image-content"><img alt="" draggable="false" src="${src}" style="left:${box.x*z}px;top:${box.y*z}px;width:${box.w*z}px;height:${box.h*z}px;${transform}"></div>`}
  else content=`<div class="missing">${src?'Loading image…':`IMAGE FRAME<br>${escapeHTML(raw.name)}`}</div>`;
  }
  const border=e.borderWidth>0?`${e.borderWidth*z}px solid ${e.borderColor}`:'none';
