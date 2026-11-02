@@ -92,13 +92,19 @@ const blobImage = async (f) => await new Promise((resolve, reject) => { const r 
 async function importImages(files) { if (!pendingAssetsSet)
     return; const set = model_1.S.sets.find(x => x.id === pendingAssetsSet); if (!set)
     return; const input = [...files].filter(f => f.type.startsWith('image/')).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })); try {
+    let added = 0, skipped = 0;
     for (const f of input) {
+        if (set.images.some(im => im.name.toLowerCase() === f.name.toLowerCase())) {
+            skipped++;
+            continue;
+        }
         const data = await blobImage(f);
         set.images.push({ name: f.name, data });
+        added++;
     }
     image_sets_1.imageCache.clear();
     (0, interface_1.repaint)();
-    (0, dom_1.toast)(`Loaded ${input.length} image(s) into ${set.name}`);
+    (0, dom_1.toast)(`Loaded ${added} image(s) into ${set.name}` + (skipped ? ` · ${skipped} duplicate name(s) skipped` : ''));
 }
 catch (err) {
     alert(err.message);
@@ -133,6 +139,7 @@ const png_export_1 = require("./png-export");
 const spreadsheet_1 = require("./spreadsheet");
 const project_storage_1 = require("./project-storage");
 const assets_1 = require("./assets");
+const image_manager_1 = require("./image-manager");
 const resize_1 = require("./resize");
 const anchor_layout_1 = require("./anchor-layout");
 (0, image_sets_1.setImageUpdateHandler)(preview_1.renderStage);
@@ -315,9 +322,18 @@ function mutateAction(action, el = null) {
             (0, interface_1.repaint)();
             break;
         }
-        case 'add-to-set':
-            (0, assets_1.setTargetImageSet)(el.dataset.set);
-            (0, dom_1.$)('#assetFiles').click();
+        case 'manage-images':
+            (0, image_manager_1.openImageManager)(el.dataset.set);
+            break;
+        case 'manage-close':
+            (0, image_manager_1.closeImageManager)();
+            break;
+        case 'manage-add':
+            (0, image_manager_1.imageManagerAction)('manage-add', -1);
+            break;
+        case 'manage-rename':
+        case 'manage-remove':
+            (0, image_manager_1.imageManagerAction)(action, Number(el.dataset.index));
             break;
         case 'remove-set': {
             const id = el.dataset.set, set = model_1.S.sets.find(x => x.id === id);
@@ -518,8 +534,14 @@ document.addEventListener('click', listenClick);
     await (0, project_storage_1.openJSON)(e.target.files[0], true); e.target.value = ''; });
 (0, dom_1.$)('#openSheetFile').addEventListener('change', async (e) => { if (e.target.files[0])
     await (0, spreadsheet_1.readSheet)(e.target.files[0]); e.target.value = ''; });
-(0, dom_1.$)('#assetFiles').addEventListener('change', async (e) => { if (e.target.files.length)
-    await (0, assets_1.importImages)(e.target.files); e.target.value = ''; });
+(0, dom_1.$)('#assetFiles').addEventListener('change', async (e) => { if (e.target.files.length) {
+    await (0, assets_1.importImages)(e.target.files);
+    (0, image_manager_1.renderImageManager)();
+} e.target.value = ''; });
+(0, dom_1.$)('#dialogHolder').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('[data-manager-name]')) {
+    e.preventDefault();
+    (0, image_manager_1.imageManagerAction)('manage-rename', Number(e.target.dataset.managerName));
+} });
 let drag = null;
 function clearSelection() { if (model_1.S.selected === null)
     return; model_1.S.selected = null; (0, interface_1.renderInspector)(); (0, interface_1.renderLeft)(); (0, preview_1.renderStage)(); }
@@ -554,6 +576,11 @@ document.addEventListener('pointerup', () => { if (drag) {
     (0, preview_1.renderStage)();
 } });
 document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && document.querySelector('.image-manager')) {
+        (0, image_manager_1.closeImageManager)();
+        e.preventDefault();
+        return;
+    }
     const active = document.activeElement, tag = active?.tagName;
     if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) || active?.isContentEditable)
         return;
@@ -588,6 +615,147 @@ document.addEventListener('keydown', e => {
 });
 window.addEventListener('resize', () => { });
 (0, interface_1.repaint)();
+
+},
+"image-manager": function(module, exports, require) {
+"use strict";
+const model_1=require("./model");
+const dom_1=require("./dom");
+const interface_1=require("./interface");
+const image_set_edit_1=require("./image-set-edit");
+const assets_1=require("./assets");
+exports.closeImageManager=closeImageManager;
+exports.renderImageManager=renderImageManager;
+exports.openImageManager=openImageManager;
+exports.imageManagerAction=imageManagerAction;
+
+let activeSetId = null;
+function closeImageManager() {
+ activeSetId=null;
+ (0,dom_1.$)('#dialogHolder').innerHTML='';
+}
+function renderImageManager() {
+ if(!activeSetId)return;
+ const set=model_1.S.sets.find(x=>x.id===activeSetId);
+ if(!set){closeImageManager();return}
+ (0,dom_1.$)('#dialogHolder').innerHTML=`<div class="image-manager-backdrop" role="presentation">
+  <section class="image-manager" role="dialog" aria-modal="true" aria-label="Manage images in ${(0,model_1.escapeHTML)(set.name)}">
+   <header class="image-manager-header"><div><h2>Manage images</h2><span>${(0,model_1.escapeHTML)(set.name)} · ${set.images.length} image${set.images.length===1?'':'s'}</span></div><button class="secondary" data-action="manage-close" aria-label="Close image manager">Close</button></header>
+   <div class="image-manager-tools"><button class="secondary" data-action="manage-add" data-set="${(0,model_1.escapeHTML)(set.id)}">＋ Add images</button><span>Rename or remove images without deleting the set.</span></div>
+   <div class="image-manager-list">${set.images.length?set.images.map((im,i)=>`<div class="image-manager-item">
+    <img alt="" src="${(0,model_1.escapeHTML)(im.data)}"><div class="image-manager-detail"><label for="managed-image-${i}">Filename</label><input id="managed-image-${i}" data-manager-name="${i}" type="text" value="${(0,model_1.escapeHTML)(im.name)}" spellcheck="false"></div>
+    <div class="image-manager-actions"><button class="secondary" data-action="manage-rename" data-index="${i}">Rename</button><button class="secondary danger" data-action="manage-remove" data-index="${i}">Remove</button></div>
+   </div>`).join(''):'<div class="image-manager-empty">No images in this set. Use Add images to upload some.</div>'}</div>
+  </section></div>`;
+}
+function openImageManager(id) {
+ if(!model_1.S.sets.some(set=>set.id===id))return;
+ activeSetId=id;
+ renderImageManager();
+}
+function imageManagerAction(action,index) {
+ const set=model_1.S.sets.find(set=>set.id===activeSetId);
+ if(!set)return;
+ const image=set.images[index];
+ if(action==='manage-add') {
+  (0,assets_1.setTargetImageSet)(set.id);
+  (0,dom_1.$)('#assetFiles').click();
+  return;
+ }
+ if(!image)return;
+ try{
+  if(action==='manage-rename') {
+   const input=document.querySelector(`[data-manager-name="${index}"]`);
+   if((0,image_set_edit_1.renameImage)(set.id,image.name,input?.value ?? '')){
+    (0,interface_1.repaint)();renderImageManager();(0,dom_1.toast)('Image renamed');
+   }
+  }
+  if(action==='manage-remove') {
+   if(!confirm(`Remove "${image.name}" from "${set.name}"? This cannot be undone.`))return;
+   (0,image_set_edit_1.removeImage)(set.id,image.name);
+   (0,interface_1.repaint)();renderImageManager();(0,dom_1.toast)('Image removed');
+  }
+ }catch(err){alert(err.message)}
+}
+
+},
+"image-set-edit": function(module, exports, require) {
+"use strict";
+const model_1=require("./model");
+const image_sets_1=require("./image-sets");
+exports.renameImage=renameImage;
+exports.removeImage=removeImage;
+/** Mutations for named images within an existing image set.
+ * An image's name is the stable reference in Single Image templates and card data.
+ */
+
+const normal = (name) => String(name).trim().toLocaleLowerCase();
+const basename = (name) => name.replace(/\.[^.]+$/, '');
+const match = (a, b) => normal(a) === normal(b);
+
+/** Whether a per-card image value identifies this asset unambiguously. */
+function referencedValue(value, setName, fileName) {
+ const path = String(value).replace(/\\/g, '/').trim();
+ if(match(path, setName + '/' + fileName)) return 'qualified';
+ const all = model_1.S.sets.flatMap(set => set.images.map(im => ({ set, im })));
+ // The renderer prefers a matching unqualified filename or filename without extension.
+ if(match(path, fileName)) {
+  return all.filter(x => match(x.im.name, fileName)).length === 1 ? 'name' : null;
+ }
+ if(match(path, basename(fileName))) {
+  return all.filter(x => match(basename(x.im.name), basename(fileName))).length === 1 ? 'basename' : null;
+ }
+ return null;
+}
+
+function updateReferences(set, oldName, newName) {
+ const frames = [...model_1.S.template.elements, ...model_1.S.cards.flatMap(card => card.extraElements || [])];
+ for(const frame of frames) {
+  if(frame.kind === 'image' && (frame.autoSet === set.id || frame.autoSet === set.name) && match(frame.singleImage || '', oldName))
+   frame.singleImage = newName || '';
+ }
+ for(const card of model_1.S.cards) {
+  for(const [elementId,override] of Object.entries(card.overrides || {})) {
+   const original = model_1.S.template.elements.find(e => e.id === elementId);
+   const assignedSet = override.autoSet ?? original?.autoSet;
+   if((assignedSet === set.id || assignedSet === set.name) && match(override.singleImage || '',oldName))
+    override.singleImage = newName || '';
+  }
+  for(const [elementId,value] of Object.entries(card.values || {})) {
+   if(typeof value !== 'string') continue;
+   const kind = referencedValue(value,set.name,oldName);
+   if(!kind) continue;
+   card.values[elementId] = newName === null ? 'none' : kind === 'qualified' ? set.name + '/' + newName : kind === 'basename' ? basename(newName) : newName;
+  }
+ }
+}
+
+function renameImage(setId, oldName, requestedName) {
+ const set = model_1.S.sets.find(set => set.id === setId);
+ if(!set) throw Error('Image set not found');
+ const image = set.images.find(im => im.name === oldName);
+ if(!image) throw Error('Image not found');
+ const newName = requestedName.trim();
+ if(!newName) throw Error('Enter a filename');
+ if(/[\\/]/.test(newName)) throw Error('Filenames cannot contain slashes');
+ if(newName === oldName) return false;
+ if(set.images.some(im => im !== image && match(im.name,newName))) throw Error('Another image in this set already has that name');
+ updateReferences(set, oldName, newName);
+ image.name = newName;
+ image_sets_1.imageCache.clear();
+ return true;
+}
+
+function removeImage(setId, fileName) {
+ const set = model_1.S.sets.find(set => set.id === setId);
+ if(!set) throw Error('Image set not found');
+ const index = set.images.findIndex(im => im.name === fileName);
+ if(index < 0) throw Error('Image not found');
+ // Clear references before deleting, so ambiguous unqualified names are handled correctly.
+ updateReferences(set, fileName, null);
+ set.images.splice(index,1);
+ image_sets_1.imageCache.clear();
+}
 
 },
 "image-sets": function(module, exports, require) {
@@ -705,7 +873,7 @@ function renderLeft() {
     out += `<div class="side-head"><h2>LAYERS</h2><span class="pill">${(0, model_1.layerEls)().filter(e => model_1.S.mode === 'template' || (0, model_1.visibleOnCard)(e, model_1.S.cardIndex, 'cards')).length}</span></div><div class="small">Topmost layers are shown first. Select an element to edit it.</div>`;
     out += '<div class="layer-list">' + [...(0, model_1.layerEls)()].filter(e => model_1.S.mode === 'template' || (0, model_1.visibleOnCard)(e, model_1.S.cardIndex, 'cards')).reverse().map(e => `<div class="layer-row ${e.id === model_1.S.selected ? 'active' : ''}" data-layer="${e.id}"><span style="font-size:15px;color:#7b91ad">${e.kind === 'text' ? 'T' : e.kind === 'image' ? '▧' : '◇'}</span><span class="name">${(0, model_1.escapeHTML)(e.name)}<span class="sub">${e.kind}${e.locked ? ' · locked' : ''}${!(0, model_1.isExported)(e) ? ' · editor only' : ''}</span></span></div>`).join('') + '</div>';
     out += `<div class="rule"></div><div class="side-head"><h2>IMAGE SETS</h2><button data-action="add-set">＋ Load set</button></div><div class="small">Load multiple images as one set. Assign the set to an image frame, then choose sequential, cycling or random assignment.</div>`;
-    out += '<div class="set-list">' + model_1.S.sets.map(set => `<div class="asset-row"><div class="asset-title"><span>▧</span><span style="overflow:hidden;text-overflow:ellipsis">${(0, model_1.escapeHTML)(set.name)}</span><span class="count">${set.images.length} files</span></div><div class="asset-thumbs">${set.images.slice(0, 6).map(x => `<img alt="${(0, model_1.escapeHTML)(x.name)}" title="${(0, model_1.escapeHTML)(x.name)}" src="${x.data}">`).join('')}</div><div class="asset-actions"><button data-action="add-to-set" data-set="${set.id}">＋ Images</button><button data-action="remove-set" data-set="${set.id}">Remove</button></div></div>`).join('') + '</div>';
+    out += '<div class="set-list">' + model_1.S.sets.map(set => `<div class="asset-row"><div class="asset-title"><span>▧</span><span style="overflow:hidden;text-overflow:ellipsis">${(0, model_1.escapeHTML)(set.name)}</span><span class="count">${set.images.length} files</span></div><div class="asset-thumbs">${set.images.slice(0, 6).map(x => `<img alt="${(0, model_1.escapeHTML)(x.name)}" title="${(0, model_1.escapeHTML)(x.name)}" src="${x.data}">`).join('')}</div><div class="asset-actions"><button data-action="manage-images" data-set="${set.id}">Manage images</button><button data-action="remove-set" data-set="${set.id}">Delete set</button></div></div>`).join('') + '</div>';
     v.innerHTML = out;
 }
 function field(label, key, value, type = 'text', extra = '') { return `<div class="field"><label>${(0, model_1.escapeHTML)(label)}</label><input data-prop="${key}" type="${type}" value="${(0, model_1.escapeHTML)(value)}" ${extra}></div>`; }
