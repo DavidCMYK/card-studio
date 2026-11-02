@@ -16,9 +16,12 @@ export function renderLeft(){const v=$('#leftBody');$('#btnTemplate').classList.
  out+='<div class="set-list">'+S.sets.map(set=>`<div class="asset-row"><div class="asset-title"><span>▧</span><span style="overflow:hidden;text-overflow:ellipsis">${escapeHTML(set.name)}</span><span class="count">${set.images.length} files</span></div><div class="asset-thumbs">${set.images.slice(0,6).map(x=>`<img alt="${escapeHTML(x.name)}" title="${escapeHTML(x.name)}" src="${x.data}">`).join('')}</div><div class="asset-actions"><button data-action="manage-images" data-set="${set.id}">Manage images</button><button data-action="remove-set" data-set="${set.id}">Delete set</button></div></div>`).join('')+'</div>';
  v.innerHTML=out;
 }
-function field(label,key,value,type='text',extra=''){return`<div class="field"><label>${escapeHTML(label)}</label><input data-prop="${key}" type="${type}" value="${escapeHTML(value)}" ${extra}></div>`}
-function selectionField(label,key,items,value){return `<div class="field"><label>${escapeHTML(label)}</label><select data-prop="${key}">${items.map(([v,l])=>`<option value="${escapeHTML(v)}" ${String(v)===String(value)?'selected':''}>${escapeHTML(l)}</option>`).join('')}</select></div>`}
-function checkbox(label,key,value){return `<label class="toggle-line"><input type="checkbox" data-prop="${key}" ${value?'checked':''}>${escapeHTML(label)}</label>`}
+// Bind fields to the element and card for which they were rendered. A delayed
+// blur/change after selection changes must not edit the newly selected element.
+function editorScope(){return `data-edit-owner="${escapeHTML(S.selected||'')}" data-edit-mode="${S.mode}" data-edit-card="${S.cardIndex}"`}
+function field(label,key,value,type='text',extra=''){return`<div class="field"><label>${escapeHTML(label)}</label><input ${editorScope()} data-prop="${key}" type="${type}" value="${escapeHTML(value)}" ${extra}></div>`}
+function selectionField(label,key,items,value){return `<div class="field"><label>${escapeHTML(label)}</label><select ${editorScope()} data-prop="${key}">${items.map(([v,l])=>`<option value="${escapeHTML(v)}" ${String(v)===String(value)?'selected':''}>${escapeHTML(l)}</option>`).join('')}</select></div>`}
+function checkbox(label,key,value){return `<label class="toggle-line"><input ${editorScope()} type="checkbox" data-prop="${key}" ${value?'checked':''}>${escapeHTML(label)}</label>`}
 // All pixel labels are export-image pixels at the selected resolution.
 const sizeReadout=()=>{const {w,h}=templateExportSize();return `${w.toLocaleString('en-US')} × ${h.toLocaleString('en-US')} px at ${S.template.dpi} DPI`};
 const elementReadout=()=>{
@@ -40,9 +43,9 @@ export function renderInspector(){const box=$('#inspector');if(!S.selected&&S.mo
  let out=`<div class="inspector-heading">${escapeHTML(card()?.name)}</div><div class="inspector-sub">Card ${S.cardIndex+1} of ${S.cards.length} · Spreadsheet values</div>${field('Card name','card.name',card()?.name||'')}`;
  const entries=S.template.elements.filter(e=>textKinds.includes(e.kind));
  out+=`<div class="section-title">Element values</div><div class="small" style="padding:0 0 14px">These fields change only this card. Select a layer to adjust its position or formatting.</div>`;
- for(const e of entries){if(e.kind==='text')out+=`<div class="field"><label>${escapeHTML(e.name)}</label><textarea data-cardvalue="${e.id}" style="min-height:62px">${escapeHTML(actualValue(e))}</textarea></div>`;
+ for(const e of entries){if(e.kind==='text')out+=`<div class="field"><label>${escapeHTML(e.name)}</label><textarea ${editorScope()} data-cardvalue="${e.id}" style="min-height:62px">${escapeHTML(actualValue(e))}</textarea></div>`;
  else if(e.autoMode==='single')out+='<div class="field"><label>'+escapeHTML(e.name)+' — fixed image</label><div class="small" style="padding:0">'+escapeHTML(e.singleImage||'(no image selected)')+' · Set in Template mode; identical on every card.</div></div>';
- else out+=`<div class="field"><label>${escapeHTML(e.name)} — image filename</label><input data-cardvalue="${e.id}" value="${escapeHTML(card()?.values?.[e.id]||'')}" placeholder="Blank = automatic" list="allImageFiles"></div>`}
+ else out+=`<div class="field"><label>${escapeHTML(e.name)} — image filename</label><input ${editorScope()} data-cardvalue="${e.id}" value="${escapeHTML(card()?.values?.[e.id]||'')}" placeholder="Blank = automatic" list="allImageFiles"></div>`}
  out+=`<datalist id="allImageFiles">${S.sets.flatMap(set=>set.images.map(im=>`<option value="${escapeHTML(set.name+'/'+im.name)}"></option>`)).join('')}</datalist>`;
  box.innerHTML=out;return}
  if(!S.selected){$('#rightTitle').textContent='Card setup';box.innerHTML=`<div class="inspector-heading">${escapeHTML(S.template.name)}</div><div class="inspector-sub">Card dimensions & export options</div>
@@ -59,9 +62,9 @@ export function renderInspector(){const box=$('#inspector');if(!S.selected&&S.mo
  if(S.mode==='template')html+=field('Element name (spreadsheet column)','name',raw.name);
  else html+=`<div class="warn">Changes here affect only <b>${escapeHTML(card()?.name)}</b>. Switch to Template to edit every card.</div>`;
  if(S.mode==='cards'&&textKinds.includes(raw.kind)){
- if(raw.kind==='text')html+=`<div class="field"><label>Card text</label><textarea data-cardvalue="${raw.id}">${escapeHTML(actualValue(raw))}</textarea></div>`;
+ if(raw.kind==='text')html+=`<div class="field"><label>Card text</label><textarea ${editorScope()} data-cardvalue="${raw.id}">${escapeHTML(actualValue(raw))}</textarea></div>`;
  if(raw.kind==='image'&&raw.autoMode==='single')html+='<div class="small" style="padding:0 0 10px">Fixed image: <b>'+escapeHTML(raw.singleImage||'(none selected)')+'</b>. Change it in Template mode; card-specific image values are ignored.</div>';
- else(raw.kind==='image')html+=`<div class="field"><label>Image filename (blank = automatic)</label><input data-cardvalue="${raw.id}" value="${escapeHTML(card()?.values?.[raw.id]||'')}" list="imageFiles" placeholder="Set name/image.png"><datalist id="imageFiles">${S.sets.flatMap(s=>s.images.map(im=>`<option value="${escapeHTML(s.name+'/'+im.name)}"></option>`)).join('')}</datalist></div><div class="small" style="padding:0 0 10px">Enter <b>none</b> to leave this frame empty.</div>`;
+ else(raw.kind==='image')html+=`<div class="field"><label>Image filename (blank = automatic)</label><input ${editorScope()} data-cardvalue="${raw.id}" value="${escapeHTML(card()?.values?.[raw.id]||'')}" list="imageFiles" placeholder="Set name/image.png"><datalist id="imageFiles">${S.sets.flatMap(s=>s.images.map(im=>`<option value="${escapeHTML(s.name+'/'+im.name)}"></option>`)).join('')}</datalist></div><div class="small" style="padding:0 0 10px">Enter <b>none</b> to leave this frame empty.</div>`;
  }
  const f=unitFactor(S.template.unit,S.template.dpi);
  html+=`<div class="section-title">Position and size (${S.template.unit})</div><div class="fields-two">${field('X ('+S.template.unit+')','x',fmt(geometry.x/f),'number','step="any"')}${field('Y ('+S.template.unit+')','y',fmt(geometry.y/f),'number','step="any"')}${field('Width ('+S.template.unit+')','w',fmt(geometry.w/f),'number','min="0.01" step="any"')}${field('Height ('+S.template.unit+')','h',fmt(geometry.h/f),'number','min="0.01" step="any"')}</div><div class="small" style="padding:4px 0 12px" id="elementPixelReadout">${elementReadout()}</div>`;
@@ -69,7 +72,7 @@ export function renderInspector(){const box=$('#inspector');if(!S.selected&&S.mo
  if(S.mode==='template')html+=checkbox('Include in exported images','includeInExport',isExported(e))+
  `<div class="small" style="padding:0 0 12px">Turn this off for non-printing guides, such as cut lines and bleed markers. These elements appear only in the Template editor, not in Cards previews or PNG exports.</div>`;
  if(raw.kind==='text'){
- if(S.mode==='template')html+=`<div class="field"><label>Default text</label><textarea data-prop="text">${escapeHTML(e.text)}</textarea></div>`;
+ if(S.mode==='template')html+=`<div class="field"><label>Default text</label><textarea ${editorScope()} data-prop="text">${escapeHTML(e.text)}</textarea></div>`;
  html+=`<div class="section-title">Visibility</div>`+checkbox('Invisible if empty','invisibleIfEmpty',e.invisibleIfEmpty!==false)+
  `<div class="small" style="padding:0 0 10px">Hide this entire text box on cards where its spreadsheet or card text is blank (including its fill and border). Empty text remains editable in Template mode.</div>`;
  html+=`<div class="section-title">Automatic text box sizing</div>`+
@@ -84,7 +87,7 @@ export function renderInspector(){const box=$('#inspector');if(!S.selected&&S.mo
  field('Bottom ('+unit+')','gutterBottom',fmt((e.gutterBottom||0)/factor),'number','min="0" step="any"')+
  `</div><div class="small" style="padding:0 0 12px">Background and border cover the full box; the text stays inside these four clearances.</div>`;
  html+=`<div class="section-title">Typography</div>`;
- html+=`<div class="field"><label>Font family</label><input data-prop="font" list="fontOptions" value="${escapeHTML(e.font)}"><datalist id="fontOptions">${knownFonts.map(x=>`<option value="${escapeHTML(x)}"></option>`).join('')}</datalist></div><button class="secondary" style="margin:-4px 0 12px" data-action="scan-fonts">Find installed fonts</button>`;
+ html+=`<div class="field"><label>Font family</label><input ${editorScope()} data-prop="font" list="fontOptions" value="${escapeHTML(e.font)}"><datalist id="fontOptions">${knownFonts.map(x=>`<option value="${escapeHTML(x)}"></option>`).join('')}</datalist></div><button class="secondary" style="margin:-4px 0 12px" data-action="scan-fonts">Find installed fonts</button>`;
  html+=`<div class="fields-two">${field('Font size (pt)','fontSize',e.fontSize,'number','min="1" step="0.5"')}${selectionField('Weight','fontWeight',[[100,'Thin'],[300,'Light'],[400,'Regular'],[500,'Medium'],[600,'Semibold'],[700,'Bold'],[800,'Extra bold'],[900,'Black']],e.fontWeight)}</div>`;
  html+=checkbox('Italic','italic',e.italic)+checkbox('Underline','underline',e.underline);
  html+=`<div class="fields-two">${selectionField('Horizontal','align',[['left','Left'],['center','Center'],['right','Right']],e.align)}${selectionField('Vertical','valign',[['top','Top'],['middle','Middle'],['bottom','Bottom']],e.valign)}${field('Line height','lineHeight',e.lineHeight,'number','min="0.5" max="4" step="0.05"')}${field('Letter spacing (px)','letterSpacing',e.letterSpacing,'number','step="0.2"')}</div>${field('Text colour','color',e.color,'color')}`;
