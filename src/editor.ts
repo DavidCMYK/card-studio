@@ -128,7 +128,15 @@ function handleProp(input){const key=input.dataset.prop;if(!key)return;let v=inp
  if(key==='name'){const e=templateEl(S.selected);if(e)e.name=uniqName(v,e.id);return}
  if(['x','y','w','h','gutterLeft','gutterRight','gutterTop','gutterBottom'].includes(key)){v=px(Number(v),S.template.unit,S.template.dpi);if(key==='w'||key==='h')v=Math.max(1,v);if(key.startsWith('gutter'))v=Math.max(0,v)}
  else if(['fontSize','fontWeight','lineHeight','letterSpacing','borderWidth','radius','opacity','fillOpacity','borderOpacity','textOpacity','gradientAngle','imgScale','imgOffsetX','imgOffsetY'].includes(key)){v=Number(v);if(['opacity','fillOpacity','borderOpacity','textOpacity'].includes(key))v=clamp(v,0,100);if(key==='fontSize')v=Math.max(1,v);if(key==='imgScale')v=Math.max(.01,v);if(key==='borderWidth')v=Math.max(0,v)}
- if(S.selected)patchElement(S.selected,{[key]:v});
+ if(S.selected){
+  // Changing sets invalidates the previous fixed-image choice, even when
+  // both sets happen to contain identically named files.
+  if(key==='autoSet'&&S.mode==='template'){
+   const image=templateEl(S.selected);
+   if(image?.kind==='image'&&image.autoSet!==v)image.singleImage='';
+  }
+  patchElement(S.selected,{[key]:v});
+ }
 }
 $('#inspector').addEventListener('input',event=>{const inp=event.target;if(inp.dataset.cardvalue){const c=card();if(c){c.values??={};c.values[inp.dataset.cardvalue]=inp.value;renderStage();updateDimensionReadouts()}return}if(inp.dataset.prop){handleProp(inp);renderStage();updateDimensionReadouts();$('#projectTitle').textContent=S.projectName}});
 $('#inspector').addEventListener('change',event=>{const inp=event.target;if(inp.dataset.cardvalue){renderLeft();return}if(inp.dataset.prop){handleProp(inp);repaint()}});
