@@ -61,7 +61,7 @@ Use these Cloudflare Pages settings:
 | --- | --- |
 | Framework preset | None |
 | Production branch | `main` |
-| Root directory | `/` (repository root) |
+| Root directory | Leave blank (repository root) |
 | Build command | `npm run build:pages` |
 | Build output directory | `public` |
 | Node.js | 22 (`.node-version` in this repository) |
