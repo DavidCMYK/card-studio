@@ -62,3 +62,15 @@
 :root[data-layout="mobile"] .image-manager-backdrop{padding:8px}
 :root[data-layout="mobile"] .image-manager{max-height:95dvh}
 @media(min-width:800px){:root[data-layout="mobile"] .side-left,:root[data-layout="mobile"] .side-right,:root[data-layout="mobile"] .m-actions{left:auto;right:0;width:min(460px,68vw);height:100dvh;max-height:100dvh;border-radius:0}}
+
+/* Direct content replacement, separate from the advanced property inspector. */
+:root[data-layout="mobile"][data-mobile-panel="quick"] .m-actions{display:flex}
+:root[data-layout="mobile"] .m-quick-label{display:flex;flex-direction:column;gap:10px;font-size:13px;font-weight:700;color:#435b78;padding:8px 0}
+:root[data-layout="mobile"] .m-quick-label textarea{width:100%;min-height:130px;resize:vertical;font:16px/1.45 system-ui,sans-serif;border:1px solid #cbd8e7;border-radius:9px;padding:12px;color:#223a54}
+:root[data-layout="mobile"] .m-action-list .m-quick-primary{margin:6px 0;background:#2c6fd5;color:white;border:0;border-radius:9px;text-align:center;font-weight:700}
+:root[data-layout="mobile"] .m-quick-hint{color:#607186;font-size:13px;line-height:1.5;padding:12px}
+:root[data-layout="mobile"] .m-quick-set{font-size:13px;color:#435b78;margin:15px 0 7px}
+:root[data-layout="mobile"] .m-art-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 0 12px}
+:root[data-layout="mobile"] .m-action-list .m-art-option{display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center;min-height:120px;border:1px solid #dce5ef;border-radius:9px;padding:7px;overflow:hidden}
+:root[data-layout="mobile"] .m-art-option img{height:84px;max-width:100%;object-fit:contain}
+:root[data-layout="mobile"] .m-art-option span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
