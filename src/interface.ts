@@ -160,7 +160,7 @@ export function renderInspector(){const box=$('#inspector');if(!S.selected&&S.mo
   const spx=(v:number|undefined)=>fmt((Number(v)||0)*S.template.dpi/96);
   html+=`<div class="fields-two">${field('Offset X (export px)','shadowOffsetX',spx(e.shadowOffsetX),'number','step="1"')}${field('Offset Y (export px)','shadowOffsetY',spx(e.shadowOffsetY),'number','step="1"')}</div>`+
    field('Spread (export px)','shadowSpread',spx(e.shadowSpread),'number','min="0" step="1"')+
-   `<div class="small" style="padding:0 0 10px">Shadows follow visible text, fills, borders and image alpha, including transparent gaps. Overlapping shadows stack (additive mode).</div>`;
+   `<div class="small" style="padding:0 0 10px">Shadows follow visible text, fills, borders and image alpha, including transparent gaps. Choose Add or Merge for overlapping shadows in Card setup.</div>`;
  }
  if(S.mode==='cards')html+=`<div class="inspector-action"><button class="secondary" data-action="reset-element">${isExtra(raw.id)?'Remove card-only element':'Reset this element to template'}</button></div>`;
  box.innerHTML=html;
