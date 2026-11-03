@@ -165,7 +165,7 @@ export function renderInspector(){const box=$('#inspector');if(!S.selected&&S.mo
  if(S.mode==='cards')html+=`<div class="inspector-action"><button class="secondary" data-action="reset-element">${isExtra(raw.id)?'Remove card-only element':'Reset this element to template'}</button></div>`;
  box.innerHTML=html;
 }
-export function repaint(all=true){if(all){renderLeft();renderCardControl();renderInspector()}renderStage();$('#projectTitle').textContent=S.projectName}
+export function repaint(all=true){if(all){renderLeft();renderCardControl();renderInspector()}renderStage();$('#projectTitle').textContent=S.projectName;if(typeof document.dispatchEvent==='function'&&typeof CustomEvent==='function')document.dispatchEvent(new CustomEvent('cardstudio:repaint'))}
 export function patchElement(id,patch){
  const raw=templateEl(id);if(!raw)return;
  const before=effective(raw),visual=elementGeometry(raw);
