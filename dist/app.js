@@ -1226,7 +1226,7 @@ function renderInspector() {
         const spx = (v) => (0, model_1.fmt)((Number(v) || 0) * model_1.S.template.dpi / 96);
         html += `<div class="fields-two">${field('Offset X (export px)', 'shadowOffsetX', spx(e.shadowOffsetX), 'number', 'step="1"')}${field('Offset Y (export px)', 'shadowOffsetY', spx(e.shadowOffsetY), 'number', 'step="1"')}</div>` +
             field('Spread (export px)', 'shadowSpread', spx(e.shadowSpread), 'number', 'min="0" step="1"') +
-            `<div class="small" style="padding:0 0 10px">Shadows follow visible text, fills, borders and image alpha, including transparent gaps. Overlapping shadows stack (additive mode).</div>`;
+            `<div class="small" style="padding:0 0 10px">Shadows follow visible text, fills, borders and image alpha, including transparent gaps. Choose Add or Merge for overlapping shadows in Card setup.</div>`;
     }
     if (model_1.S.mode === 'cards')
         html += `<div class="inspector-action"><button class="secondary" data-action="reset-element">${(0, model_1.isExtra)(raw.id) ? 'Remove card-only element' : 'Reset this element to template'}</button></div>`;
