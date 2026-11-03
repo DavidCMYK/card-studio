@@ -1,62 +1,45 @@
 /** Alpha-mask shadows. Spread is circular morphological dilation, not blur or box-shadow. */
 import type { CardElement } from './types';
 import { clamp } from './model';
-import { paintElement } from './element-paint';
+import { paintElement, paintTextContent } from './element-paint';
 
 export interface ShadowGraphic { canvas:HTMLCanvasElement; pad:number; ratio:number; }
 export const hasShadow=(e:CardElement)=>e.shadowEnabled===true&&Number(e.shadowOpacity??65)>0;
 const nonnegative=(n:unknown)=>Number.isFinite(Number(n))?Math.max(0,Number(n)):0;
 /**
- * Nearest nontransparent pixel for each point, using exact 2D squared Euclidean
- * distance transform. The source alpha is retained (unlike binary silhouettes).
- * This preserves transparent holes, alpha edges, and independently shaped parts.
+ * Circular grayscale dilation: each output alpha is the MAXIMUM source alpha
+ * within the spread radius. Using only the nearest nontransparent source pixel
+ * caused semi-transparent PNG antialiasing to form radial streaks and holes.
+ * Each horizontal disk span uses a monotonic deque, so this stays efficient
+ * even at print DPI and preserves real transparency between separate parts.
  */
 export function spreadAlpha(alpha:Uint8ClampedArray,width:number,height:number,radius:number):Uint8ClampedArray{
  const length=width*height;
  if(length!==alpha.length)throw Error('Invalid shadow alpha mask dimensions');
  if(radius<=0)return new Uint8ClampedArray(alpha);
- const out=new Uint8ClampedArray(length),nearestY=new Int32Array(length).fill(-1);
- let hasPixels=false;
- for(let x=0;x<width;x++){
-  let previous=-1;
+ const out=new Uint8ClampedArray(length);
+ const limit=Math.max(0,radius+.25),maxDy=Math.floor(limit);
+ const deque=new Int32Array(width);
+ for(let dy=-maxDy;dy<=maxDy;dy++){
+  const span=Math.floor(Math.sqrt(Math.max(0,limit*limit-dy*dy)));
   for(let y=0;y<height;y++){
-   const idx=y*width+x;
-   if(alpha[idx]>0){previous=y;hasPixels=true;}
-   nearestY[idx]=previous;
-  }
-  previous=-1;
-  for(let y=height-1;y>=0;y--){
-   const idx=y*width+x;
-   if(alpha[idx]>0)previous=y;
-   if(previous>=0&&(nearestY[idx]<0||previous-y<y-nearestY[idx]))nearestY[idx]=previous;
-  }
- }
- if(!hasPixels)return out;
- // For each row, find the lower envelope of distance parabolas along x.
- // The vertical pass above has already found each column's nearest source y.
- const v=new Int32Array(width),z=new Float64Array(width+1);
- const f=new Float64Array(width),sourceY=new Int32Array(width);
- const r2=(radius+.25)*(radius+.25);
- for(let y=0;y<height;y++){
-  let k=-1;
-  for(let x=0;x<width;x++){
-   const sy=nearestY[y*width+x];sourceY[x]=sy;
-   f[x]=sy<0?Infinity:(y-sy)*(y-sy);
-   if(!Number.isFinite(f[x]))continue;
-   let point=0;
-   while(k>=0){
-    const q=v[k];point=((f[x]+x*x)-(f[q]+q*q))/(2*(x-q));
-    if(point>z[k])break;
-    k--;
+   const sy=y+dy;
+   if(sy<0||sy>=height)continue;
+   const source=sy*width,dest=y*width;
+   let head=0,tail=0,next=0;
+   for(let x=0;x<width;x++){
+    const last=Math.min(width-1,x+span);
+    while(next<=last){
+     const val=alpha[source+next];
+     while(tail>head&&alpha[source+deque[tail-1]]<=val)tail--;
+     deque[tail++]=next++;
+    }
+    while(head<tail&&deque[head]<x-span)head++;
+    if(head<tail){
+     const val=alpha[source+deque[head]];
+     if(val>out[dest+x])out[dest+x]=val;
+    }
    }
-   k++;v[k]=x;z[k]=k===0?-Infinity:point;z[k+1]=Infinity;
-  }
-  if(k<0)continue;
-  let which=0;
-  for(let x=0;x<width;x++){
-   while(which<k&&z[which+1]<x)which++;
-   const q=v[which],distance=f[q]+(x-q)*(x-q);
-   if(distance<=r2)out[y*width+x]=alpha[sourceY[q]*width+q];
   }
  }
  return out;
@@ -120,5 +103,26 @@ export function previewShadow(e:CardElement,value:string,img:CanvasImageSource|n
  const graphic={src:result.canvas.toDataURL('image/png'),width:result.canvas.width/ratio,height:result.canvas.height/ratio,pad:result.pad};
  previewCache.set(cacheKey,graphic);
  if(previewCache.size>24)previewCache.delete(previewCache.keys().next().value!);
+ return graphic;
+}
+
+// Text with a shadow must be drawn by the same glyph painter as its alpha
+// mask. CSS text has different baseline/line-box metrics than canvas text.
+const textCache=new Map<string,string>();
+export function previewTextContent(e:CardElement,value:string,ratio:number):string|null{
+ if(!Number.isFinite(ratio)||ratio<=0)return null;
+ const local={...e,x:0,y:0};
+ const key=JSON.stringify([local,value,ratio]);
+ const existing=textCache.get(key);if(existing)return existing;
+ const canvas=document.createElement('canvas');
+ canvas.width=Math.max(1,Math.ceil(e.w*ratio));
+ canvas.height=Math.max(1,Math.ceil(e.h*ratio));
+ const ctx=canvas.getContext('2d');
+ if(!ctx||typeof canvas.toDataURL!=='function')return null;
+ ctx.scale(ratio,ratio);
+ paintTextContent(ctx,local,value);
+ const graphic=canvas.toDataURL('image/png');
+ textCache.set(key,graphic);
+ if(textCache.size>32)textCache.delete(textCache.keys().next().value!);
  return graphic;
 }
