@@ -1474,22 +1474,42 @@ async function canvasCard(ci, mode = 'cards') {
     ctx.scale(W / w, H / h);
     ctx.fillStyle = model_1.S.template.background;
     ctx.fillRect(0, 0, w, h);
+    const elements = [];
     for (const raw of [...model_1.S.template.elements, ...(mode === 'cards' ? (model_1.S.cards[ci]?.extraElements || []) : [])]) {
-        const effective = mode === 'cards' ? { ...raw, ...(model_1.S.cards[ci]?.overrides?.[raw.id] || {}) } : raw;
         if (!(0, model_1.visibleOnCard)(raw, ci, mode))
             continue;
+        const effective = mode === 'cards' ? { ...raw, ...(model_1.S.cards[ci]?.overrides?.[raw.id] || {}) } : raw;
         const value = raw.kind === 'text' ? (mode === 'cards' && Object.prototype.hasOwnProperty.call(model_1.S.cards[ci]?.values || {}, raw.id) ? model_1.S.cards[ci].values[raw.id] : raw.text) : '';
         const e = { ...effective, ...(0, anchor_layout_1.elementGeometry)(raw, ci, mode) };
         const src = raw.kind === 'image' ? (0, image_sets_1.getImageData)(raw, ci, mode) : null;
         const img = src ? await (0, image_sets_1.loadedImage)(src) : null;
-        const shadow = (0, shadow_1.makeShadow)(e, value, img, W / w);
-        if (shadow) {
-            ctx.save();
-            ctx.globalAlpha = 1;
-            ctx.drawImage(shadow.canvas, e.x - shadow.pad, e.y - shadow.pad, shadow.canvas.width / shadow.ratio, shadow.canvas.height / shadow.ratio);
-            ctx.restore();
+        elements.push({ e, value, img });
+    }
+    if (model_1.S.template.shadowOverlapMode === 'merge') {
+        const shadows = [];
+        for (const { e, value, img } of elements) {
+            const graphic = (0, shadow_1.makeShadow)(e, value, img, W / w);
+            if (graphic)
+                shadows.push({ graphic, x: e.x, y: e.y });
         }
-        (0, element_paint_1.paintElement)(ctx, e, value, img);
+        const merged = (0, shadow_1.mergedShadowCanvas)(W, H, W / w, shadows);
+        if (merged)
+            ctx.drawImage(merged, 0, 0, w, h);
+        for (const { e, value, img } of elements)
+            (0, element_paint_1.paintElement)(ctx, e, value, img);
+    }
+    else {
+        // Existing behavior is unchanged for old projects and Add mode.
+        for (const { e, value, img } of elements) {
+            const shadow = (0, shadow_1.makeShadow)(e, value, img, W / w);
+            if (shadow) {
+                ctx.save();
+                ctx.globalAlpha = 1;
+                ctx.drawImage(shadow.canvas, e.x - shadow.pad, e.y - shadow.pad, shadow.canvas.width / shadow.ratio, shadow.canvas.height / shadow.ratio);
+                ctx.restore();
+            }
+            (0, element_paint_1.paintElement)(ctx, e, value, img);
+        }
     }
     return cvs;
 }
