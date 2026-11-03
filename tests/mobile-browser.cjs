@@ -49,7 +49,7 @@ const server=http.createServer((req,res)=>{
   await page.locator('.m-selection [data-mobile="quick"]').click();
   await page.locator('#mobileQuickText').fill('Mobile editing works');
   await page.locator('[data-mobile="apply-text"]').click();
-  assert.match(await page.locator('#stage').innerText(),/Mobile editing works/,'per-card text replaced');
+  assert.match(await page.locator('#stage').innerText(),/Mobile editing\s+works/,'per-card text replaced');
   await page.locator('.m-dock [data-mobile="properties"]').click();
   await page.locator('.side-right').waitFor({state:'visible',timeout:5000});
   assert.ok((await page.locator('.side-right .inspect').innerText()).length>10);
