@@ -94,7 +94,7 @@ function start(){
    else if(command==='fit'){fitCanvas();closePanel()}
    else showPanel(command as Panel);
   }
-  if(mobile()&&(target.closest('.m-actions [data-action]')||target.closest('[data-layer]')||target.closest('.sidebar-cards [data-cardindex]')))closePanel();
+  if(mobile()&&(target.closest('.m-actions [data-action]')||target.closest('.side-left [data-action]')||target.closest('[data-layer]')||target.closest('.sidebar-cards [data-cardindex]')))closePanel();
   queueMicrotask(refresh);
  });
  document.addEventListener('keydown',(e:KeyboardEvent)=>{if(e.key==='Escape'&&panel!=='none')closePanel()});
