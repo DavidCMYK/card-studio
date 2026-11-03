@@ -27,7 +27,7 @@ makeElement('text',{name:'Card Title',x:13,y:9,w:213,h:32,text:'THE HOLLOW GATE'
 makeElement('shape',{name:'Text panel',x:8,y:217,w:222,h:103,fillMode:'solid',fill1:'#fdfcf8',borderWidth:1,borderColor:'#8da0af',radius:6}),
 makeElement('text',{name:'Description',x:18,y:223,w:201,h:83,text:'Beyond the old stones, the road descends into darkness.',font:'Georgia',fontSize:11,fontWeight:400,valign:'top',color:'#324358',lineHeight:1.3})
 ];
-export const initial=(): StudioProject =>({type:'cardstudio-project',version:2,projectName:'Untitled deck',template:{name:'Standard game card',width:63,height:88,unit:'mm',dpi:300,background:'#ffffff',elements:initialElements()},sets:[],cards:[{id:uid(),name:'Card 001',values:{},overrides:{},extraElements:[]}],mode:'template',cardIndex:0,selected:null,zoom:1.55});
+export const initial=(): StudioProject =>({type:'cardstudio-project',version:2,projectName:'Untitled deck',template:{name:'Standard game card',width:63,height:88,unit:'mm',dpi:300,background:'#ffffff',shadowOverlapMode:'add',elements:initialElements()},sets:[],cards:[{id:uid(),name:'Card 001',values:{},overrides:{},extraElements:[]}],mode:'template',cardIndex:0,selected:null,zoom:1.55});
 export let S: StudioProject = initial();
 export function replaceState(value: StudioProject) { S = value; }
 export const card=()=>S.cards[S.cardIndex]||null;
