@@ -28,3 +28,11 @@ jobs:
           test -s public/dist/app.js
           test -s public/vendor/jszip.min.js
           test -s wrangler.test.jsonc
+
+      - name: Verify mobile packaging asset output
+        run: |
+          node scripts/build-mobile.cjs
+          test -s mobile-build/index.html
+          test -s mobile-build/mobile.css
+          test -s mobile-build/dist/app.js
+          grep -q 'appTarget="mobile"' mobile-build/index.html
