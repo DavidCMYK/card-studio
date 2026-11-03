@@ -3,8 +3,9 @@ import {$} from './dom';
 import {renderStage} from './preview';
 import {chooseEditorLayout,fitCardZoom,EditorLayout} from './mobile-mode';
 import {installMobileGestures} from './mobile-touch';
+import {renderQuickEditor,performQuickAction} from './mobile-quick';
 
-type Panel='none'|'add'|'file'|'export'|'layers'|'cards'|'images'|'properties';
+type Panel='none'|'add'|'file'|'export'|'layers'|'cards'|'images'|'properties'|'quick';
 const root=document.documentElement,app=$('.app') as HTMLElement,outer=$('#canvasOuter') as HTMLElement;
 const key='cardstudio.interface-layout';
 const mobile=()=>root.dataset.layout==='mobile';
@@ -30,6 +31,8 @@ function refresh(){
  const selected=S.selected?templateEl(S.selected):null;
  const context=document.getElementById('mobileSelection');if(context)context.hidden=!selected&&S.mode!=='cards';
  const selectedName=document.getElementById('mobileSelectionName');if(selectedName)selectedName.textContent=selected?selected.name:'Card data';
+ const quickButton=document.getElementById('mobileQuickButton');
+ if(quickButton)quickButton.textContent=selected?.kind==='text'?'Edit text':selected?.kind==='image'?'Choose artwork':selected?'Edit style':'Edit card data';
  const scope=document.getElementById('mobileSelectionScope');if(scope)scope.textContent=S.mode==='template'?'Changes every card':'Changes only this card';
  document.querySelectorAll('.m-mode [data-action]').forEach(node=>{
   const button=node as HTMLElement,active=button.dataset.action==='mode-'+S.mode;
@@ -44,6 +47,7 @@ function showPanel(next:Panel){
  panel=next;root.dataset.mobilePanel=next;
  const label=document.getElementById('mobilePanelTitle');if(label)label.textContent=({add:'Add element',file:'Project',export:'Export'} as any)[next]||next;
  const list=document.getElementById('mobileActionList');
+ if(list&&next==='quick'&&!renderQuickEditor(list)){showPanel('properties');return}
  if(list&&menus[next]){
   list.replaceChildren();
   for(const [action,labelText] of menus[next]){
@@ -74,7 +78,7 @@ function start(){
  nav.innerHTML='<button data-action="prev-card" aria-label="Previous card">‹</button><button data-mobile="cards" id="mobileCardLabel">Card</button><button data-action="next-card" aria-label="Next card">›</button>';
  $('.viewport').append(nav);
  const context=document.createElement('div');context.id='mobileSelection';context.className='m-selection';
- context.innerHTML='<div><strong id="mobileSelectionName"></strong><small id="mobileSelectionScope"></small></div><button data-mobile="properties">Edit properties</button>';
+ context.innerHTML='<div><strong id="mobileSelectionName"></strong><small id="mobileSelectionScope"></small></div><button data-mobile="quick" id="mobileQuickButton">Edit</button>';
  app.append(context);
  const dock=document.createElement('nav');dock.className='m-dock';dock.setAttribute('aria-label','Mobile editing tools');
  dock.innerHTML='<button data-mobile="add"><span>＋</span>Add</button><button data-mobile="layers"><span>▤</span>Layers</button><button data-mobile="cards"><span>▦</span>Cards</button><button data-mobile="images"><span>▧</span>Images</button><button data-mobile="properties"><span>⚙</span>Properties</button><button data-mobile="fit"><span>⛶</span>Fit</button>';
@@ -90,7 +94,8 @@ function start(){
   const target=e.target as HTMLElement,control=target.closest('[data-mobile]') as HTMLElement|null;
   if(control){
    const command=control.dataset.mobile||'';
-   if(command==='switch')setLayout(mobile()?'desktop':'mobile',true);
+   if(['apply-text','assign-image','clear-image'].includes(command)){if(performQuickAction(command,control))closePanel()}
+   else if(command==='switch')setLayout(mobile()?'desktop':'mobile',true);
    else if(command==='close')closePanel();
    else if(command==='fit'){fitCanvas();closePanel()}
    else showPanel(command as Panel);
