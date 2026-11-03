@@ -57,7 +57,7 @@ test('shadow inspector supports all properties for text, shapes and images',()=>
    s.template.elements=[e];s.selected=e.id;renderInspector();
    const html=nodes.get('#inspector').innerHTML;
    for(const key of ['shadowEnabled','shadowColor','shadowOpacity','shadowOffsetX','shadowOffsetY','shadowSpread'])assert.match(html,new RegExp(`data-prop="${key}"`));
-   assert.match(html,/Overlapping shadows stack/);
+   assert.match(html,/Choose Add or Merge for overlapping shadows/);
   }
  }finally{global.document=old;}
 });
