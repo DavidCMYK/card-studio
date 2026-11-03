@@ -1117,7 +1117,10 @@ function renderInspector() {
  ${selectionField('Units', 'template.unit', [['mm', 'Millimetres (mm)'], ['in', 'Inches (in)'], ['px', 'Pixels (px)']], model_1.S.template.unit)}
  ${selectionField('PNG resolution', 'template.dpi', [[150, '150 DPI'], [300, '300 DPI'], [450, '450 DPI'], [600, '600 DPI']], model_1.S.template.dpi)}
  <div class="small" style="padding:4px 0 12px" id="templatePixelReadout">${sizeReadout()}</div>
- ${field('Background colour', 'template.background', model_1.S.template.background, 'color')}
+  ${field('Background colour', 'template.background', model_1.S.template.background, 'color')}
+ <div class="section-title">Shadows</div>
+ ${selectionField('Shadow overlap', 'template.shadowOverlapMode', [['add', 'Add (stack opacity)'], ['merge', 'Merge (highest opacity only)']], model_1.S.template.shadowOverlapMode || 'add')}
+ <div class="small" style="padding:0 0 10px">Merge combines shadows into one layer beneath all visible elements, retaining the strongest opacity wherever shadows overlap. Add preserves the original per-element stacking.</div>
  <div class="rule"></div><div class="section-title">Project</div>${field('Project name', 'projectName', model_1.S.projectName)}
  <div class="small" style="padding:0">Select a layer or click an element on the card to change its properties. Use the Cards tab to edit a single card independently.</div>`;
         return;
@@ -1351,7 +1354,7 @@ const initialElements = () => [
     (0, exports.makeElement)('text', { name: 'Description', x: 18, y: 223, w: 201, h: 83, text: 'Beyond the old stones, the road descends into darkness.', font: 'Georgia', fontSize: 11, fontWeight: 400, valign: 'top', color: '#324358', lineHeight: 1.3 })
 ];
 exports.initialElements = initialElements;
-const initial = () => ({ type: 'cardstudio-project', version: 2, projectName: 'Untitled deck', template: { name: 'Standard game card', width: 63, height: 88, unit: 'mm', dpi: 300, background: '#ffffff', elements: (0, exports.initialElements)() }, sets: [], cards: [{ id: (0, exports.uid)(), name: 'Card 001', values: {}, overrides: {}, extraElements: [] }], mode: 'template', cardIndex: 0, selected: null, zoom: 1.55 });
+const initial = () => ({ type: 'cardstudio-project', version: 2, projectName: 'Untitled deck', template: { name: 'Standard game card', width: 63, height: 88, unit: 'mm', dpi: 300, background: '#ffffff', shadowOverlapMode: 'add', elements: (0, exports.initialElements)() }, sets: [], cards: [{ id: (0, exports.uid)(), name: 'Card 001', values: {}, overrides: {}, extraElements: [] }], mode: 'template', cardIndex: 0, selected: null, zoom: 1.55 });
 exports.initial = initial;
 exports.S = (0, exports.initial)();
 function replaceState(value) { exports.S = value; }
