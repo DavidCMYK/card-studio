@@ -42,3 +42,7 @@ This runs the tests, builds the static assets into `public/`, and deploys only `
 ## App packaging path
 
 Once mobile interaction tests are complete, add a separate mobile web-assets build for Capacitor and a web app manifest. Packaging should consume the same shared document model, renderer and actions; it must not become a fork of the editing implementation.
+
+## Prepare installable mobile assets later
+
+Run `npm run build:mobile` to generate `mobile-build/`, a self-contained web-assets directory whose entrypoint forces the touch interface. It shares the exact project schema and rendering code with the normal adaptive website. This output can later be supplied as the Capacitor `webDir` without forking Card Studio's editor; Android/iOS wrappers, app identity, native file handling and installation graphics remain separate future work.
