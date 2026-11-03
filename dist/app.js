@@ -1117,7 +1117,7 @@ function renderInspector() {
  ${selectionField('Units', 'template.unit', [['mm', 'Millimetres (mm)'], ['in', 'Inches (in)'], ['px', 'Pixels (px)']], model_1.S.template.unit)}
  ${selectionField('PNG resolution', 'template.dpi', [[150, '150 DPI'], [300, '300 DPI'], [450, '450 DPI'], [600, '600 DPI']], model_1.S.template.dpi)}
  <div class="small" style="padding:4px 0 12px" id="templatePixelReadout">${sizeReadout()}</div>
-  ${field('Background colour', 'template.background', model_1.S.template.background, 'color')}
+ ${field('Background colour', 'template.background', model_1.S.template.background, 'color')}
  <div class="section-title">Shadows</div>
  ${selectionField('Shadow overlap', 'template.shadowOverlapMode', [['add', 'Add (stack opacity)'], ['merge', 'Merge (highest opacity only)']], model_1.S.template.shadowOverlapMode || 'add')}
  <div class="small" style="padding:0 0 10px">Merge combines shadows into one layer beneath all visible elements, retaining the strongest opacity wherever shadows overlap. Add preserves the original per-element stacking.</div>
@@ -1470,10 +1470,8 @@ async function canvasCard(ci, mode = 'cards') {
     const cvs = document.createElement('canvas');
     cvs.width = W;
     cvs.height = H;
-    const ctx = cvs.getContext('2d', { alpha: false });
+    const ctx = cvs.getContext('2d');
     ctx.scale(W / w, H / h);
-    ctx.fillStyle = model_1.S.template.background;
-    ctx.fillRect(0, 0, w, h);
     const elements = [];
     for (const raw of [...model_1.S.template.elements, ...(mode === 'cards' ? (model_1.S.cards[ci]?.extraElements || []) : [])]) {
         if (!(0, model_1.visibleOnCard)(raw, ci, mode))
@@ -1486,20 +1484,29 @@ async function canvasCard(ci, mode = 'cards') {
         elements.push({ e, value, img });
     }
     if (model_1.S.template.shadowOverlapMode === 'merge') {
-        const shadows = [];
-        for (const { e, value, img } of elements) {
-            const graphic = (0, shadow_1.makeShadow)(e, value, img, W / w);
-            if (graphic)
-                shadows.push({ graphic, x: e.x, y: e.y });
-        }
-        const merged = (0, shadow_1.mergedShadowCanvas)(W, H, W / w, shadows);
-        if (merged)
-            ctx.drawImage(merged, 0, 0, w, h);
-        for (const { e, value, img } of elements)
+        const ratio = W / w;
+        const passes = (0, shadow_1.depthMergedShadowPasses)(W, H, ratio, elements.map(({ e, value, img }) => {
+            const shadow = (0, shadow_1.makeShadow)(e, value, img, ratio);
+            const alpha = shadow ? { pixels: shadow.pixels, pad: shadow.pad, ratio } : (0, shadow_1.makeElementAlpha)(e, value, img, ratio);
+            return { x: e.x, y: e.y, shadow, alpha };
+        }));
+        ctx.fillStyle = model_1.S.template.background;
+        ctx.fillRect(0, 0, w, h);
+        for (let i = 0; i < elements.length; i++) {
+            const pass = passes[i];
+            if (pass) {
+                ctx.save();
+                ctx.globalAlpha = 1;
+                ctx.drawImage(pass.canvas, pass.x - pass.pad, pass.y - pass.pad, pass.canvas.width / pass.ratio, pass.canvas.height / pass.ratio);
+                ctx.restore();
+            }
+            const { e, value, img } = elements[i];
             (0, element_paint_1.paintElement)(ctx, e, value, img);
+        }
     }
     else {
-        // Existing behavior is unchanged for old projects and Add mode.
+        ctx.fillStyle = model_1.S.template.background;
+        ctx.fillRect(0, 0, w, h);
         for (const { e, value, img } of elements) {
             const shadow = (0, shadow_1.makeShadow)(e, value, img, W / w);
             if (shadow) {
@@ -1532,16 +1539,15 @@ function renderStage() {
     st.style.height = (h * z) + 'px';
     st.style.background = model_1.S.template.background;
     const mergeMode = model_1.S.template.shadowOverlapMode === 'merge';
-    const placedShadows = [];
-    let html = '';
-    const eList = (0, model_1.layerEls)();
-    for (const raw of eList) {
+    const visibleElements = [];
+    for (const raw of (0, model_1.layerEls)()) {
         const e = (0, model_1.effective)(raw);
         if (model_1.S.mode === 'template' ? e.hidden : !(0, model_1.visibleOnCard)(raw, model_1.S.cardIndex, 'cards'))
             continue;
         const selected = model_1.S.selected === raw.id, src = (0, image_sets_1.getImageData)(raw, model_1.S.cardIndex, model_1.S.mode);
         const geom = (0, anchor_layout_1.elementGeometry)(raw, model_1.S.cardIndex, model_1.S.mode);
         let content = '';
+        const value = e.kind === 'text' ? (0, model_1.actualValue)(raw) : '';
         if (e.kind === 'text') {
             const layout = (0, text_layout_1.layoutTextBox)(e, (0, model_1.actualValue)(raw));
             const style = `font-family:${(0, model_1.escapeHTML)(e.font)},serif;font-size:${layout.fontPx * z}px;font-weight:${e.fontWeight};font-style:${e.italic ? 'italic' : 'normal'};text-decoration:${e.underline ? 'underline' : 'none'};color:${e.color};text-align:${e.align};line-height:${layout.linePx * z}px;letter-spacing:${e.letterSpacing * z}px;align-items:${e.valign === 'top' ? 'flex-start' : e.valign === 'bottom' ? 'flex-end' : 'center'};left:${layout.left * z}px;right:${layout.right * z}px;top:${layout.top * z}px;bottom:${layout.bottom * z}px;`;
@@ -1551,8 +1557,6 @@ function renderStage() {
             const im = (0, image_sets_1.cacheImage)(src);
             if (src && im?.loaded) {
                 const box = (0, image_sets_1.imgBox)({ ...e, ...geom }, im.im);
-                // The image is transformed around the FRAME centre, not its cropped bounds.
-                // Pixel transform-origin allows this to work with offsets and all fit modes.
                 const angle = Number(e.imgRotation) || 0, sx = e.imgFlipX === true ? -1 : 1, sy = e.imgFlipY === true ? -1 : 1;
                 const transform = angle || sx < 0 || sy < 0 ? `transform-origin:${(geom.w / 2 - box.x) * z}px ${(geom.h / 2 - box.y) * z}px;transform:rotate(${angle}deg) scale(${sx},${sy});` : '';
                 content = `<div class="image-content"><img alt="" draggable="false" src="${src}" style="left:${box.x * z}px;top:${box.y * z}px;width:${box.w * z}px;height:${box.h * z}px;${transform}"></div>`;
@@ -1565,8 +1569,6 @@ function renderStage() {
         const fill = `<div class="element-fill" style="background:${gradientCSS(e)};opacity:${(0, model_1.opacityFor)(e, 'fillOpacity')}"></div>`;
         const borderLayer = e.borderWidth > 0 ? `<div class="element-border" style="border:${border};opacity:${(0, model_1.opacityFor)(e, 'borderOpacity')}"></div>` : '';
         if (e.kind === 'text') {
-            // When shadowed, draw foreground glyphs through the same canvas text path
-            // as the alpha mask. At 0/0 offset both will be exactly coincident.
             const raster = (0, shadow_1.hasShadow)(e) ? (0, shadow_1.previewTextContent)({ ...e, ...geom }, (0, model_1.actualValue)(raw), z) : null;
             if (raster)
                 content = `<div class="text-layer"><img alt="" draggable="false" src="${raster}" style="width:100%;height:100%;display:block;pointer-events:none"></div>`;
@@ -1575,21 +1577,33 @@ function renderStage() {
         }
         if (e.kind === 'image')
             content = `<div class="image-layer" style="opacity:${(0, model_1.opacityFor)(e, 'fillOpacity')}">${content}</div>`;
-        const shadow = (0, shadow_1.previewShadow)({ ...e, ...geom }, e.kind === 'text' ? (0, model_1.actualValue)(raw) : '', src && (0, image_sets_1.cacheImage)(src)?.loaded ? (0, image_sets_1.cacheImage)(src)?.im : null, z);
-        if (mergeMode && shadow)
-            placedShadows.push({ graphic: { canvas: shadow.canvas, pad: shadow.pad, ratio: shadow.ratio }, x: geom.x, y: geom.y });
+        const image = src && (0, image_sets_1.cacheImage)(src)?.loaded ? (0, image_sets_1.cacheImage)(src)?.im : null;
+        const painted = { ...e, ...geom };
+        const shadow = (0, shadow_1.previewShadow)(painted, value, image, z);
+        const alpha = mergeMode ? (shadow ? { pixels: shadow.pixels, pad: shadow.pad, ratio: shadow.ratio } : (0, shadow_1.makeElementAlpha)(painted, value, image, z)) : null;
         const shadowLayer = !mergeMode && shadow ? `<img class="shadow-layer" alt="" draggable="false" src="${shadow.src}" style="left:${-shadow.pad * z}px;top:${-shadow.pad * z}px;width:${shadow.width * z}px;height:${shadow.height * z}px">` : '';
         const handles = !e.locked ? ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'].map(h => `<span class="resize-handle resize-${h}" data-handle="${h}"></span>`).join('') : '';
         const label = selected ? `<span class="selection-label">${(0, model_1.escapeHTML)(raw.name)}</span>${handles}` : '';
-        html += `<div class="element ${selected ? 'selected' : ''} ${e.locked ? 'locked' : ''}" data-id="${raw.id}" style="${base}">${shadowLayer}${fill}${content}${borderLayer}${label}</div>`;
+        visibleElements.push({
+            shadow: mergeMode && shadow ? { canvas: shadow.canvas, pixels: shadow.pixels, pad: shadow.pad, ratio: shadow.ratio } : null,
+            alpha, x: geom.x, y: geom.y,
+            html: `<div class="element ${selected ? 'selected' : ''} ${e.locked ? 'locked' : ''}" data-id="${raw.id}" style="${base}">${shadowLayer}${fill}${content}${borderLayer}${label}</div>`
+        });
     }
-    if (mergeMode && placedShadows.length) {
-        const merged = (0, shadow_1.mergedShadowCanvas)(Math.ceil(w * z), Math.ceil(h * z), z, placedShadows);
-        if (merged) {
-            const src = merged.toDataURL('image/png');
-            html = `<img class="merged-shadow-layer" alt="" draggable="false" src="${src}" style="position:absolute;left:0;top:0;width:${w * z}px;height:${h * z}px;pointer-events:none">` + html;
+    let html = '';
+    if (mergeMode) {
+        const passes = (0, shadow_1.depthMergedShadowPasses)(Math.ceil(w * z), Math.ceil(h * z), z, visibleElements);
+        for (let i = 0; i < visibleElements.length; i++) {
+            const pass = passes[i];
+            if (pass) {
+                const src = pass.canvas.toDataURL('image/png');
+                html += `<img class="merged-shadow-layer" alt="" draggable="false" src="${src}" style="position:absolute;left:${(pass.x - pass.pad) * z}px;top:${(pass.y - pass.pad) * z}px;width:${pass.canvas.width}px;height:${pass.canvas.height}px;pointer-events:none">`;
+            }
+            html += visibleElements[i].html;
         }
     }
+    else
+        html = visibleElements.map(v => v.html).join('');
     st.innerHTML = html;
     (0, dom_1.$)('#statusLeft').textContent = `${model_1.S.template.width} × ${model_1.S.template.height} ${model_1.S.template.unit} · ${(0, model_1.templateExportSize)().w} × ${(0, model_1.templateExportSize)().h} export px · ${model_1.S.template.dpi} DPI`;
     (0, dom_1.$)('#zoomLabel').textContent = Math.round(model_1.S.zoom * 100) + '%';
@@ -1824,9 +1838,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.hasShadow = void 0;
 exports.spreadAlpha = spreadAlpha;
 exports.shadePixels = shadePixels;
+exports.makeElementAlpha = makeElementAlpha;
 exports.makeShadow = makeShadow;
 exports.mergeShadowPixels = mergeShadowPixels;
 exports.mergedShadowCanvas = mergedShadowCanvas;
+exports.depthMergedShadowPasses = depthMergedShadowPasses;
 exports.previewShadow = previewShadow;
 exports.previewTextContent = previewTextContent;
 const model_1 = require("./model");
@@ -1866,9 +1882,8 @@ function spreadAlpha(alpha, width, height, radius) {
                         tail--;
                     deque[tail++] = next++;
                 }
-                while (head < tail && deque[head] < x - span) {
+                while (head < tail && deque[head] < x - span)
                     head++;
-                }
                 if (head < tail) {
                     const val = alpha[source + deque[head]];
                     if (val > out[dest + x])
@@ -1913,34 +1928,44 @@ function shadePixels(mask, width, height, e, ratio) {
         }
     return output;
 }
-/** Image-space rasterization works for all elements, including images with alpha. */
-function makeShadow(e, value, img, ratio) {
-    if (!(0, exports.hasShadow)(e) || !Number.isFinite(ratio) || ratio <= 0)
+/** The element's actual visible pixels (fill, glyphs, image alpha and border). */
+function makeElementAlpha(e, value, img, ratio, pad) {
+    if (!Number.isFinite(ratio) || ratio <= 0)
         return null;
-    const spread = nonnegative(e.shadowSpread), ox = Math.abs(Number(e.shadowOffsetX) || 0), oy = Math.abs(Number(e.shadowOffsetY) || 0);
-    const pad = Math.ceil(Math.max(spread, 0) + Math.max(ox, oy) + Math.max(0, e.borderWidth || 0) / 2 + 3);
-    const width = Math.ceil((e.w + pad * 2) * ratio), height = Math.ceil((e.h + pad * 2) * ratio);
+    const padding = pad ?? Math.ceil(Math.max(0, e.borderWidth || 0) / 2 + 3);
+    const width = Math.ceil((e.w + padding * 2) * ratio), height = Math.ceil((e.h + padding * 2) * ratio);
     if (width < 1 || height < 1 || width * height > 16000000)
         return null;
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     const context = canvas.getContext('2d', { willReadFrequently: true });
-    if (!context?.getImageData || !context.putImageData)
+    if (!context?.getImageData)
         return null;
-    context.setTransform?.(ratio, 0, 0, ratio, (pad - e.x) * ratio, (pad - e.y) * ratio);
+    context.setTransform?.(ratio, 0, 0, ratio, (padding - e.x) * ratio, (padding - e.y) * ratio);
     (0, element_paint_1.paintElement)(context, e, value, img);
-    const mask = context.getImageData(0, 0, width, height);
-    const colored = shadePixels(mask, width, height, e, ratio);
-    // putImageData ignores the active transform, which is intentional here.
-    context.putImageData(colored, 0, 0);
-    return { canvas, pad, ratio };
+    return { pixels: context.getImageData(0, 0, width, height), pad: padding, ratio };
 }
-/**
- * Max-alpha compositing: the strongest shadow wins at each pixel. Colour comes
- * from that winning shadow; equal-alpha ties use the later layer's colour.
- * Unlike source-over, two 50%-opaque shadows remain 50% where they overlap.
- */
+/** Image-space rasterization works for all elements, including transparent images. */
+function makeShadow(e, value, img, ratio) {
+    if (!(0, exports.hasShadow)(e) || !Number.isFinite(ratio) || ratio <= 0)
+        return null;
+    const spread = nonnegative(e.shadowSpread), ox = Math.abs(Number(e.shadowOffsetX) || 0), oy = Math.abs(Number(e.shadowOffsetY) || 0);
+    const pad = Math.ceil(Math.max(spread, 0) + Math.max(ox, oy) + Math.max(0, e.borderWidth || 0) / 2 + 3);
+    const mask = makeElementAlpha(e, value, img, ratio, pad);
+    if (!mask)
+        return null;
+    const width = mask.pixels.width, height = mask.pixels.height;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context?.putImageData)
+        return null;
+    context.putImageData(shadePixels(mask.pixels, width, height, e, ratio), 0, 0);
+    return { canvas, pad, ratio, pixels: mask.pixels };
+}
+/** Max-alpha compositing retained for direct testing / standalone uses. */
 function mergeShadowPixels(target, source, left, top) {
     const tw = target.width, th = target.height, sw = source.width, sh = source.height;
     const x0 = Math.max(0, left), x1 = Math.min(tw, left + sw);
@@ -1961,11 +1986,6 @@ function mergeShadowPixels(target, source, left, top) {
         }
     }
 }
-/**
- * Generate one shared RGBA shadow canvas at the specified output resolution.
- * The visible elements are subsequently painted over this backdrop in their
- * original order. This leaves transparent gaps and per-pixel opacities intact.
- */
 function mergedShadowCanvas(width, height, ratio, shadows) {
     if (!shadows.length || width < 1 || height < 1 || width * height > 75000000)
         return null;
@@ -1985,6 +2005,80 @@ function mergedShadowCanvas(width, height, ratio, shadows) {
     }
     ctx.putImageData(result, 0, 0);
     return canvas;
+}
+/**
+ * Produce only the NEW opacity contributed by each element's shadow.
+ * The pixel coverage accumulator is the opacity of previously visible shadows.
+ * At every pixel, adding shadow opacity a to previous m requires source-over
+ * opacity (max(m,a)-m)/(1-m), rather than a or a cumulative layer.
+ * Visible artwork between shadows attenuates previous shadow coverage by its
+ * actual alpha, so an upper shadow can fall onto lower artwork normally.
+ */
+function depthMergedShadowPasses(width, height, ratio, items) {
+    const out = new Array(items.length).fill(null);
+    if (width < 1 || height < 1 || width * height > 75000000)
+        return out;
+    const visibleCoverage = new Float32Array(width * height);
+    for (let layer = 0; layer < items.length; layer++) {
+        const { x, y, shadow, alpha } = items[layer];
+        if (shadow) {
+            const srcCtx = shadow.canvas.getContext('2d', { willReadFrequently: true });
+            const src = srcCtx?.getImageData?.(0, 0, shadow.canvas.width, shadow.canvas.height);
+            if (src) {
+                const sw = src.width, sh = src.height;
+                const left = Math.round((x - shadow.pad) * ratio), top = Math.round((y - shadow.pad) * ratio);
+                const x0 = Math.max(0, -left), x1 = Math.min(sw, width - left);
+                const y0 = Math.max(0, -top), y1 = Math.min(sh, height - top);
+                const corrected = new ImageData(sw, sh);
+                let any = false;
+                for (let sy = y0; sy < y1; sy++) {
+                    const row = (top + sy) * width, leftIndex = sy * sw;
+                    for (let sx = x0; sx < x1; sx++) {
+                        const source = (leftIndex + sx) * 4, a = src.data[source + 3] / 255;
+                        if (a <= 0)
+                            continue;
+                        const index = row + left + sx, old = visibleCoverage[index];
+                        if (a <= old)
+                            continue;
+                        const extra = (a - old) / (1 - old);
+                        corrected.data[source] = src.data[source];
+                        corrected.data[source + 1] = src.data[source + 1];
+                        corrected.data[source + 2] = src.data[source + 2];
+                        corrected.data[source + 3] = Math.round(Math.min(1, extra) * 255);
+                        visibleCoverage[index] = a;
+                        any = true;
+                    }
+                }
+                if (any) {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = sw;
+                    canvas.height = sh;
+                    const context = canvas.getContext('2d', { willReadFrequently: true });
+                    if (context?.putImageData) {
+                        context.putImageData(corrected, 0, 0);
+                        out[layer] = { canvas, pad: shadow.pad, ratio, x, y };
+                    }
+                }
+            }
+        }
+        if (alpha) {
+            const pixels = alpha.pixels, aw = pixels.width, ah = pixels.height;
+            const left = Math.round((x - alpha.pad) * ratio), top = Math.round((y - alpha.pad) * ratio);
+            const x0 = Math.max(0, -left), x1 = Math.min(aw, width - left);
+            const y0 = Math.max(0, -top), y1 = Math.min(ah, height - top);
+            for (let sy = y0; sy < y1; sy++) {
+                const row = (top + sy) * width, sourceRow = sy * aw;
+                for (let sx = x0; sx < x1; sx++) {
+                    const opacity = pixels.data[(sourceRow + sx) * 4 + 3] / 255;
+                    if (opacity > 0) {
+                        const index = row + left + sx;
+                        visibleCoverage[index] *= 1 - opacity;
+                    }
+                }
+            }
+        }
+    }
+    return out;
 }
 // Preview shadows are keyed by content, not the frame position, so dragging
 // does not re-rasterize a large alpha mask on every pointermove.
@@ -2009,13 +2103,12 @@ function previewShadow(e, value, img, ratio) {
     const result = makeShadow(local, value, img, ratio);
     if (!result || typeof result.canvas.toDataURL !== 'function')
         return null;
-    const graphic = { src: result.canvas.toDataURL('image/png'), width: result.canvas.width / ratio, height: result.canvas.height / ratio, pad: result.pad, canvas: result.canvas, ratio };
+    const graphic = { src: result.canvas.toDataURL('image/png'), width: result.canvas.width / ratio, height: result.canvas.height / ratio, pad: result.pad, canvas: result.canvas, ratio, pixels: result.pixels };
     previewCache.set(cacheKey, graphic);
     if (previewCache.size > 24)
         previewCache.delete(previewCache.keys().next().value);
     return graphic;
 }
-
 // Text with a shadow must be drawn by the same glyph painter as its alpha
 // mask. CSS text has different baseline/line-box metrics than canvas text.
 const textCache = new Map();

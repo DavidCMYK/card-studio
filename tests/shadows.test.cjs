@@ -63,7 +63,7 @@ test('shadow inspector supports all properties for text, shapes and images',()=>
 });
 test('mask canvas receives real transparent image and border (not a frame-sized fill)',()=>{
  const old=global.document,oldImageData=global.ImageData,calls=[];
- global.ImageData=class ImageData{constructor(w,h){this.data=new Uint8ClampedArray(w*h*4)}};
+ global.ImageData=class ImageData{constructor(w,h){this.width=w;this.height=h;this.data=new Uint8ClampedArray(w*h*4)}};
  global.document={createElement(){const ctx={
   save(){},restore(){},setTransform(){},beginPath(){},rect(){calls.push('frame-clip')},clip(){},
   drawImage(){calls.push('image')},stroke(){calls.push('border')},scale(){},rotate(){},translate(){},
@@ -106,55 +106,66 @@ test('preview and PNG exports use the same image-space shadow generator and per-
 
 test('transparent PNG antialiasing never creates radial low-alpha streaks',()=>{
  const w=35,h=35;
- const alpha=mask(w,h,[[17,17,255],[17,16,20],[16,17,20],[18,17,20],[17,18,20],[3,3,128],[31,31,64]]);
+ const alpha=mask(w,h,[
+  [17,17,255],[17,16,20],[16,17,20],[18,17,20],[17,18,20],
+  [3,3,128],[31,31,64]
+ ]);
  const spread=spreadAlpha(alpha,w,h,5);
  for(let y=12;y<=22;y++)for(let x=12;x<=22;x++){
   if((x-17)**2+(y-17)**2<=25)
-   assert.equal(at(spread,w,x,y),255,'opaque image interior must dominate anti-aliased edges');
+   assert.equal(at(spread,w,x,y),255,`opaque ball should dominate spread at ${x},${y}`);
  }
- assert.equal(at(spread,w,17,8),0,'transparent gap remains clear');
+ assert.equal(at(spread,w,17,8),0,'empty transparent gap remains unshadowed');
+ assert.equal(at(spread,w,17,17),255,'opaque source stays fully opaque');
 });
-test('circular max-alpha dilation agrees with brute-force partial-alpha reference',()=>{
+
+test('circular max-alpha spread agrees with brute-force reference on partial transparency',()=>{
  const w=17,h=15,alpha=new Uint8ClampedArray(w*h);
  for(let p=0;p<alpha.length;p++)alpha[p]=(p*29+(p%7)*17)%5===0?0:(p*31)%256;
  for(const r of [0,1,2,3.5]){
   const found=spreadAlpha(alpha,w,h,r);
   for(let y=0;y<h;y++)for(let x=0;x<w;x++){
    let expected=0;
-   const limit=r+.25;
+   const d=r+.25;
    for(let sy=0;sy<h;sy++)for(let sx=0;sx<w;sx++)
-    if(Math.hypot(sx-x,sy-y)<=limit)expected=Math.max(expected,alpha[sy*w+sx]);
-   assert.equal(at(found,w,x,y),expected);
+    if(Math.hypot(sx-x,sy-y)<=d)expected=Math.max(expected,alpha[sy*w+sx]);
+   assert.equal(at(found,w,x,y),expected,`radius ${r} at ${x},${y}`);
   }
  }
 });
-test('border shadow mask is inset to match the visible border',()=>{
+
+test('border shadow mask is inset like the visible CSS border',()=>{
  const {paintElement}=require('../.build/element-paint.js');
  const paths=[];
  const ctx={save(){},restore(){},beginPath(){},rect(...a){paths.push(a)},clip(){},stroke(){},fillRect(){}};
  const e=model.makeElement('shape',{x:20,y:30,w:100,h:90,shape:'rect',radius:0,fillMode:'none',borderWidth:8});
  paintElement(ctx,e,'',null);
- assert.deepEqual(paths.at(-1),[24,34,92,82]);
+ assert.deepEqual(paths.at(-1),[24,34,92,82],
+   '8px border must be within the frame, not extend 4px outside it');
  const w=32,h=32,alpha=new Uint8ClampedArray(w*h);
  for(let p=10;p<=21;p++)for(const [x,y] of [[p,10],[p,21],[10,p],[21,p]])alpha[y*w+x]=255;
- const spread=spreadAlpha(alpha,w,h,3);
- assert.equal(at(spread,w,7,16),255,'outside');
- assert.equal(at(spread,w,13,16),255,'inside');
- assert.equal(at(spread,w,16,16),0,'hole');
+ const expanded=spreadAlpha(alpha,w,h,3);
+ assert.equal(at(expanded,w,7,16),255,'shadow spreads outward');
+ assert.equal(at(expanded,w,13,16),255,'shadow spreads inward equally');
+ assert.equal(at(expanded,w,16,16),0,'center hole remains transparent');
 });
-test('shadowed text preview uses the same glyph painter as its shadow mask',()=>{
+
+test('shadowed text preview rasterizes foreground using same painter as alpha mask',()=>{
  const {paintTextContent}=require('../.build/element-paint.js');
  const {previewTextContent}=require('../.build/shadow.js');
- const previous=global.document,positions=[];
+ const oldDoc=global.document,logs=[];
+ const text=(ctx,x,y)=>logs.push({context:ctx,x,y});
  global.document={createElement(){
-  const ctx={save(){},restore(){},beginPath(){},rect(){},clip(){},fillText(t,x,y){positions.push([x,y])},measureText(t){return {width:String(t).length*8}},scale(){}};
+  const which=logs.length;
+  const ctx={save(){},restore(){},beginPath(){},rect(){},clip(){},fillText(t,x,y){text(which,x,y)},measureText(t){return {width:String(t).length*8}},scale(){}};
   return {width:0,height:0,getContext(){return ctx},toDataURL(){return 'data:image/png;base64,cg=='}};
  }};
  try{
   const e=model.makeElement('text',{x:5,y:7,w:120,h:80,fillMode:'none',shadowEnabled:true,autoWidth:true,autoHeight:true,text:'HI'});
-  assert.match(previewTextContent(e,'HI',2),/^data:image\/png/);
-  const ctx={save(){},restore(){},beginPath(){},rect(){},clip(){},fillText(t,x,y){positions.push([x,y])},measureText(t){return {width:String(t).length*8}}};
+  const graphic=previewTextContent(e,'HI',2);
+  assert.match(graphic,/^data:image\/png/);
+  const ctx={save(){},restore(){},beginPath(){},rect(){},clip(){},fillText(t,x,y){text('shadow-source',x,y)},measureText(t){return {width:String(t).length*8}}};
   paintTextContent(ctx,{...e,x:0,y:0},'HI');
-  assert.deepEqual(positions[0],positions.at(-1));
- }finally{global.document=previous}
+  assert.deepEqual(logs.at(0)&&[logs.at(0).x,logs.at(0).y],logs.at(-1)&&[logs.at(-1).x,logs.at(-1).y]);
+ }finally{global.document=oldDoc}
 });

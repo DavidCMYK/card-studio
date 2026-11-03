@@ -3,7 +3,8 @@ import type { CardElement } from './types';
 import { clamp } from './model';
 import { paintElement, paintTextContent } from './element-paint';
 
-export interface ShadowGraphic { canvas:HTMLCanvasElement; pad:number; ratio:number; }
+export interface ElementAlpha { pixels:ImageData; pad:number; ratio:number; }
+export interface ShadowGraphic extends ElementAlpha { canvas:HTMLCanvasElement; }
 export const hasShadow=(e:CardElement)=>e.shadowEnabled===true&&Number(e.shadowOpacity??65)>0;
 const nonnegative=(n:unknown)=>Number.isFinite(Number(n))?Math.max(0,Number(n)):0;
 /**
@@ -66,32 +67,37 @@ export function shadePixels(mask:ImageData,width:number,height:number,e:CardElem
  }
  return output;
 }
-/** Image-space rasterization works for all elements, including images with alpha. */
+/** The element's actual visible pixels (fill, glyphs, image alpha and border). */
+export function makeElementAlpha(e:CardElement,value:string,img:CanvasImageSource|null,ratio:number,pad?:number):ElementAlpha|null{
+ if(!Number.isFinite(ratio)||ratio<=0)return null;
+ const padding=pad??Math.ceil(Math.max(0,e.borderWidth||0)/2+3);
+ const width=Math.ceil((e.w+padding*2)*ratio),height=Math.ceil((e.h+padding*2)*ratio);
+ if(width<1||height<1||width*height>16000000)return null;
+ const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
+ const context=canvas.getContext('2d',{willReadFrequently:true});
+ if(!context?.getImageData)return null;
+ context.setTransform?.(ratio,0,0,ratio,(padding-e.x)*ratio,(padding-e.y)*ratio);
+ paintElement(context,e,value,img);
+ return {pixels:context.getImageData(0,0,width,height),pad:padding,ratio};
+}
+/** Image-space rasterization works for all elements, including transparent images. */
 export function makeShadow(e:CardElement,value:string,img:CanvasImageSource|null,ratio:number):ShadowGraphic|null{
  if(!hasShadow(e)||!Number.isFinite(ratio)||ratio<=0)return null;
  const spread=nonnegative(e.shadowSpread),ox=Math.abs(Number(e.shadowOffsetX)||0),oy=Math.abs(Number(e.shadowOffsetY)||0);
  const pad=Math.ceil(Math.max(spread,0)+Math.max(ox,oy)+Math.max(0,e.borderWidth||0)/2+3);
- const width=Math.ceil((e.w+pad*2)*ratio),height=Math.ceil((e.h+pad*2)*ratio);
- if(width<1||height<1||width*height>16000000)return null;
+ const mask=makeElementAlpha(e,value,img,ratio,pad);
+ if(!mask)return null;
+ const width=mask.pixels.width,height=mask.pixels.height;
  const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
  const context=canvas.getContext('2d',{willReadFrequently:true});
- if(!context?.getImageData||!context.putImageData)return null;
- context.setTransform?.(ratio,0,0,ratio,(pad-e.x)*ratio,(pad-e.y)*ratio);
- paintElement(context,e,value,img);
- const mask=context.getImageData(0,0,width,height);
- const colored=shadePixels(mask,width,height,e,ratio);
- // putImageData ignores the active transform, which is intentional here.
- context.putImageData(colored,0,0);
- return {canvas,pad,ratio};
+ if(!context?.putImageData)return null;
+ context.putImageData(shadePixels(mask.pixels,width,height,e,ratio),0,0);
+ return {canvas,pad,ratio,pixels:mask.pixels};
 }
 
 /** A shadow placement in the card's native (96-dpi) coordinate system. */
 export interface PlacedShadow { graphic:ShadowGraphic; x:number; y:number; }
-/**
- * Max-alpha compositing: the strongest shadow wins at each pixel. Colour comes
- * from that winning shadow; equal-alpha ties use the later layer's colour.
- * Unlike source-over, two 50%-opaque shadows remain 50% where they overlap.
- */
+/** Max-alpha compositing retained for direct testing / standalone uses. */
 export function mergeShadowPixels(target:ImageData,source:ImageData,left:number,top:number):void{
  const tw=target.width,th=target.height,sw=source.width,sh=source.height;
  const x0=Math.max(0,left),x1=Math.min(tw,left+sw);
@@ -108,11 +114,6 @@ export function mergeShadowPixels(target:ImageData,source:ImageData,left:number,
   }
  }
 }
-/**
- * Generate one shared RGBA shadow canvas at the specified output resolution.
- * The visible elements are subsequently painted over this backdrop in their
- * original order. This leaves transparent gaps and per-pixel opacities intact.
- */
 export function mergedShadowCanvas(width:number,height:number,ratio:number,shadows:PlacedShadow[]):HTMLCanvasElement|null{
  if(!shadows.length||width<1||height<1||width*height>75000000)return null;
  const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
@@ -129,9 +130,82 @@ export function mergedShadowCanvas(width:number,height:number,ratio:number,shado
  return canvas;
 }
 
+/** A visible element and its optional shadow. Ordered from back to front. */
+export interface ShadowStackItem { x:number; y:number; alpha:ElementAlpha|null; shadow:ShadowGraphic|null; }
+export interface ShadowPass { canvas:HTMLCanvasElement; pad:number; ratio:number; x:number; y:number; }
+/**
+ * Produce only the NEW opacity contributed by each element's shadow.
+ * The pixel coverage accumulator is the opacity of previously visible shadows.
+ * At every pixel, adding shadow opacity a to previous m requires source-over
+ * opacity (max(m,a)-m)/(1-m), rather than a or a cumulative layer.
+ * Visible artwork between shadows attenuates previous shadow coverage by its
+ * actual alpha, so an upper shadow can fall onto lower artwork normally.
+ */
+export function depthMergedShadowPasses(width:number,height:number,ratio:number,items:ShadowStackItem[]):(ShadowPass|null)[]{
+ const out=new Array<ShadowPass|null>(items.length).fill(null);
+ if(width<1||height<1||width*height>75000000)return out;
+ const visibleCoverage=new Float32Array(width*height);
+ for(let layer=0;layer<items.length;layer++){
+  const {x,y,shadow,alpha}=items[layer];
+  if(shadow){
+   const srcCtx=shadow.canvas.getContext('2d',{willReadFrequently:true});
+   const src=srcCtx?.getImageData?.(0,0,shadow.canvas.width,shadow.canvas.height);
+   if(src){
+    const sw=src.width,sh=src.height;
+    const left=Math.round((x-shadow.pad)*ratio),top=Math.round((y-shadow.pad)*ratio);
+    const x0=Math.max(0,-left),x1=Math.min(sw,width-left);
+    const y0=Math.max(0,-top),y1=Math.min(sh,height-top);
+    const corrected=new ImageData(sw,sh);
+    let any=false;
+    for(let sy=y0;sy<y1;sy++){
+     const row=(top+sy)*width,leftIndex=sy*sw;
+     for(let sx=x0;sx<x1;sx++){
+      const source=(leftIndex+sx)*4, a=src.data[source+3]/255;
+      if(a<=0)continue;
+      const index=row+left+sx,old=visibleCoverage[index];
+      if(a<=old)continue;
+      const extra=(a-old)/(1-old);
+      corrected.data[source]=src.data[source];
+      corrected.data[source+1]=src.data[source+1];
+      corrected.data[source+2]=src.data[source+2];
+      corrected.data[source+3]=Math.round(Math.min(1,extra)*255);
+      visibleCoverage[index]=a;
+      any=true;
+     }
+    }
+    if(any){
+     const canvas=document.createElement('canvas');canvas.width=sw;canvas.height=sh;
+     const context=canvas.getContext('2d',{willReadFrequently:true});
+     if(context?.putImageData){
+      context.putImageData(corrected,0,0);
+      out[layer]={canvas,pad:shadow.pad,ratio,x,y};
+     }
+    }
+   }
+  }
+  if(alpha){
+   const pixels=alpha.pixels, aw=pixels.width,ah=pixels.height;
+   const left=Math.round((x-alpha.pad)*ratio),top=Math.round((y-alpha.pad)*ratio);
+   const x0=Math.max(0,-left),x1=Math.min(aw,width-left);
+   const y0=Math.max(0,-top),y1=Math.min(ah,height-top);
+   for(let sy=y0;sy<y1;sy++){
+    const row=(top+sy)*width,sourceRow=sy*aw;
+    for(let sx=x0;sx<x1;sx++){
+     const opacity=pixels.data[(sourceRow+sx)*4+3]/255;
+     if(opacity>0){
+      const index=row+left+sx;
+      visibleCoverage[index]*=1-opacity;
+     }
+    }
+   }
+  }
+ }
+ return out;
+}
+
 // Preview shadows are keyed by content, not the frame position, so dragging
 // does not re-rasterize a large alpha mask on every pointermove.
-const previewCache=new Map<string,{src:string;width:number;height:number;pad:number;canvas:HTMLCanvasElement;ratio:number}>();
+const previewCache=new Map<string,{src:string;width:number;height:number;pad:number;canvas:HTMLCanvasElement;ratio:number;pixels:ImageData}>();
 const imageIds=new WeakMap<object,number>();let nextImageId=1;
 export function previewShadow(e:CardElement,value:string,img:CanvasImageSource|null,ratio:number){
  if(!hasShadow(e))return null;
@@ -144,7 +218,7 @@ export function previewShadow(e:CardElement,value:string,img:CanvasImageSource|n
  const previous=previewCache.get(cacheKey);if(previous)return previous;
  const result=makeShadow(local,value,img,ratio);
  if(!result||typeof result.canvas.toDataURL!=='function')return null;
- const graphic={src:result.canvas.toDataURL('image/png'),width:result.canvas.width/ratio,height:result.canvas.height/ratio,pad:result.pad,canvas:result.canvas,ratio};
+ const graphic={src:result.canvas.toDataURL('image/png'),width:result.canvas.width/ratio,height:result.canvas.height/ratio,pad:result.pad,canvas:result.canvas,ratio,pixels:result.pixels};
  previewCache.set(cacheKey,graphic);
  if(previewCache.size>24)previewCache.delete(previewCache.keys().next().value!);
  return graphic;

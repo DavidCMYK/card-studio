@@ -18,7 +18,7 @@ A browser-based card layout editor for creating game card templates, staging car
 - **Editor-only elements:** Select any element in Template mode and untick **Include in exported images**. Such layers remain in the Template editor (for cut lines, bleed markers and guides) but are hidden in Cards mode and excluded from all PNG exports. Older saved projects default to including their existing elements in exports.
 - Installed font selection (browser support/permission permitting), text formatting and image fitting options.
 - Manage each image set with **Manage images** to add, rename or remove individual images without deleting the set. Renaming updates linked Single Image and card filename references.
-- **Alpha-accurate element shadows:** Text, shapes and image frames can cast shadows from their visible alpha (including transparent holes and borders) with colour, opacity, X/Y offset and circular spread in export pixels. Shadow overlap is project-wide under **Template → Card setup**. **Add** preserves normal stacking; **Merge** places all shadows beneath the artwork and uses the highest per-pixel opacity instead of adding values. The stronger shadow's colour wins; equal-alpha ties use later element order. Older projects default to Add.
+- **Alpha-accurate element shadows:** Enable a per-element shadow for text, shapes or image frames; choose colour, opacity, X/Y offset and circular spread (in export pixels). PNG transparency, clipped images and borders all determine the shadow silhouette. **Shadow overlap** is project-wide in Template → Card setup: **Add** retains normal stacked shadows; **Merge** preserves artwork stacking while preventing overlapping shadows from increasing their visible opacity. A higher artwork can still shadow a lower one; fully and partly transparent images are respected. Different shadow colours blend according to stacking order. Older projects default to Add.
 - Image frames can independently flip image content horizontally or vertically and rotate it by any angle (or in 90° steps), without rotating the frame or border. The editor preview and PNG export share the same transform.
 - Named image sets with sequential, cycling, deterministic random, or **Single Image** assignment. Single Image lets you select one filename from a chosen set and uses that same image on every card, regardless of spreadsheet image values.
 - Export an XLSX staging spreadsheet using text/image element names, then import completed XLSX or CSV card data.
@@ -52,24 +52,6 @@ Pixel-unit templates are DPI-aware too: changing DPI preserves physical card siz
 
 The editor is written in TypeScript and uses the existing DOM-based canvas editor with a separate HTML5 Canvas export renderer. The renderer has **not** been replaced with Fabric.js; keeping the existing behavior intact was intentional for this structural refactor.
 
-## Deploy to Cloudflare Workers (static assets)
-
-Card Studio is a static browser application. The supported deployment is a **Cloudflare Worker with static assets**, connected to the GitHub repository. The checked-in `wrangler.jsonc` tells Wrangler to deploy the `public/` build output as a static site; no Worker script, database, or API keys are needed.
-
-Cloudflare dashboard setup:
-
-1. Go to **Workers & Pages → Create application**, then choose **GitHub** and import `DavidCMYK/card-studio`.
-2. Select production branch `main` and application name `card-studio`.
-3. Set **Build command** to `npm run build:pages`.
-4. Set **Deploy command** to `npx wrangler deploy` (the normal Workers default).
-5. Leave **Root directory** empty, and save/deploy. The site becomes available at the assigned `*.workers.dev` URL.
-
-The build command runs the automated tests, builds the browser bundle, and assembles `public/index.html`, `public/styles.css`, `public/dist/app.js`, and `public/vendor/jszip.min.js`. Wrangler deploys those files as Workers Static Assets. New commits to `main` automatically rebuild and deploy through the Git integration.
-
-Local verification: `npm install && npm run build:pages`. Manual deployment (after Cloudflare login): `npm run deploy`.
-
-**Custom domain:** Workers custom domains require an active Cloudflare-managed DNS zone. You may continue hosting the website itself at IONOS, but do not change your domain's nameservers without first carefully copying all existing IONOS website and email DNS records. Until the domain is configured, use the `workers.dev` address, linked from your existing site.
-
 ## Develop
 
 Requires Node.js and TypeScript (installed with the development dependencies):
@@ -95,3 +77,7 @@ This is an initial editor. Check the export output and dimensions before product
 In **File**, choose **Save template** to write back to the template that was opened or previously saved via the browser's native file picker. **Save template as…** always asks for a location/name, then subsequent saves target the new file. Projects have independent Save and Save As destinations. The browser may ask permission before writing, and file handles are only retained during the current editor session; reopen the file after restarting the editor. In browsers without the File System Access API, Save downloads a new copy rather than overwriting, because websites are not allowed to modify arbitrary local files.
 
 - Workspace panels: Template/Cards stays in the top toolbar; Layers, Staged Cards, and Image Sets are independent scrollable toolboxes with persistent scroll positions. Click a card in the toolbox to open it in Cards mode.
+
+## Hosting on Cloudflare
+
+Connect this GitHub repository to Cloudflare. Use `npm run build:pages` as the build command and `public` as the output directory. This command runs the tests and compiles the browser bundle before copying the static website assets. No server or database is needed.
