@@ -3,9 +3,11 @@ import { $ } from './dom';
 import { getImageData, cacheImage, imgBox } from './image-sets';
 import { layoutTextBox } from './text-layout';
 import { elementGeometry } from './anchor-layout';
-import { previewShadow, previewTextContent, hasShadow } from './shadow';
+import { previewShadow, previewTextContent, hasShadow, mergedShadowCanvas, PlacedShadow } from './shadow';
 const gradientCSS=e=>e.fillMode==='solid'?e.fill1:e.fillMode==='gradient'?`linear-gradient(${e.gradientAngle}deg,${e.fill1},${e.fill2})`:'transparent';
 export function renderStage(){const st=$('#stage'),{w,h}=sizePx(),z=S.zoom;st.style.width=(w*z)+'px';st.style.height=(h*z)+'px';st.style.background=S.template.background;
+ const mergeMode=S.template.shadowOverlapMode==='merge';
+ const placedShadows:PlacedShadow[]=[];
  let html='';const eList=layerEls();for(const raw of eList){const e=effective(raw);if(S.mode==='template'?e.hidden:!visibleOnCard(raw,S.cardIndex,'cards'))continue;const selected=S.selected===raw.id,src=getImageData(raw,S.cardIndex,S.mode);const geom=elementGeometry(raw,S.cardIndex,S.mode);let content='';
  if(e.kind==='text'){
  const layout=layoutTextBox(e,actualValue(raw));
@@ -33,10 +35,18 @@ export function renderStage(){const st=$('#stage'),{w,h}=sizePx(),z=S.zoom;st.st
  }
  if(e.kind==='image')content=`<div class="image-layer" style="opacity:${opacityFor(e,'fillOpacity')}">${content}</div>`;
  const shadow=previewShadow({...e,...geom},e.kind==='text'?actualValue(raw):'',src&&cacheImage(src)?.loaded?cacheImage(src)?.im:null,z);
- const shadowLayer=shadow?`<img class="shadow-layer" alt="" draggable="false" src="${shadow.src}" style="left:${-shadow.pad*z}px;top:${-shadow.pad*z}px;width:${shadow.width*z}px;height:${shadow.height*z}px">`:'';
+ if(mergeMode&&shadow)placedShadows.push({graphic:{canvas:shadow.canvas,pad:shadow.pad,ratio:shadow.ratio},x:geom.x,y:geom.y});
+ const shadowLayer=!mergeMode&&shadow?`<img class="shadow-layer" alt="" draggable="false" src="${shadow.src}" style="left:${-shadow.pad*z}px;top:${-shadow.pad*z}px;width:${shadow.width*z}px;height:${shadow.height*z}px">`:'';
  const handles=!e.locked?['nw','n','ne','e','se','s','sw','w'].map(h=>`<span class="resize-handle resize-${h}" data-handle="${h}"></span>`).join(''):'';
  const label=selected?`<span class="selection-label">${escapeHTML(raw.name)}</span>${handles}`:'';
  html+=`<div class="element ${selected?'selected':''} ${e.locked?'locked':''}" data-id="${raw.id}" style="${base}">${shadowLayer}${fill}${content}${borderLayer}${label}</div>`;
+ }
+ if(mergeMode&&placedShadows.length){
+  const merged=mergedShadowCanvas(Math.ceil(w*z),Math.ceil(h*z),z,placedShadows);
+  if(merged){
+   const src=merged.toDataURL('image/png');
+   html=`<img class="merged-shadow-layer" alt="" draggable="false" src="${src}" style="position:absolute;left:0;top:0;width:${w*z}px;height:${h*z}px;pointer-events:none">`+html;
+  }
  }
  st.innerHTML=html;$('#statusLeft').textContent=`${S.template.width} × ${S.template.height} ${S.template.unit} · ${templateExportSize().w} × ${templateExportSize().h} export px · ${S.template.dpi} DPI`;
  $('#zoomLabel').textContent=Math.round(S.zoom*100)+'%';
