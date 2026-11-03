@@ -3,7 +3,7 @@ import { $ } from './dom';
 import { getImageData, cacheImage, imgBox } from './image-sets';
 import { layoutTextBox } from './text-layout';
 import { elementGeometry } from './anchor-layout';
-import { previewShadow } from './shadow';
+import { previewShadow, previewTextContent, hasShadow } from './shadow';
 const gradientCSS=e=>e.fillMode==='solid'?e.fill1:e.fillMode==='gradient'?`linear-gradient(${e.gradientAngle}deg,${e.fill1},${e.fill2})`:'transparent';
 export function renderStage(){const st=$('#stage'),{w,h}=sizePx(),z=S.zoom;st.style.width=(w*z)+'px';st.style.height=(h*z)+'px';st.style.background=S.template.background;
  let html='';const eList=layerEls();for(const raw of eList){const e=effective(raw);if(S.mode==='template'?e.hidden:!visibleOnCard(raw,S.cardIndex,'cards'))continue;const selected=S.selected===raw.id,src=getImageData(raw,S.cardIndex,S.mode);const geom=elementGeometry(raw,S.cardIndex,S.mode);let content='';
@@ -24,7 +24,13 @@ export function renderStage(){const st=$('#stage'),{w,h}=sizePx(),z=S.zoom;st.st
  const base=`left:${geom.x*z}px;top:${geom.y*z}px;width:${geom.w*z}px;height:${geom.h*z}px;border-radius:${e.shape==='ellipse'?'50%':`${(e.radius||0)*z}px`};`;
  const fill=`<div class="element-fill" style="background:${gradientCSS(e)};opacity:${opacityFor(e,'fillOpacity')}"></div>`;
  const borderLayer=e.borderWidth>0?`<div class="element-border" style="border:${border};opacity:${opacityFor(e,'borderOpacity')}"></div>`:'';
- if(e.kind==='text')content=`<div class="text-layer" style="opacity:${opacityFor(e,'textOpacity')}">${content}</div>`;
+ if(e.kind==='text'){
+  // When shadowed, draw foreground glyphs through the same canvas text path
+  // as the alpha mask. At 0/0 offset both will be exactly coincident.
+  const raster=hasShadow(e)?previewTextContent({...e,...geom},actualValue(raw),z):null;
+  if(raster)content=`<div class="text-layer"><img alt="" draggable="false" src="${raster}" style="width:100%;height:100%;display:block;pointer-events:none"></div>`;
+  else content=`<div class="text-layer" style="opacity:${opacityFor(e,'textOpacity')}">${content}</div>`;
+ }
  if(e.kind==='image')content=`<div class="image-layer" style="opacity:${opacityFor(e,'fillOpacity')}">${content}</div>`;
  const shadow=previewShadow({...e,...geom},e.kind==='text'?actualValue(raw):'',src&&cacheImage(src)?.loaded?cacheImage(src)?.im:null,z);
  const shadowLayer=shadow?`<img class="shadow-layer" alt="" draggable="false" src="${shadow.src}" style="left:${-shadow.pad*z}px;top:${-shadow.pad*z}px;width:${shadow.width*z}px;height:${shadow.height*z}px">`:'';
