@@ -46,8 +46,12 @@ const server=http.createServer((req,res)=>{
   assert.equal(await page.locator('.m-actions').isVisible(),true,'add menu opens');
   await page.locator('.m-actions [data-action="add-text"]').click();
   assert.equal(await page.locator('#mobileSelection').isVisible(),true,'new element selected');
-  await page.locator('.m-selection [data-mobile="properties"]').click();
-  assert.equal(await page.locator('.side-right').isVisible(),true,'properties sheet opens');
+  await page.locator('.m-selection [data-mobile="quick"]').click();
+  await page.locator('#mobileQuickText').fill('Mobile editing works');
+  await page.locator('[data-mobile="apply-text"]').click();
+  assert.match(await page.locator('#stage').innerText(),/Mobile editing works/,'per-card text replaced');
+  await page.locator('.m-dock [data-mobile="properties"]').click();
+  assert.equal(await page.locator('.side-right').isVisible(),true,'advanced properties sheet opens');
   assert.ok((await page.locator('.side-right .inspect').innerText()).length>10);
   await page.locator('.side-right [data-mobile="close"]').click();
   await page.locator('.m-dock [data-mobile="fit"]').click();
