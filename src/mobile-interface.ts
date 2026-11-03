@@ -104,4 +104,5 @@ function start(){
  installMobileGestures(refresh,()=>{autoFit=false});
  autoLayout();refresh();
 }
-start();
+// The existing headless desktop smoke harness has no real browser viewport.
+if(document.documentElement && typeof window.matchMedia==='function' && typeof app.prepend==='function')start();
