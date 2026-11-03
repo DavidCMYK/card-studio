@@ -24,6 +24,7 @@ jobs:
         run: |
           test -s public/index.html
           test -s public/styles.css
+          test -s public/mobile.css
           test -s public/dist/app.js
           test -s public/vendor/jszip.min.js
           test -s wrangler.test.jsonc
