@@ -3,9 +3,9 @@ import { $ } from './dom';
 import {renderStage} from './preview';
 import {renderInspector,renderLeft,patchElement} from './interface';
 import {elementGeometry} from './anchor-layout';
-import {resizedRect,locksImageCornerAspect} from './resize';
+import {resizedRect,locksImageCornerAspect,ResizeHandle} from './resize';
 type P={x:number;y:number};
-type Drag={id:string;handle:string|null;start:P;x:number;y:number;w:number;h:number;locked:boolean;lockAspect:boolean;moved:boolean};
+type Drag={id:string;handle:ResizeHandle|null;start:P;x:number;y:number;w:number;h:number;locked:boolean;lockAspect:boolean;moved:boolean};
 const points=new Map<number,P>();
 let drag:Drag|null=null,pan:{start:P;left:number;top:number}|null=null,pinchDistance=0,pinchZoom=1,hadPinch=false;
 const mobile=()=>document.documentElement.dataset.layout==='mobile';
@@ -32,7 +32,7 @@ export function installMobileGestures(refresh:()=>void,manualZoom:()=>void){
   const element=target.closest('.element') as HTMLElement|null;
   const raw=element?templateEl(element.dataset.id||null):null;
   if(raw){
-   const g=elementGeometry(raw),el=effective(raw),handle=(target.closest('[data-handle]') as HTMLElement|null)?.dataset.handle||null;
+   const g=elementGeometry(raw),el=effective(raw),handle=(target.closest('[data-handle]') as HTMLElement|null)?.dataset.handle as ResizeHandle || null;
    S.selected=raw.id;
    drag={id:raw.id,handle,start:p(e),x:g.x,y:g.y,w:g.w,h:g.h,locked:el.locked,lockAspect:locksImageCornerAspect(el.kind,el.imageFit,handle),moved:false};
    pan=null;repaintSelection();
