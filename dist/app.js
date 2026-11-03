@@ -1531,6 +1531,8 @@ function renderStage() {
     st.style.width = (w * z) + 'px';
     st.style.height = (h * z) + 'px';
     st.style.background = model_1.S.template.background;
+    const mergeMode = model_1.S.template.shadowOverlapMode === 'merge';
+    const placedShadows = [];
     let html = '';
     const eList = (0, model_1.layerEls)();
     for (const raw of eList) {
@@ -1574,10 +1576,19 @@ function renderStage() {
         if (e.kind === 'image')
             content = `<div class="image-layer" style="opacity:${(0, model_1.opacityFor)(e, 'fillOpacity')}">${content}</div>`;
         const shadow = (0, shadow_1.previewShadow)({ ...e, ...geom }, e.kind === 'text' ? (0, model_1.actualValue)(raw) : '', src && (0, image_sets_1.cacheImage)(src)?.loaded ? (0, image_sets_1.cacheImage)(src)?.im : null, z);
-        const shadowLayer = shadow ? `<img class="shadow-layer" alt="" draggable="false" src="${shadow.src}" style="left:${-shadow.pad * z}px;top:${-shadow.pad * z}px;width:${shadow.width * z}px;height:${shadow.height * z}px">` : '';
+        if (mergeMode && shadow)
+            placedShadows.push({ graphic: { canvas: shadow.canvas, pad: shadow.pad, ratio: shadow.ratio }, x: geom.x, y: geom.y });
+        const shadowLayer = !mergeMode && shadow ? `<img class="shadow-layer" alt="" draggable="false" src="${shadow.src}" style="left:${-shadow.pad * z}px;top:${-shadow.pad * z}px;width:${shadow.width * z}px;height:${shadow.height * z}px">` : '';
         const handles = !e.locked ? ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'].map(h => `<span class="resize-handle resize-${h}" data-handle="${h}"></span>`).join('') : '';
         const label = selected ? `<span class="selection-label">${(0, model_1.escapeHTML)(raw.name)}</span>${handles}` : '';
         html += `<div class="element ${selected ? 'selected' : ''} ${e.locked ? 'locked' : ''}" data-id="${raw.id}" style="${base}">${shadowLayer}${fill}${content}${borderLayer}${label}</div>`;
+    }
+    if (mergeMode && placedShadows.length) {
+        const merged = (0, shadow_1.mergedShadowCanvas)(Math.ceil(w * z), Math.ceil(h * z), z, placedShadows);
+        if (merged) {
+            const src = merged.toDataURL('image/png');
+            html = `<img class="merged-shadow-layer" alt="" draggable="false" src="${src}" style="position:absolute;left:0;top:0;width:${w * z}px;height:${h * z}px;pointer-events:none">` + html;
+        }
     }
     st.innerHTML = html;
     (0, dom_1.$)('#statusLeft').textContent = `${model_1.S.template.width} × ${model_1.S.template.height} ${model_1.S.template.unit} · ${(0, model_1.templateExportSize)().w} × ${(0, model_1.templateExportSize)().h} export px · ${model_1.S.template.dpi} DPI`;
