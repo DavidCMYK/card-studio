@@ -81,3 +81,8 @@ In **File**, choose **Save template** to write back to the template that was ope
 ## Hosting on Cloudflare
 
 Connect this GitHub repository to Cloudflare. Use `npm run build:pages` as the build command and `public` as the output directory. This command runs the tests and compiles the browser bundle before copying the static website assets. No server or database is needed.
+
+
+## Mobile development and test Worker
+
+Mobile development is isolated on [`feature/mobile-studio`](https://github.com/DavidCMYK/card-studio/tree/feature/mobile-studio). The permanent live Worker configuration stays in `wrangler.jsonc`; the independent test Worker uses `wrangler.test.jsonc`. See [`docs/mobile-staging.md`](docs/mobile-staging.md) for Cloudflare Git-branch setup and deployment safeguards.

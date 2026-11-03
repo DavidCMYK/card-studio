@@ -2,7 +2,7 @@ name: Verify Card Studio build
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/mobile-studio]
   pull_request:
   workflow_dispatch:
 
@@ -26,3 +26,4 @@ jobs:
           test -s public/styles.css
           test -s public/dist/app.js
           test -s public/vendor/jszip.min.js
+          test -s wrangler.test.jsonc

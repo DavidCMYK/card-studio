@@ -9,7 +9,8 @@
     "test": "npm run build && node --test tests/*.test.cjs",
     "check": "tsc -p tsconfig.json --noEmit",
     "deploy:worker": "wrangler deploy",
-    "deploy": "npm run build:pages && wrangler deploy"
+    "deploy": "npm run build:pages && wrangler deploy",
+    "deploy:test": "npm run build:pages && wrangler deploy --config wrangler.test.jsonc"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
