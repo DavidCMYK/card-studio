@@ -650,6 +650,7 @@ window.addEventListener('resize', () => { });
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.shapePath = shapePath;
+exports.paintTextContent = paintTextContent;
 exports.paintElement = paintElement;
 const model_1 = require("./model");
 const image_sets_1 = require("./image-sets");
@@ -715,6 +716,14 @@ function drawText(ctx, e, value, layout) {
     }
     ctx.restore();
 }
+/** Paint glyphs in the already-computed text box; never auto-size a second time. */
+function paintTextContent(ctx, e, value) {
+    const finalBox = { ...e, autoWidth: false, autoHeight: false };
+    ctx.save();
+    ctx.globalAlpha = (0, model_1.opacityFor)(e, 'textOpacity');
+    drawText(ctx, finalBox, value, (0, text_layout_1.layoutTextBox)(finalBox, value));
+    ctx.restore();
+}
 /** Render the real visible composite. Transparent pixels contribute no shadow mask. */
 function paintElement(ctx, e, value, img, layout) {
     ctx.save();
@@ -740,13 +749,14 @@ function paintElement(ctx, e, value, img, layout) {
             ctx.drawImage(img, e.x + bb.x, e.y + bb.y, bb.w, bb.h);
         ctx.restore();
     }
-    if (e.kind === 'text') {
-        ctx.globalAlpha = (0, model_1.opacityFor)(e, 'textOpacity');
-        drawText(ctx, e, value, layout || (0, text_layout_1.layoutTextBox)(e, value));
-    }
+    if (e.kind === 'text')
+        paintTextContent(ctx, e, value);
     if (e.borderWidth > 0) {
         ctx.globalAlpha = (0, model_1.opacityFor)(e, 'borderOpacity');
-        shapePath(ctx, e);
+        // CSS borders sit INSIDE their frame. Centered Canvas strokes used to extend
+        // beyond the frame, making the shadow spread look stronger outside than in.
+        const inset = Math.min(e.borderWidth / 2, e.w / 2, e.h / 2);
+        shapePath(ctx, { ...e, x: e.x + inset, y: e.y + inset, w: Math.max(0, e.w - 2 * inset), h: Math.max(0, e.h - 2 * inset), radius: Math.max(0, (e.radius || 0) - inset) });
         ctx.lineWidth = e.borderWidth;
         ctx.strokeStyle = e.borderColor;
         ctx.stroke();
@@ -1529,8 +1539,15 @@ function renderStage() {
         const base = `left:${geom.x * z}px;top:${geom.y * z}px;width:${geom.w * z}px;height:${geom.h * z}px;border-radius:${e.shape === 'ellipse' ? '50%' : `${(e.radius || 0) * z}px`};`;
         const fill = `<div class="element-fill" style="background:${gradientCSS(e)};opacity:${(0, model_1.opacityFor)(e, 'fillOpacity')}"></div>`;
         const borderLayer = e.borderWidth > 0 ? `<div class="element-border" style="border:${border};opacity:${(0, model_1.opacityFor)(e, 'borderOpacity')}"></div>` : '';
-        if (e.kind === 'text')
-            content = `<div class="text-layer" style="opacity:${(0, model_1.opacityFor)(e, 'textOpacity')}">${content}</div>`;
+        if (e.kind === 'text') {
+            // When shadowed, draw foreground glyphs through the same canvas text path
+            // as the alpha mask. At 0/0 offset both will be exactly coincident.
+            const raster = (0, shadow_1.hasShadow)(e) ? (0, shadow_1.previewTextContent)({ ...e, ...geom }, (0, model_1.actualValue)(raw), z) : null;
+            if (raster)
+                content = `<div class="text-layer"><img alt="" draggable="false" src="${raster}" style="width:100%;height:100%;display:block;pointer-events:none"></div>`;
+            else
+                content = `<div class="text-layer" style="opacity:${(0, model_1.opacityFor)(e, 'textOpacity')}">${content}</div>`;
+        }
         if (e.kind === 'image')
             content = `<div class="image-layer" style="opacity:${(0, model_1.opacityFor)(e, 'fillOpacity')}">${content}</div>`;
         const shadow = (0, shadow_1.previewShadow)({ ...e, ...geom }, e.kind === 'text' ? (0, model_1.actualValue)(raw) : '', src && (0, image_sets_1.cacheImage)(src)?.loaded ? (0, image_sets_1.cacheImage)(src)?.im : null, z);
@@ -1775,15 +1792,18 @@ exports.spreadAlpha = spreadAlpha;
 exports.shadePixels = shadePixels;
 exports.makeShadow = makeShadow;
 exports.previewShadow = previewShadow;
+exports.previewTextContent = previewTextContent;
 const model_1 = require("./model");
 const element_paint_1 = require("./element-paint");
 const hasShadow = (e) => e.shadowEnabled === true && Number(e.shadowOpacity ?? 65) > 0;
 exports.hasShadow = hasShadow;
 const nonnegative = (n) => Number.isFinite(Number(n)) ? Math.max(0, Number(n)) : 0;
 /**
- * Nearest nontransparent pixel for each point, using exact 2D squared Euclidean
- * distance transform. The source alpha is retained (unlike binary silhouettes).
- * This preserves transparent holes, alpha edges, and independently shaped parts.
+ * Circular grayscale dilation: each output alpha is the MAXIMUM source alpha
+ * within the spread radius. Using only the nearest nontransparent source pixel
+ * caused semi-transparent PNG antialiasing to form radial streaks and holes.
+ * Each horizontal disk span uses a monotonic deque, so this stays efficient
+ * even at print DPI and preserves real transparency between separate parts.
  */
 function spreadAlpha(alpha, width, height, radius) {
     const length = width * height;
@@ -1791,64 +1811,34 @@ function spreadAlpha(alpha, width, height, radius) {
         throw Error('Invalid shadow alpha mask dimensions');
     if (radius <= 0)
         return new Uint8ClampedArray(alpha);
-    const out = new Uint8ClampedArray(length), nearestY = new Int32Array(length).fill(-1);
-    let hasPixels = false;
-    for (let x = 0; x < width; x++) {
-        let previous = -1;
+    const out = new Uint8ClampedArray(length);
+    const limit = Math.max(0, radius + .25), maxDy = Math.floor(limit);
+    const deque = new Int32Array(width);
+    for (let dy = -maxDy; dy <= maxDy; dy++) {
+        const span = Math.floor(Math.sqrt(Math.max(0, limit * limit - dy * dy)));
         for (let y = 0; y < height; y++) {
-            const idx = y * width + x;
-            if (alpha[idx] > 0) {
-                previous = y;
-                hasPixels = true;
-            }
-            nearestY[idx] = previous;
-        }
-        previous = -1;
-        for (let y = height - 1; y >= 0; y--) {
-            const idx = y * width + x;
-            if (alpha[idx] > 0)
-                previous = y;
-            if (previous >= 0 && (nearestY[idx] < 0 || previous - y < y - nearestY[idx]))
-                nearestY[idx] = previous;
-        }
-    }
-    if (!hasPixels)
-        return out;
-    // For each row, find the lower envelope of distance parabolas along x.
-    // The vertical pass above has already found each column's nearest source y.
-    const v = new Int32Array(width), z = new Float64Array(width + 1);
-    const f = new Float64Array(width), sourceY = new Int32Array(width);
-    const r2 = (radius + .25) * (radius + .25);
-    for (let y = 0; y < height; y++) {
-        let k = -1;
-        for (let x = 0; x < width; x++) {
-            const sy = nearestY[y * width + x];
-            sourceY[x] = sy;
-            f[x] = sy < 0 ? Infinity : (y - sy) * (y - sy);
-            if (!Number.isFinite(f[x]))
+            const sy = y + dy;
+            if (sy < 0 || sy >= height)
                 continue;
-            let point = 0;
-            while (k >= 0) {
-                const q = v[k];
-                point = ((f[x] + x * x) - (f[q] + q * q)) / (2 * (x - q));
-                if (point > z[k])
-                    break;
-                k--;
+            const source = sy * width, dest = y * width;
+            let head = 0, tail = 0, next = 0;
+            for (let x = 0; x < width; x++) {
+                const last = Math.min(width - 1, x + span);
+                while (next <= last) {
+                    const val = alpha[source + next];
+                    while (tail > head && alpha[source + deque[tail - 1]] <= val)
+                        tail--;
+                    deque[tail++] = next++;
+                }
+                while (head < tail && deque[head] < x - span) {
+                    head++;
+                }
+                if (head < tail) {
+                    const val = alpha[source + deque[head]];
+                    if (val > out[dest + x])
+                        out[dest + x] = val;
+                }
             }
-            k++;
-            v[k] = x;
-            z[k] = k === 0 ? -Infinity : point;
-            z[k + 1] = Infinity;
-        }
-        if (k < 0)
-            continue;
-        let which = 0;
-        for (let x = 0; x < width; x++) {
-            while (which < k && z[which + 1] < x)
-                which++;
-            const q = v[which], distance = f[q] + (x - q) * (x - q);
-            if (distance <= r2)
-                out[y * width + x] = alpha[sourceY[q] * width + q];
         }
     }
     return out;
@@ -1937,6 +1927,32 @@ function previewShadow(e, value, img, ratio) {
     previewCache.set(cacheKey, graphic);
     if (previewCache.size > 24)
         previewCache.delete(previewCache.keys().next().value);
+    return graphic;
+}
+
+// Text with a shadow must be drawn by the same glyph painter as its alpha
+// mask. CSS text has different baseline/line-box metrics than canvas text.
+const textCache = new Map();
+function previewTextContent(e, value, ratio) {
+    if (!Number.isFinite(ratio) || ratio <= 0)
+        return null;
+    const local = { ...e, x: 0, y: 0 };
+    const key = JSON.stringify([local, value, ratio]);
+    const existing = textCache.get(key);
+    if (existing)
+        return existing;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.ceil(e.w * ratio));
+    canvas.height = Math.max(1, Math.ceil(e.h * ratio));
+    const ctx = canvas.getContext('2d');
+    if (!ctx || typeof canvas.toDataURL !== 'function')
+        return null;
+    ctx.scale(ratio, ratio);
+    (0, element_paint_1.paintTextContent)(ctx, local, value);
+    const graphic = canvas.toDataURL('image/png');
+    textCache.set(key, graphic);
+    if (textCache.size > 32)
+        textCache.delete(textCache.keys().next().value);
     return graphic;
 }
 
