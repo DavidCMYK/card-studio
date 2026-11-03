@@ -74,6 +74,9 @@ export function renderInspector(){const box=$('#inspector');if(!S.selected&&S.mo
  ${selectionField('PNG resolution','template.dpi',[[150,'150 DPI'],[300,'300 DPI'],[450,'450 DPI'],[600,'600 DPI']],S.template.dpi)}
  <div class="small" style="padding:4px 0 12px" id="templatePixelReadout">${sizeReadout()}</div>
  ${field('Background colour','template.background',S.template.background,'color')}
+ <div class="section-title">Shadows</div>
+ ${selectionField('Shadow overlap','template.shadowOverlapMode',[['add','Add (stack opacity)'],['merge','Merge (highest opacity only)']],S.template.shadowOverlapMode||'add')}
+ <div class="small" style="padding:0 0 10px">Merge combines shadows into one layer beneath all visible elements, retaining the strongest opacity wherever shadows overlap. Add preserves the original per-element stacking.</div>
  <div class="rule"></div><div class="section-title">Project</div>${field('Project name','projectName',S.projectName)}
  <div class="small" style="padding:0">Select a layer or click an element on the card to change its properties. Use the Cards tab to edit a single card independently.</div>`;return}
  const raw=templateEl(S.selected);if(!raw){S.selected=null;return renderInspector()};const e=effective(raw),geometry=elementGeometry(raw);$('#rightTitle').textContent='Element properties';
