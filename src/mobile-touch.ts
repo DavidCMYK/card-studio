@@ -8,6 +8,7 @@ type P={x:number;y:number};
 type Drag={id:string;handle:ResizeHandle|null;start:P;x:number;y:number;w:number;h:number;locked:boolean;lockAspect:boolean;moved:boolean};
 const points=new Map<number,P>();
 let drag:Drag|null=null,pan:{start:P;left:number;top:number}|null=null,pinchDistance=0,pinchZoom=1,hadPinch=false;
+let pinchFocal:P={x:0,y:0};
 const mobile=()=>document.documentElement.dataset.layout==='mobile';
 const p=(e:PointerEvent):P=>({x:e.clientX,y:e.clientY});
 const dist=(a:P,b:P)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -15,27 +16,29 @@ const middle=(a:P,b:P):P=>({x:(a.x+b.x)/2,y:(a.y+b.y)/2});
 export function installMobileGestures(refresh:()=>void,manualZoom:()=>void){
  const outer=$('#canvasOuter') as HTMLElement,stage=$('#stage') as HTMLElement;
  const repaintSelection=()=>{renderInspector();renderLeft();renderStage();refresh()};
- const zoomAt=(zoom:number,c:P)=>{
-  const before=stage.getBoundingClientRect(),fx=(c.x-before.left)/S.zoom,fy=(c.y-before.top)/S.zoom;
+ const zoomPinch=(zoom:number,center:P)=>{
   S.zoom=clamp(zoom,.3,3);renderStage();
   const after=stage.getBoundingClientRect();
-  outer.scrollLeft+=after.left+fx*S.zoom-c.x;
-  outer.scrollTop+=after.top+fy*S.zoom-c.y;
+  outer.scrollLeft+=after.left+pinchFocal.x*S.zoom-center.x;
+  outer.scrollTop+=after.top+pinchFocal.y*S.zoom-center.y;
  };
  outer.addEventListener('pointerdown',(e:PointerEvent)=>{
   if(!mobile()||e.pointerType!=='touch')return;
   e.preventDefault();try{outer.setPointerCapture(e.pointerId)}catch{}
   points.set(e.pointerId,p(e));
-  if(points.size>=2){drag=null;pan=null;const pair=[...points.values()];pinchDistance=dist(pair[0],pair[1]);pinchZoom=S.zoom;hadPinch=true;return}
+  if(points.size>=2){drag=null;pan=null;const pair=[...points.values()];pinchDistance=dist(pair[0],pair[1]);pinchZoom=S.zoom;const center=middle(pair[0],pair[1]),rect=stage.getBoundingClientRect();pinchFocal={x:(center.x-rect.left)/S.zoom,y:(center.y-rect.top)/S.zoom};hadPinch=true;return}
   hadPinch=false;
   const target=e.target as HTMLElement;
   const element=target.closest('.element') as HTMLElement|null;
   const raw=element?templateEl(element.dataset.id||null):null;
   if(raw){
+   const wasSelected=S.selected===raw.id;
    const g=elementGeometry(raw),el=effective(raw),handle=(target.closest('[data-handle]') as HTMLElement|null)?.dataset.handle as ResizeHandle || null;
    S.selected=raw.id;
    drag={id:raw.id,handle,start:p(e),x:g.x,y:g.y,w:g.w,h:g.h,locked:el.locked,lockAspect:locksImageCornerAspect(el.kind,el.imageFit,handle),moved:false};
-   pan=null;repaintSelection();
+   pan=wasSelected?null:{start:p(e),left:outer.scrollLeft,top:outer.scrollTop};
+   if(!wasSelected)drag=null;
+   repaintSelection();
   }else{
    if(S.selected!==null){S.selected=null;repaintSelection()}
    drag=null;pan={start:p(e),left:outer.scrollLeft,top:outer.scrollTop};
@@ -44,7 +47,7 @@ export function installMobileGestures(refresh:()=>void,manualZoom:()=>void){
  document.addEventListener('pointermove',(e:PointerEvent)=>{
   if(!mobile()||e.pointerType!=='touch'||!points.has(e.pointerId))return;
   e.preventDefault();points.set(e.pointerId,p(e));
-  if(points.size>=2){const pair=[...points.values()];if(pinchDistance>0){zoomAt(pinchZoom*dist(pair[0],pair[1])/pinchDistance,middle(pair[0],pair[1]));manualZoom()}return}
+  if(points.size>=2){const pair=[...points.values()];if(pinchDistance>0){zoomPinch(pinchZoom*dist(pair[0],pair[1])/pinchDistance,middle(pair[0],pair[1]));manualZoom()}return}
   if(hadPinch)return;
   if(pan){outer.scrollLeft=pan.left+pan.start.x-e.clientX;outer.scrollTop=pan.top+pan.start.y-e.clientY;return}
   if(!drag||drag.locked)return;
