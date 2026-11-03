@@ -471,16 +471,21 @@ function handleProp(input) {
             e.name = (0, model_1.uniqName)(v, e.id);
         return;
     }
-    if (['x', 'y', 'w', 'h', 'gutterLeft', 'gutterRight', 'gutterTop', 'gutterBottom'].includes(key)) {
+    if (['shadowOffsetX', 'shadowOffsetY', 'shadowSpread'].includes(key)) {
+        v = Number(v) * 96 / model_1.S.template.dpi;
+        if (key === 'shadowSpread')
+            v = Math.max(0, v);
+    }
+    else if (['x', 'y', 'w', 'h', 'gutterLeft', 'gutterRight', 'gutterTop', 'gutterBottom'].includes(key)) {
         v = (0, model_1.px)(Number(v), model_1.S.template.unit, model_1.S.template.dpi);
         if (key === 'w' || key === 'h')
             v = Math.max(1, v);
         if (key.startsWith('gutter'))
             v = Math.max(0, v);
     }
-    else if (['fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'borderWidth', 'radius', 'opacity', 'fillOpacity', 'borderOpacity', 'textOpacity', 'gradientAngle', 'imgScale', 'imgOffsetX', 'imgOffsetY', 'imgRotation'].includes(key)) {
+    else if (['fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'borderWidth', 'radius', 'opacity', 'fillOpacity', 'borderOpacity', 'textOpacity', 'gradientAngle', 'imgScale', 'imgOffsetX', 'imgOffsetY', 'imgRotation', 'shadowOpacity'].includes(key)) {
         v = Number(v);
-        if (['opacity', 'fillOpacity', 'borderOpacity', 'textOpacity'].includes(key))
+        if (['opacity', 'fillOpacity', 'borderOpacity', 'textOpacity', 'shadowOpacity'].includes(key))
             v = (0, model_1.clamp)(v, 0, 100);
         if (key === 'fontSize')
             v = Math.max(1, v);
@@ -500,14 +505,19 @@ function handleProp(input) {
         (0, interface_1.patchElement)(model_1.S.selected, { [key]: v });
     }
 }
-// Ignore delayed input/change events from the previously selected element or card.
+// The event target may be from the previous inspector after a pointerdown has
+// selected a different element. Never apply a stale input/change to that new
+// selection (or to another card). The input event already committed live edits.
 function activeInspectorInput(inp) {
     const d = inp.dataset;
-    if (!d) return false;
-    if (d.editOwner === undefined) return true; // Programmatic/legacy inputs.
+    if (!d)
+        return false;
+    if (d.editOwner === undefined)
+        return true; // Programmatic/legacy inputs.
     return d.editOwner === (model_1.S.selected || '') && d.editMode === model_1.S.mode && Number(d.editCard) === model_1.S.cardIndex;
 }
-(0, dom_1.$)('#inspector').addEventListener('input', event => { const inp = event.target; if (!activeInspectorInput(inp)) return; if (inp.dataset.cardvalue) {
+(0, dom_1.$)('#inspector').addEventListener('input', event => { const inp = event.target; if (!activeInspectorInput(inp))
+    return; if (inp.dataset.cardvalue) {
     const c = (0, model_1.card)();
     if (c) {
         c.values ??= {};
@@ -522,7 +532,8 @@ function activeInspectorInput(inp) {
     (0, interface_1.updateDimensionReadouts)();
     (0, dom_1.$)('#projectTitle').textContent = model_1.S.projectName;
 } });
-(0, dom_1.$)('#inspector').addEventListener('change', event => { const inp = event.target; if (!activeInspectorInput(inp)) return; if (inp.dataset.cardvalue) {
+(0, dom_1.$)('#inspector').addEventListener('change', event => { const inp = event.target; if (!activeInspectorInput(inp))
+    return; if (inp.dataset.cardvalue) {
     (0, interface_1.renderLeft)();
     return;
 } if (inp.dataset.prop) {
@@ -635,145 +646,276 @@ window.addEventListener('resize', () => { });
 (0, interface_1.repaint)();
 
 },
+"element-paint": function(module, exports, require) {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.shapePath = shapePath;
+exports.paintElement = paintElement;
+const model_1 = require("./model");
+const image_sets_1 = require("./image-sets");
+const text_layout_1 = require("./text-layout");
+function shapePath(ctx, e) {
+    ctx.beginPath();
+    if (e.shape === 'ellipse')
+        ctx.ellipse(e.x + e.w / 2, e.y + e.h / 2, e.w / 2, e.h / 2, 0, 0, 2 * Math.PI);
+    else if (e.radius > 0 && ctx.roundRect)
+        ctx.roundRect(e.x, e.y, e.w, e.h, Math.min(e.radius, e.w / 2, e.h / 2));
+    else
+        ctx.rect(e.x, e.y, e.w, e.h);
+}
+function fillCanvas(ctx, e) {
+    if (e.fillMode === 'none')
+        return;
+    ctx.save();
+    if (e.fillMode === 'solid')
+        ctx.fillStyle = e.fill1;
+    else {
+        const a = (Number(e.gradientAngle) - 90) * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a);
+        const extent = (Math.abs(e.w * dx) + Math.abs(e.h * dy)) / 2;
+        const g = ctx.createLinearGradient(e.x + e.w / 2 - dx * extent, e.y + e.h / 2 - dy * extent, e.x + e.w / 2 + dx * extent, e.y + e.h / 2 + dy * extent);
+        g.addColorStop(0, e.fill1);
+        g.addColorStop(1, e.fill2);
+        ctx.fillStyle = g;
+    }
+    ctx.fillRect(e.x, e.y, e.w, e.h);
+    ctx.restore();
+}
+function drawText(ctx, e, value, layout) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(e.x + layout.left, e.y + layout.top, layout.innerW, layout.innerH);
+    ctx.clip();
+    ctx.font = `${e.italic ? 'italic ' : ''}${e.fontWeight || 400} ${layout.fontPx}px "${String(e.font || 'Georgia').replace(/"/g, '')}"`;
+    ctx.fillStyle = e.color;
+    ctx.textBaseline = 'top';
+    if ('letterSpacing' in ctx)
+        ctx.letterSpacing = (e.letterSpacing || 0) + 'px';
+    const { lines, linePx, fontPx } = layout;
+    let y = e.y + layout.top + (e.valign === 'bottom' ? layout.innerH - layout.textHeight : e.valign === 'middle' ? (layout.innerH - layout.textHeight) / 2 : 0);
+    let x = e.x + layout.left;
+    ctx.textAlign = e.align === 'center' ? 'center' : e.align === 'right' ? 'right' : 'left';
+    if (e.align === 'center')
+        x += layout.innerW / 2;
+    else if (e.align === 'right')
+        x += layout.innerW;
+    for (const line of lines) {
+        if (y + linePx > e.y + layout.top && y < e.y + e.h - layout.bottom) {
+            ctx.fillText(line, x, y);
+            if (e.underline) {
+                const tw = ctx.measureText(line).width, ux = e.align === 'center' ? x - tw / 2 : e.align === 'right' ? x - tw : x;
+                ctx.beginPath();
+                ctx.moveTo(ux, y + fontPx * 1.02);
+                ctx.lineTo(ux + tw, y + fontPx * 1.02);
+                ctx.lineWidth = Math.max(.6, fontPx / 18);
+                ctx.strokeStyle = e.color;
+                ctx.stroke();
+            }
+        }
+        y += linePx;
+    }
+    ctx.restore();
+}
+/** Render the real visible composite. Transparent pixels contribute no shadow mask. */
+function paintElement(ctx, e, value, img, layout) {
+    ctx.save();
+    ctx.globalAlpha = (0, model_1.opacityFor)(e, 'fillOpacity');
+    ctx.save();
+    shapePath(ctx, e);
+    ctx.clip();
+    fillCanvas(ctx, e);
+    ctx.restore();
+    if (e.kind === 'image' && img) {
+        ctx.save();
+        shapePath(ctx, e);
+        ctx.clip();
+        const bb = (0, image_sets_1.imgBox)(e, img);
+        const angle = Number(e.imgRotation) || 0, sx = e.imgFlipX === true ? -1 : 1, sy = e.imgFlipY === true ? -1 : 1;
+        if (angle || sx < 0 || sy < 0) {
+            ctx.translate(e.x + e.w / 2, e.y + e.h / 2);
+            ctx.rotate(angle * Math.PI / 180);
+            ctx.scale(sx, sy);
+            ctx.drawImage(img, bb.x - e.w / 2, bb.y - e.h / 2, bb.w, bb.h);
+        }
+        else
+            ctx.drawImage(img, e.x + bb.x, e.y + bb.y, bb.w, bb.h);
+        ctx.restore();
+    }
+    if (e.kind === 'text') {
+        ctx.globalAlpha = (0, model_1.opacityFor)(e, 'textOpacity');
+        drawText(ctx, e, value, layout || (0, text_layout_1.layoutTextBox)(e, value));
+    }
+    if (e.borderWidth > 0) {
+        ctx.globalAlpha = (0, model_1.opacityFor)(e, 'borderOpacity');
+        shapePath(ctx, e);
+        ctx.lineWidth = e.borderWidth;
+        ctx.strokeStyle = e.borderColor;
+        ctx.stroke();
+    }
+    ctx.restore();
+}
+
+},
 "image-manager": function(module, exports, require) {
 "use strict";
-const model_1=require("./model");
-const dom_1=require("./dom");
-const interface_1=require("./interface");
-const image_set_edit_1=require("./image-set-edit");
-const assets_1=require("./assets");
-exports.closeImageManager=closeImageManager;
-exports.renderImageManager=renderImageManager;
-exports.openImageManager=openImageManager;
-exports.imageManagerAction=imageManagerAction;
-
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.closeImageManager = closeImageManager;
+exports.renderImageManager = renderImageManager;
+exports.openImageManager = openImageManager;
+exports.imageManagerAction = imageManagerAction;
+const model_1 = require("./model");
+const dom_1 = require("./dom");
+const interface_1 = require("./interface");
+const image_set_edit_1 = require("./image-set-edit");
+const assets_1 = require("./assets");
 let activeSetId = null;
 function closeImageManager() {
- activeSetId=null;
- (0,dom_1.$)('#dialogHolder').innerHTML='';
+    activeSetId = null;
+    (0, dom_1.$)('#dialogHolder').innerHTML = '';
 }
 function renderImageManager() {
- if(!activeSetId)return;
- const set=model_1.S.sets.find(x=>x.id===activeSetId);
- if(!set){closeImageManager();return}
- (0,dom_1.$)('#dialogHolder').innerHTML=`<div class="image-manager-backdrop" role="presentation">
-  <section class="image-manager" role="dialog" aria-modal="true" aria-label="Manage images in ${(0,model_1.escapeHTML)(set.name)}">
-   <header class="image-manager-header"><div><h2>Manage images</h2><span>${(0,model_1.escapeHTML)(set.name)} · ${set.images.length} image${set.images.length===1?'':'s'}</span></div><button class="secondary" data-action="manage-close" aria-label="Close image manager">Close</button></header>
-   <div class="image-manager-tools"><button class="secondary" data-action="manage-add" data-set="${(0,model_1.escapeHTML)(set.id)}">＋ Add images</button><span>Rename or remove images without deleting the set.</span></div>
-   <div class="image-manager-list">${set.images.length?set.images.map((im,i)=>`<div class="image-manager-item">
-    <img alt="" src="${(0,model_1.escapeHTML)(im.data)}"><div class="image-manager-detail"><label for="managed-image-${i}">Filename</label><input id="managed-image-${i}" data-manager-name="${i}" type="text" value="${(0,model_1.escapeHTML)(im.name)}" spellcheck="false"></div>
+    if (!activeSetId)
+        return;
+    const set = model_1.S.sets.find(x => x.id === activeSetId);
+    if (!set) {
+        closeImageManager();
+        return;
+    }
+    (0, dom_1.$)('#dialogHolder').innerHTML = `<div class="image-manager-backdrop" role="presentation">
+  <section class="image-manager" role="dialog" aria-modal="true" aria-label="Manage images in ${(0, model_1.escapeHTML)(set.name)}">
+   <header class="image-manager-header"><div><h2>Manage images</h2><span>${(0, model_1.escapeHTML)(set.name)} · ${set.images.length} image${set.images.length === 1 ? '' : 's'}</span></div><button class="secondary" data-action="manage-close" aria-label="Close image manager">Close</button></header>
+   <div class="image-manager-tools"><button class="secondary" data-action="manage-add" data-set="${(0, model_1.escapeHTML)(set.id)}">＋ Add images</button><span>Rename or remove images without deleting the set.</span></div>
+   <div class="image-manager-list">${set.images.length ? set.images.map((im, i) => `<div class="image-manager-item">
+    <img alt="" src="${(0, model_1.escapeHTML)(im.data)}"><div class="image-manager-detail"><label for="managed-image-${i}">Filename</label><input id="managed-image-${i}" data-manager-name="${i}" type="text" value="${(0, model_1.escapeHTML)(im.name)}" spellcheck="false"></div>
     <div class="image-manager-actions"><button class="secondary" data-action="manage-rename" data-index="${i}">Rename</button><button class="secondary danger" data-action="manage-remove" data-index="${i}">Remove</button></div>
-   </div>`).join(''):'<div class="image-manager-empty">No images in this set. Use Add images to upload some.</div>'}</div>
+   </div>`).join('') : '<div class="image-manager-empty">No images in this set. Use Add images to upload some.</div>'}</div>
   </section></div>`;
 }
 function openImageManager(id) {
- if(!model_1.S.sets.some(set=>set.id===id))return;
- activeSetId=id;
- renderImageManager();
+    if (!model_1.S.sets.some(set => set.id === id))
+        return;
+    activeSetId = id;
+    renderImageManager();
 }
-function imageManagerAction(action,index) {
- const set=model_1.S.sets.find(set=>set.id===activeSetId);
- if(!set)return;
- const image=set.images[index];
- if(action==='manage-add') {
-  (0,assets_1.setTargetImageSet)(set.id);
-  (0,dom_1.$)('#assetFiles').click();
-  return;
- }
- if(!image)return;
- try{
-  if(action==='manage-rename') {
-   const input=document.querySelector(`[data-manager-name="${index}"]`);
-   if((0,image_set_edit_1.renameImage)(set.id,image.name,input?.value ?? '')){
-    (0,interface_1.repaint)();renderImageManager();(0,dom_1.toast)('Image renamed');
-   }
-  }
-  if(action==='manage-remove') {
-   if(!confirm(`Remove "${image.name}" from "${set.name}"? This cannot be undone.`))return;
-   (0,image_set_edit_1.removeImage)(set.id,image.name);
-   (0,interface_1.repaint)();renderImageManager();(0,dom_1.toast)('Image removed');
-  }
- }catch(err){alert(err.message)}
+function imageManagerAction(action, index) {
+    const set = model_1.S.sets.find(set => set.id === activeSetId);
+    if (!set)
+        return;
+    const image = set.images[index];
+    if (action === 'manage-add') {
+        (0, assets_1.setTargetImageSet)(set.id);
+        (0, dom_1.$)('#assetFiles').click();
+        return;
+    }
+    if (!image)
+        return;
+    try {
+        if (action === 'manage-rename') {
+            const input = document.querySelector(`[data-manager-name="${index}"]`);
+            if ((0, image_set_edit_1.renameImage)(set.id, image.name, input?.value ?? '')) {
+                (0, interface_1.repaint)();
+                renderImageManager();
+                (0, dom_1.toast)('Image renamed');
+            }
+        }
+        if (action === 'manage-remove') {
+            if (!confirm(`Remove "${image.name}" from "${set.name}"? This cannot be undone.`))
+                return;
+            (0, image_set_edit_1.removeImage)(set.id, image.name);
+            (0, interface_1.repaint)();
+            renderImageManager();
+            (0, dom_1.toast)('Image removed');
+        }
+    }
+    catch (err) {
+        alert(err.message);
+    }
 }
 
 },
 "image-set-edit": function(module, exports, require) {
 "use strict";
-const model_1=require("./model");
-const image_sets_1=require("./image-sets");
-exports.renameImage=renameImage;
-exports.removeImage=removeImage;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.renameImage = renameImage;
+exports.removeImage = removeImage;
 /** Mutations for named images within an existing image set.
  * An image's name is the stable reference in Single Image templates and card data.
  */
-
+const model_1 = require("./model");
+const image_sets_1 = require("./image-sets");
 const normal = (name) => String(name).trim().toLocaleLowerCase();
 const basename = (name) => name.replace(/\.[^.]+$/, '');
 const match = (a, b) => normal(a) === normal(b);
-
 /** Whether a per-card image value identifies this asset unambiguously. */
 function referencedValue(value, setName, fileName) {
- const path = String(value).replace(/\\/g, '/').trim();
- if(match(path, setName + '/' + fileName)) return 'qualified';
- const all = model_1.S.sets.flatMap(set => set.images.map(im => ({ set, im })));
- // The renderer prefers a matching unqualified filename or filename without extension.
- if(match(path, fileName)) {
-  return all.filter(x => match(x.im.name, fileName)).length === 1 ? 'name' : null;
- }
- if(match(path, basename(fileName))) {
-  return all.filter(x => match(basename(x.im.name), basename(fileName))).length === 1 ? 'basename' : null;
- }
- return null;
+    const path = String(value).replace(/\\/g, '/').trim();
+    if (match(path, setName + '/' + fileName))
+        return 'qualified';
+    const all = model_1.S.sets.flatMap(set => set.images.map(im => ({ set, im })));
+    // The renderer prefers a matching unqualified filename or filename without extension.
+    if (match(path, fileName)) {
+        return all.filter(x => match(x.im.name, fileName)).length === 1 ? 'name' : null;
+    }
+    if (match(path, basename(fileName))) {
+        return all.filter(x => match(basename(x.im.name), basename(fileName))).length === 1 ? 'basename' : null;
+    }
+    return null;
 }
-
 function updateReferences(set, oldName, newName) {
- const frames = [...model_1.S.template.elements, ...model_1.S.cards.flatMap(card => card.extraElements || [])];
- for(const frame of frames) {
-  if(frame.kind === 'image' && (frame.autoSet === set.id || frame.autoSet === set.name) && match(frame.singleImage || '', oldName))
-   frame.singleImage = newName || '';
- }
- for(const card of model_1.S.cards) {
-  for(const [elementId,override] of Object.entries(card.overrides || {})) {
-   const original = model_1.S.template.elements.find(e => e.id === elementId);
-   const assignedSet = override.autoSet ?? original?.autoSet;
-   if((assignedSet === set.id || assignedSet === set.name) && match(override.singleImage || '',oldName))
-    override.singleImage = newName || '';
-  }
-  const imageIds = new Set([...model_1.S.template.elements,...(card.extraElements || [])].filter(e => e.kind === 'image').map(e => e.id));
-  for(const [elementId,value] of Object.entries(card.values || {})) {
-   if(!imageIds.has(elementId) || typeof value !== 'string') continue;
-   const kind = referencedValue(value,set.name,oldName);
-   if(!kind) continue;
-   card.values[elementId] = newName === null ? 'none' : kind === 'qualified' ? set.name + '/' + newName : kind === 'basename' ? basename(newName) : newName;
-  }
- }
+    const frames = [...model_1.S.template.elements, ...model_1.S.cards.flatMap(card => card.extraElements || [])];
+    for (const frame of frames) {
+        if (frame.kind === 'image' && (frame.autoSet === set.id || frame.autoSet === set.name) && match(frame.singleImage || '', oldName))
+            frame.singleImage = newName || '';
+    }
+    for (const card of model_1.S.cards) {
+        for (const [elementId, override] of Object.entries(card.overrides || {})) {
+            const original = model_1.S.template.elements.find(e => e.id === elementId);
+            const assignedSet = override.autoSet ?? original?.autoSet;
+            if ((assignedSet === set.id || assignedSet === set.name) && match(override.singleImage || '', oldName))
+                override.singleImage = newName || '';
+        }
+        const imageIds = new Set([...model_1.S.template.elements, ...(card.extraElements || [])].filter(e => e.kind === 'image').map(e => e.id));
+        for (const [elementId, value] of Object.entries(card.values || {})) {
+            if (!imageIds.has(elementId) || typeof value !== 'string')
+                continue;
+            const kind = referencedValue(value, set.name, oldName);
+            if (!kind)
+                continue;
+            card.values[elementId] = newName === null ? 'none' : kind === 'qualified' ? set.name + '/' + newName : kind === 'basename' ? basename(newName) : newName;
+        }
+    }
 }
-
 function renameImage(setId, oldName, requestedName) {
- const set = model_1.S.sets.find(set => set.id === setId);
- if(!set) throw Error('Image set not found');
- const image = set.images.find(im => im.name === oldName);
- if(!image) throw Error('Image not found');
- const newName = requestedName.trim();
- if(!newName) throw Error('Enter a filename');
- if(/[\\/]/.test(newName)) throw Error('Filenames cannot contain slashes');
- if(newName === oldName) return false;
- if(set.images.some(im => im !== image && match(im.name,newName))) throw Error('Another image in this set already has that name');
- updateReferences(set, oldName, newName);
- image.name = newName;
- image_sets_1.imageCache.clear();
- return true;
+    const set = model_1.S.sets.find(set => set.id === setId);
+    if (!set)
+        throw Error('Image set not found');
+    const image = set.images.find(im => im.name === oldName);
+    if (!image)
+        throw Error('Image not found');
+    const newName = requestedName.trim();
+    if (!newName)
+        throw Error('Enter a filename');
+    if (/[\\/]/.test(newName))
+        throw Error('Filenames cannot contain slashes');
+    if (newName === oldName)
+        return false;
+    if (set.images.some(im => im !== image && match(im.name, newName)))
+        throw Error('Another image in this set already has that name');
+    updateReferences(set, oldName, newName);
+    image.name = newName;
+    image_sets_1.imageCache.clear();
+    return true;
 }
-
 function removeImage(setId, fileName) {
- const set = model_1.S.sets.find(set => set.id === setId);
- if(!set) throw Error('Image set not found');
- const index = set.images.findIndex(im => im.name === fileName);
- if(index < 0) throw Error('Image not found');
- // Clear references before deleting, so ambiguous unqualified names are handled correctly.
- updateReferences(set, fileName, null);
- set.images.splice(index,1);
- image_sets_1.imageCache.clear();
+    const set = model_1.S.sets.find(set => set.id === setId);
+    if (!set)
+        throw Error('Image set not found');
+    const index = set.images.findIndex(im => im.name === fileName);
+    if (index < 0)
+        throw Error('Image not found');
+    // Clear references before deleting, so ambiguous unqualified names are handled correctly.
+    updateReferences(set, fileName, null);
+    set.images.splice(index, 1);
+    image_sets_1.imageCache.clear();
 }
 
 },
@@ -879,37 +1021,41 @@ const preview_1 = require("./preview");
 const anchor_layout_1 = require("./anchor-layout");
 function renderCardControl() { const cc = (0, dom_1.$)('#cardControl'); cc.style.display = model_1.S.mode === 'cards' ? 'flex' : 'none'; if (model_1.S.mode !== 'cards')
     return; cc.innerHTML = `<span style="font-weight:700;color:#62778f">CARD</span><button data-action="prev-card" title="Previous card">‹</button><select id="cardSelector">${model_1.S.cards.map((c, i) => `<option value="${i}" ${i === model_1.S.cardIndex ? 'selected' : ''}>${(0, model_1.escapeHTML)(c.name)}</option>`).join('')}</select><button data-action="next-card" title="Next card">›</button><span style="color:#8a98a9;margin-left:auto">${model_1.S.cardIndex + 1} / ${model_1.S.cards.length}</span>`; }
-function renderLeft(){
- const v=(0, dom_1.$)('#leftBody');
- const templateButton=(0, dom_1.$)('#btnTemplate'),cardsButton=(0, dom_1.$)('#btnCards');
- templateButton.classList.toggle('active',model_1.S.mode==='template');
- cardsButton.classList.toggle('active',model_1.S.mode==='cards');
- templateButton.setAttribute?.('aria-pressed',String(model_1.S.mode==='template'));
- cardsButton.setAttribute?.('aria-pressed',String(model_1.S.mode==='cards'));
- // Repaint on selection changes should never jump a toolbox back to its top.
- const previousScroll=Object.fromEntries(['layersScroll','cardsScroll','setsScroll'].map(id=>[id,document.querySelector('#'+id)?.scrollTop||0]));
- const layers=[...(0, model_1.layerEls)()].filter(e=>model_1.S.mode==='template'||(0, model_1.visibleOnCard)(e,model_1.S.cardIndex,'cards')).reverse();
- let out=`<section class="sidebar-panel sidebar-layers" aria-label="Layers toolbox">
+function renderLeft() {
+    const v = (0, dom_1.$)('#leftBody');
+    const templateButton = (0, dom_1.$)('#btnTemplate'), cardsButton = (0, dom_1.$)('#btnCards');
+    templateButton.classList.toggle('active', model_1.S.mode === 'template');
+    cardsButton.classList.toggle('active', model_1.S.mode === 'cards');
+    templateButton.setAttribute?.('aria-pressed', String(model_1.S.mode === 'template'));
+    cardsButton.setAttribute?.('aria-pressed', String(model_1.S.mode === 'cards'));
+    // Repaint on selection changes should never jump a toolbox back to its top.
+    const previousScroll = Object.fromEntries(['layersScroll', 'cardsScroll', 'setsScroll'].map(id => [id, document.querySelector('#' + id)?.scrollTop || 0]));
+    const layers = [...(0, model_1.layerEls)()].filter(e => model_1.S.mode === 'template' || (0, model_1.visibleOnCard)(e, model_1.S.cardIndex, 'cards')).reverse();
+    let out = `<section class="sidebar-panel sidebar-layers" aria-label="Layers toolbox">
   <div class="side-head"><h2>LAYERS</h2><span class="pill">${layers.length}</span></div>
   <div class="sidebar-panel-scroll" id="layersScroll"><div class="small">Topmost layers are shown first. Select an element to edit it.</div>
-  <div class="layer-list">${layers.map(e=>`<div class="layer-row ${e.id===model_1.S.selected?'active':''}" data-layer="${e.id}"><span style="font-size:15px;color:#7b91ad">${e.kind==='text'?'T':e.kind==='image'?'▧':'◇'}</span><span class="name">${(0, model_1.escapeHTML)(e.name)}<span class="sub">${e.kind}${e.locked?' · locked':''}${!(0, model_1.isExported)(e)?' · editor only':''}</span></span></div>`).join('')}</div></div>
+  <div class="layer-list">${layers.map(e => `<div class="layer-row ${e.id === model_1.S.selected ? 'active' : ''}" data-layer="${e.id}"><span style="font-size:15px;color:#7b91ad">${e.kind === 'text' ? 'T' : e.kind === 'image' ? '▧' : '◇'}</span><span class="name">${(0, model_1.escapeHTML)(e.name)}<span class="sub">${e.kind}${e.locked ? ' · locked' : ''}${!(0, model_1.isExported)(e) ? ' · editor only' : ''}</span></span></div>`).join('')}</div></div>
  </section>`;
- out+=`<section class="sidebar-panel sidebar-cards" aria-label="Staged cards toolbox">
+    out += `<section class="sidebar-panel sidebar-cards" aria-label="Staged cards toolbox">
   <div class="side-head"><h2>STAGED CARDS</h2><button data-action="add-card">＋ Add card</button></div>
-  <div class="sidebar-panel-scroll" id="cardsScroll"><div class="card-list">${model_1.S.cards.map((c,i)=>`<div class="card-row ${model_1.S.mode==='cards'&&i===model_1.S.cardIndex?'active':''}" data-cardindex="${i}"><span class="mini-art">${String(i+1).padStart(2,'0')}</span><span class="name">${(0, model_1.escapeHTML)(c.name)}<span class="sub">${Object.keys(c.overrides||{}).length?'Custom layout':'Template layout'}</span></span><button class="small-btn" data-action="duplicate-card" data-cardindex="${i}" title="Duplicate card">⧉</button></div>`).join('')}</div></div>
-  ${model_1.S.mode==='cards'?'<div class="sidebar-panel-footer actionbar"><button class="secondary" data-action="delete-card">Delete card</button><button class="secondary" data-action="reset-card">Reset layout edits</button></div>':''}
+  <div class="sidebar-panel-scroll" id="cardsScroll"><div class="card-list">${model_1.S.cards.map((c, i) => `<div class="card-row ${model_1.S.mode === 'cards' && i === model_1.S.cardIndex ? 'active' : ''}" data-cardindex="${i}"><span class="mini-art">${String(i + 1).padStart(2, '0')}</span><span class="name">${(0, model_1.escapeHTML)(c.name)}<span class="sub">${Object.keys(c.overrides || {}).length ? 'Custom layout' : 'Template layout'}</span></span><button class="small-btn" data-action="duplicate-card" data-cardindex="${i}" title="Duplicate card">⧉</button></div>`).join('')}</div></div>
+  ${model_1.S.mode === 'cards' ? '<div class="sidebar-panel-footer actionbar"><button class="secondary" data-action="delete-card">Delete card</button><button class="secondary" data-action="reset-card">Reset layout edits</button></div>' : ''}
  </section>`;
- out+=`<section class="sidebar-panel sidebar-sets" aria-label="Image sets toolbox">
+    out += `<section class="sidebar-panel sidebar-sets" aria-label="Image sets toolbox">
   <div class="side-head"><h2>IMAGE SETS</h2><button data-action="add-set">＋ Load set</button></div>
   <div class="sidebar-panel-scroll" id="setsScroll"><div class="small">Load images into sets. Assign a set or a single image to an image frame.</div>
-  <div class="set-list">${model_1.S.sets.map(set=>`<div class="asset-row"><div class="asset-title"><span>▧</span><span style="overflow:hidden;text-overflow:ellipsis">${(0, model_1.escapeHTML)(set.name)}</span><span class="count">${set.images.length} files</span></div><div class="asset-thumbs">${set.images.slice(0,6).map(x=>`<img alt="${(0, model_1.escapeHTML)(x.name)}" title="${(0, model_1.escapeHTML)(x.name)}" src="${x.data}">`).join('')}</div><div class="asset-actions"><button data-action="manage-images" data-set="${set.id}">Manage images</button><button data-action="remove-set" data-set="${set.id}">Delete set</button></div></div>`).join('')}</div></div>
+  <div class="set-list">${model_1.S.sets.map(set => `<div class="asset-row"><div class="asset-title"><span>▧</span><span style="overflow:hidden;text-overflow:ellipsis">${(0, model_1.escapeHTML)(set.name)}</span><span class="count">${set.images.length} files</span></div><div class="asset-thumbs">${set.images.slice(0, 6).map(x => `<img alt="${(0, model_1.escapeHTML)(x.name)}" title="${(0, model_1.escapeHTML)(x.name)}" src="${x.data}">`).join('')}</div><div class="asset-actions"><button data-action="manage-images" data-set="${set.id}">Manage images</button><button data-action="remove-set" data-set="${set.id}">Delete set</button></div></div>`).join('')}</div></div>
  </section>`;
- v.innerHTML=out;
- for(const [id,offset] of Object.entries(previousScroll)){
-  const panel=document.querySelector('#'+id);if(panel)panel.scrollTop=offset;
- }
+    v.innerHTML = out;
+    for (const [id, offset] of Object.entries(previousScroll)) {
+        const panel = document.querySelector('#' + id);
+        if (panel)
+            panel.scrollTop = offset;
+    }
 }
-// Bind each control to the inspector selection and card at creation time.
+// Record the selection and card to which a control belongs when it is created.
+// A blur/change event from an old input may arrive AFTER the user selects a new
+// element. Without this context it can incorrectly update the new element.
 function editorScope() { return `data-edit-owner="${(0, model_1.escapeHTML)(model_1.S.selected || '')}" data-edit-mode="${model_1.S.mode}" data-edit-card="${model_1.S.cardIndex}"`; }
 function field(label, key, value, type = 'text', extra = '') { return `<div class="field"><label>${(0, model_1.escapeHTML)(label)}</label><input ${editorScope()} data-prop="${key}" type="${type}" value="${(0, model_1.escapeHTML)(value)}" ${extra}></div>`; }
 function selectionField(label, key, items, value) { return `<div class="field"><label>${(0, model_1.escapeHTML)(label)}</label><select ${editorScope()} data-prop="${key}">${items.map(([v, l]) => `<option value="${(0, model_1.escapeHTML)(v)}" ${String(v) === String(value) ? 'selected' : ''}>${(0, model_1.escapeHTML)(l)}</option>`).join('')}</select></div>`; }
@@ -945,7 +1091,7 @@ function renderInspector() {
             if (e.kind === 'text')
                 out += `<div class="field"><label>${(0, model_1.escapeHTML)(e.name)}</label><textarea ${editorScope()} data-cardvalue="${e.id}" style="min-height:62px">${(0, model_1.escapeHTML)((0, model_1.actualValue)(e))}</textarea></div>`;
             else if (e.autoMode === 'single')
-                out += '<div class="field"><label>'+(0, model_1.escapeHTML)(e.name)+' — fixed image</label><div class="small" style="padding:0">'+(0, model_1.escapeHTML)(e.singleImage || '(no image selected)')+' · Set in Template mode; identical on every card.</div></div>';
+                out += `<div class="field"><label>${(0, model_1.escapeHTML)(e.name)} — fixed image</label><div class="small" style="padding:0">${(0, model_1.escapeHTML)(e.singleImage || '(no image selected)')} · Set in Template mode; identical on every card.</div></div>`;
             else
                 out += `<div class="field"><label>${(0, model_1.escapeHTML)(e.name)} — image filename</label><input ${editorScope()} data-cardvalue="${e.id}" value="${(0, model_1.escapeHTML)((0, model_1.card)()?.values?.[e.id] || '')}" placeholder="Blank = automatic" list="allImageFiles"></div>`;
         }
@@ -983,7 +1129,7 @@ function renderInspector() {
         if (raw.kind === 'text')
             html += `<div class="field"><label>Card text</label><textarea ${editorScope()} data-cardvalue="${raw.id}">${(0, model_1.escapeHTML)((0, model_1.actualValue)(raw))}</textarea></div>`;
         if (raw.kind === 'image' && raw.autoMode === 'single')
-            html += '<div class="small" style="padding:0 0 10px">Fixed image: <b>'+(0, model_1.escapeHTML)(raw.singleImage || '(none selected)')+'</b>. Change it in Template mode; card-specific image values are ignored.</div>';
+            html += `<div class="small" style="padding:0 0 10px">Fixed image: <b>${(0, model_1.escapeHTML)(raw.singleImage || '(none selected)')}</b>. Change it in Template mode; card-specific image values are ignored.</div>`;
         else if (raw.kind === 'image')
             html += `<div class="field"><label>Image filename (blank = automatic)</label><input ${editorScope()} data-cardvalue="${raw.id}" value="${(0, model_1.escapeHTML)((0, model_1.card)()?.values?.[raw.id] || '')}" list="imageFiles" placeholder="Set name/image.png"><datalist id="imageFiles">${model_1.S.sets.flatMap(s => s.images.map(im => `<option value="${(0, model_1.escapeHTML)(s.name + '/' + im.name)}"></option>`)).join('')}</datalist></div><div class="small" style="padding:0 0 10px">Enter <b>none</b> to leave this frame empty.</div>`;
     }
@@ -1025,15 +1171,16 @@ function renderInspector() {
             field('Rotation (degrees, clockwise)', 'imgRotation', e.imgRotation ?? 0, 'number', 'step="1"') +
             `<div class="asset-actions" style="margin:0 0 12px"><button class="secondary" data-action="image-rotate-left">Rotate 90° left</button><button class="secondary" data-action="image-rotate-right">Rotate 90° right</button></div>`;
         html += `<div class="small" style="padding:0 0 12px">Transforms the image inside its frame. The frame, crop boundary, and border remain unchanged.</div>`;
-        if (model_1.S.mode === 'template')
+        if (model_1.S.mode === 'template') {
             html += `${selectionField('Automatically use image set', 'autoSet', [['', 'None'], ...model_1.S.sets.map(x => [x.id, x.name])], e.autoSet)}${selectionField('Image assignment', 'autoMode', [['sequence', 'Sequential (no repeat)'], ['cycle', 'Cycle through set'], ['random', 'Deterministic random'], ['single', 'Single Image (same on all cards)']], e.autoMode)}`;
-        if (model_1.S.mode === 'template' && e.autoMode === 'single') {
-            const set = model_1.S.sets.find(s => s.id === e.autoSet || s.name === e.autoSet);
-            if (set?.images.length) {
-                html += selectionField('Single image', 'singleImage', [['', 'Choose an image…'], ...set.images.map(im => [im.name, im.name])], e.singleImage || '');
+            if (e.autoMode === 'single') {
+                const set = model_1.S.sets.find(s => s.id === e.autoSet || s.name === e.autoSet);
+                if (set?.images.length) {
+                    html += selectionField('Single image', 'singleImage', [['', 'Choose an image…'], ...set.images.map(im => [im.name, im.name])], e.singleImage || '');
+                }
+                else
+                    html += `<div class="small" style="padding:0 0 10px">${set ? 'Add images to this set before choosing a fixed image.' : 'Choose an image set first.'}</div>`;
             }
-            else
-                html += '<div class="small" style="padding:0 0 10px">' + (set ? 'Add images to this set before choosing a fixed image.' : 'Choose an image set first.') + '</div>';
         }
     }
     if (raw.kind === 'shape')
@@ -1059,6 +1206,15 @@ function renderInspector() {
     html += opacityField('Border opacity (%)', 'borderOpacity');
     if (raw.kind === 'text')
         html += opacityField('Text opacity (%)', 'textOpacity');
+    html += `<div class="section-title">Shadow</div>` +
+        checkbox('Enable shadow', 'shadowEnabled', e.shadowEnabled === true);
+    if (e.shadowEnabled) {
+        html += `<div class="fields-two">${field('Shadow colour', 'shadowColor', e.shadowColor || '#000000', 'color')}${field('Opacity (%)', 'shadowOpacity', e.shadowOpacity ?? 65, 'number', 'min="0" max="100" step="1"')}</div>`;
+        const spx = (v) => (0, model_1.fmt)((Number(v) || 0) * model_1.S.template.dpi / 96);
+        html += `<div class="fields-two">${field('Offset X (export px)', 'shadowOffsetX', spx(e.shadowOffsetX), 'number', 'step="1"')}${field('Offset Y (export px)', 'shadowOffsetY', spx(e.shadowOffsetY), 'number', 'step="1"')}</div>` +
+            field('Spread (export px)', 'shadowSpread', spx(e.shadowSpread), 'number', 'min="0" step="1"') +
+            `<div class="small" style="padding:0 0 10px">Shadows follow visible text, fills, borders and image alpha, including transparent gaps. Overlapping shadows stack (additive mode).</div>`;
+    }
     if (model_1.S.mode === 'cards')
         html += `<div class="inspector-action"><button class="secondary" data-action="reset-element">${(0, model_1.isExtra)(raw.id) ? 'Remove card-only element' : 'Reset this element to template'}</button></div>`;
     box.innerHTML = html;
@@ -1174,7 +1330,7 @@ exports.fmt = fmt;
 const opacityFor = (e, component) => (0, exports.clamp)(Number(e[component] ?? e.opacity ?? 100) || 0, 0, 100) / 100;
 exports.opacityFor = opacityFor;
 exports.textKinds = ['text', 'image'];
-const makeElement = (kind, parts = {}) => ({ id: (0, exports.uid)(), kind, name: kind === 'text' ? 'Text' : kind === 'image' ? 'Artwork' : 'Shape', x: 22, y: 35, w: 195, h: 55, locked: false, hidden: false, includeInExport: true, invisibleIfEmpty: true, linkedTextId: '', anchorLeft: false, anchorRight: false, anchorTop: false, anchorBottom: false, shape: 'rect', radius: 0, fillMode: kind === 'shape' ? 'solid' : 'none', fill1: '#ffffff', fill2: '#dde5f1', gradientAngle: 90, borderWidth: 0, borderColor: '#233b58', opacity: 100, fillOpacity: 100, borderOpacity: 100, textOpacity: 100, text: 'Text', font: 'Georgia', fontSize: 19, fontWeight: 400, italic: false, underline: false, color: '#152b43', align: 'left', valign: 'middle', lineHeight: 1.18, letterSpacing: 0, autoWidth: false, autoHeight: false, gutterLeft: 0, gutterRight: 0, gutterTop: 0, gutterBottom: 0, imageFit: 'cover', imgScale: 1, imgOffsetX: 0, imgOffsetY: 0, imgFlipX: false, imgFlipY: false, imgRotation: 0, autoSet: '', autoMode: 'cycle', singleImage: '', ...parts });
+const makeElement = (kind, parts = {}) => ({ id: (0, exports.uid)(), kind, name: kind === 'text' ? 'Text' : kind === 'image' ? 'Artwork' : 'Shape', x: 22, y: 35, w: 195, h: 55, locked: false, hidden: false, includeInExport: true, invisibleIfEmpty: true, linkedTextId: '', anchorLeft: false, anchorRight: false, anchorTop: false, anchorBottom: false, shape: 'rect', radius: 0, fillMode: kind === 'shape' ? 'solid' : 'none', fill1: '#ffffff', fill2: '#dde5f1', gradientAngle: 90, borderWidth: 0, borderColor: '#233b58', shadowEnabled: false, shadowColor: '#000000', shadowOpacity: 65, shadowOffsetX: 0, shadowOffsetY: 0, shadowSpread: 0, opacity: 100, fillOpacity: 100, borderOpacity: 100, textOpacity: 100, text: 'Text', font: 'Georgia', fontSize: 19, fontWeight: 400, italic: false, underline: false, color: '#152b43', align: 'left', valign: 'middle', lineHeight: 1.18, letterSpacing: 0, autoWidth: false, autoHeight: false, gutterLeft: 0, gutterRight: 0, gutterTop: 0, gutterBottom: 0, imageFit: 'cover', imgScale: 1, imgOffsetX: 0, imgOffsetY: 0, imgFlipX: false, imgFlipY: false, imgRotation: 0, autoSet: '', autoMode: 'cycle', singleImage: '', ...parts });
 exports.makeElement = makeElement;
 const initialElements = () => [
     (0, exports.makeElement)('shape', { name: 'Card background', x: 0, y: 0, w: (0, exports.px)(63, 'mm'), h: (0, exports.px)(88, 'mm'), fillMode: 'gradient', fill1: '#fcfaf4', fill2: '#dce7ed', gradientAngle: 180 }),
@@ -1290,61 +1446,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.canvasCard = canvasCard;
 const model_1 = require("./model");
 const image_sets_1 = require("./image-sets");
-const text_layout_1 = require("./text-layout");
 const anchor_layout_1 = require("./anchor-layout");
-function fillCanvas(ctx, e, x, y, w, h) { if (e.fillMode === 'none')
-    return; ctx.save(); if (e.fillMode === 'solid')
-    ctx.fillStyle = e.fill1;
-else {
-    const a = (Number(e.gradientAngle) - 90) * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), extent = (Math.abs(w * dx) + Math.abs(h * dy)) / 2;
-    const g = ctx.createLinearGradient(x + w / 2 - dx * extent, y + h / 2 - dy * extent, x + w / 2 + dx * extent, y + h / 2 + dy * extent);
-    g.addColorStop(0, e.fill1);
-    g.addColorStop(1, e.fill2);
-    ctx.fillStyle = g;
-} ctx.fillRect(x, y, w, h); ctx.restore(); }
-function makeShapePath(ctx, e) { ctx.beginPath(); if (e.shape === 'ellipse')
-    ctx.ellipse(e.x + e.w / 2, e.y + e.h / 2, e.w / 2, e.h / 2, 0, 0, 2 * Math.PI);
-else if (e.radius > 0 && ctx.roundRect)
-    ctx.roundRect(e.x, e.y, e.w, e.h, Math.min(e.radius, e.w / 2, e.h / 2));
-else
-    ctx.rect(e.x, e.y, e.w, e.h); }
-function canvasFillShape(ctx, e) { ctx.save(); makeShapePath(ctx, e); ctx.clip(); fillCanvas(ctx, e, e.x, e.y, e.w, e.h); ctx.restore(); }
-function canvasDrawText(ctx, e, value, layout) {
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(e.x + layout.left, e.y + layout.top, layout.innerW, layout.innerH);
-    ctx.clip();
-    ctx.font = `${e.italic ? 'italic ' : ''}${e.fontWeight || 400} ${layout.fontPx}px "${String(e.font || 'Georgia').replace(/"/g, '')}"`;
-    ctx.fillStyle = e.color;
-    ctx.textBaseline = 'top';
-    if ('letterSpacing' in ctx)
-        ctx.letterSpacing = (e.letterSpacing || 0) + 'px';
-    const { lines, linePx, fontPx } = layout;
-    let y = e.y + layout.top + (e.valign === 'bottom' ? layout.innerH - layout.textHeight : e.valign === 'middle' ? (layout.innerH - layout.textHeight) / 2 : 0);
-    let x = e.x + layout.left;
-    ctx.textAlign = e.align === 'center' ? 'center' : e.align === 'right' ? 'right' : 'left';
-    if (e.align === 'center')
-        x += layout.innerW / 2;
-    else if (e.align === 'right')
-        x += layout.innerW;
-    for (const line of lines) {
-        if (y + linePx > e.y + layout.top && y < e.y + e.h - layout.bottom) {
-            ctx.fillText(line, x, y);
-            if (e.underline) {
-                const tw = ctx.measureText(line).width;
-                const ux = e.align === 'center' ? x - tw / 2 : e.align === 'right' ? x - tw : x;
-                ctx.beginPath();
-                ctx.moveTo(ux, y + fontPx * 1.02);
-                ctx.lineTo(ux + tw, y + fontPx * 1.02);
-                ctx.lineWidth = Math.max(.6, fontPx / 18);
-                ctx.strokeStyle = e.color;
-                ctx.stroke();
-            }
-        }
-        y += linePx;
-    }
-    ctx.restore();
-}
+const element_paint_1 = require("./element-paint");
+const shadow_1 = require("./shadow");
+/** Paint each shadow immediately before its source. Stacking is normal source-over (additive). */
 async function canvasCard(ci, mode = 'cards') {
     const { w, h } = (0, model_1.sizePx)(), { w: W, h: H } = (0, model_1.templateExportSize)();
     if (W > 12000 || H > 12000 || W * H > 75000000)
@@ -1361,44 +1466,17 @@ async function canvasCard(ci, mode = 'cards') {
         if (!(0, model_1.visibleOnCard)(raw, ci, mode))
             continue;
         const value = raw.kind === 'text' ? (mode === 'cards' && Object.prototype.hasOwnProperty.call(model_1.S.cards[ci]?.values || {}, raw.id) ? model_1.S.cards[ci].values[raw.id] : raw.text) : '';
-        const layout = raw.kind === 'text' ? (0, text_layout_1.layoutTextBox)(effective, value) : null;
         const e = { ...effective, ...(0, anchor_layout_1.elementGeometry)(raw, ci, mode) };
-        ctx.save();
-        ctx.globalAlpha = (0, model_1.opacityFor)(e, 'fillOpacity');
-        canvasFillShape(ctx, e);
-        if (raw.kind === 'image') {
-            const src = (0, image_sets_1.getImageData)(raw, ci, mode), img = await (0, image_sets_1.loadedImage)(src);
-            if (img) {
-                ctx.save();
-                makeShapePath(ctx, e);
-                ctx.clip();
-                const bb = (0, image_sets_1.imgBox)(e, img);
-                // Mirror and rotate only the image pixels, about the frame centre. Its
-                // background, crop shape and border stay in their original positions.
-                const angle = Number(e.imgRotation) || 0, sx = e.imgFlipX === true ? -1 : 1, sy = e.imgFlipY === true ? -1 : 1;
-                if (angle || sx < 0 || sy < 0) {
-                    ctx.translate(e.x + e.w / 2, e.y + e.h / 2);
-                    ctx.rotate(angle * Math.PI / 180);
-                    ctx.scale(sx, sy);
-                    ctx.drawImage(img, bb.x - e.w / 2, bb.y - e.h / 2, bb.w, bb.h);
-                }
-                else
-                    ctx.drawImage(img, e.x + bb.x, e.y + bb.y, bb.w, bb.h);
-                ctx.restore();
-            }
+        const src = raw.kind === 'image' ? (0, image_sets_1.getImageData)(raw, ci, mode) : null;
+        const img = src ? await (0, image_sets_1.loadedImage)(src) : null;
+        const shadow = (0, shadow_1.makeShadow)(e, value, img, W / w);
+        if (shadow) {
+            ctx.save();
+            ctx.globalAlpha = 1;
+            ctx.drawImage(shadow.canvas, e.x - shadow.pad, e.y - shadow.pad, shadow.canvas.width / shadow.ratio, shadow.canvas.height / shadow.ratio);
+            ctx.restore();
         }
-        if (raw.kind === 'text') {
-            ctx.globalAlpha = (0, model_1.opacityFor)(e, 'textOpacity');
-            canvasDrawText(ctx, e, value, layout);
-        }
-        if (e.borderWidth > 0) {
-            ctx.globalAlpha = (0, model_1.opacityFor)(e, 'borderOpacity');
-            makeShapePath(ctx, e);
-            ctx.lineWidth = e.borderWidth;
-            ctx.strokeStyle = e.borderColor;
-            ctx.stroke();
-        }
-        ctx.restore();
+        (0, element_paint_1.paintElement)(ctx, e, value, img);
     }
     return cvs;
 }
@@ -1413,6 +1491,7 @@ const dom_1 = require("./dom");
 const image_sets_1 = require("./image-sets");
 const text_layout_1 = require("./text-layout");
 const anchor_layout_1 = require("./anchor-layout");
+const shadow_1 = require("./shadow");
 const gradientCSS = e => e.fillMode === 'solid' ? e.fill1 : e.fillMode === 'gradient' ? `linear-gradient(${e.gradientAngle}deg,${e.fill1},${e.fill2})` : 'transparent';
 function renderStage() {
     const st = (0, dom_1.$)('#stage'), { w, h } = (0, model_1.sizePx)(), z = model_1.S.zoom;
@@ -1454,9 +1533,11 @@ function renderStage() {
             content = `<div class="text-layer" style="opacity:${(0, model_1.opacityFor)(e, 'textOpacity')}">${content}</div>`;
         if (e.kind === 'image')
             content = `<div class="image-layer" style="opacity:${(0, model_1.opacityFor)(e, 'fillOpacity')}">${content}</div>`;
+        const shadow = (0, shadow_1.previewShadow)({ ...e, ...geom }, e.kind === 'text' ? (0, model_1.actualValue)(raw) : '', src && (0, image_sets_1.cacheImage)(src)?.loaded ? (0, image_sets_1.cacheImage)(src)?.im : null, z);
+        const shadowLayer = shadow ? `<img class="shadow-layer" alt="" draggable="false" src="${shadow.src}" style="left:${-shadow.pad * z}px;top:${-shadow.pad * z}px;width:${shadow.width * z}px;height:${shadow.height * z}px">` : '';
         const handles = !e.locked ? ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'].map(h => `<span class="resize-handle resize-${h}" data-handle="${h}"></span>`).join('') : '';
         const label = selected ? `<span class="selection-label">${(0, model_1.escapeHTML)(raw.name)}</span>${handles}` : '';
-        html += `<div class="element ${selected ? 'selected' : ''} ${e.locked ? 'locked' : ''}" data-id="${raw.id}" style="${base}">${fill}${content}${borderLayer}${label}</div>`;
+        html += `<div class="element ${selected ? 'selected' : ''} ${e.locked ? 'locked' : ''}" data-id="${raw.id}" style="${base}">${shadowLayer}${fill}${content}${borderLayer}${label}</div>`;
     }
     st.innerHTML = html;
     (0, dom_1.$)('#statusLeft').textContent = `${model_1.S.template.width} × ${model_1.S.template.height} ${model_1.S.template.unit} · ${(0, model_1.templateExportSize)().w} × ${(0, model_1.templateExportSize)().h} export px · ${model_1.S.template.dpi} DPI`;
@@ -1683,6 +1764,180 @@ function resizedRect(start, handle, dx, dy, stage, lockCornerAspect = false) {
 function locksImageCornerAspect(kind, fit, handle) {
     return kind === 'image' && /^(nw|ne|sw|se)$/.test(handle) &&
         ['contain', 'cover', 'width', 'height'].includes(fit);
+}
+
+},
+"shadow": function(module, exports, require) {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.hasShadow = void 0;
+exports.spreadAlpha = spreadAlpha;
+exports.shadePixels = shadePixels;
+exports.makeShadow = makeShadow;
+exports.previewShadow = previewShadow;
+const model_1 = require("./model");
+const element_paint_1 = require("./element-paint");
+const hasShadow = (e) => e.shadowEnabled === true && Number(e.shadowOpacity ?? 65) > 0;
+exports.hasShadow = hasShadow;
+const nonnegative = (n) => Number.isFinite(Number(n)) ? Math.max(0, Number(n)) : 0;
+/**
+ * Nearest nontransparent pixel for each point, using exact 2D squared Euclidean
+ * distance transform. The source alpha is retained (unlike binary silhouettes).
+ * This preserves transparent holes, alpha edges, and independently shaped parts.
+ */
+function spreadAlpha(alpha, width, height, radius) {
+    const length = width * height;
+    if (length !== alpha.length)
+        throw Error('Invalid shadow alpha mask dimensions');
+    if (radius <= 0)
+        return new Uint8ClampedArray(alpha);
+    const out = new Uint8ClampedArray(length), nearestY = new Int32Array(length).fill(-1);
+    let hasPixels = false;
+    for (let x = 0; x < width; x++) {
+        let previous = -1;
+        for (let y = 0; y < height; y++) {
+            const idx = y * width + x;
+            if (alpha[idx] > 0) {
+                previous = y;
+                hasPixels = true;
+            }
+            nearestY[idx] = previous;
+        }
+        previous = -1;
+        for (let y = height - 1; y >= 0; y--) {
+            const idx = y * width + x;
+            if (alpha[idx] > 0)
+                previous = y;
+            if (previous >= 0 && (nearestY[idx] < 0 || previous - y < y - nearestY[idx]))
+                nearestY[idx] = previous;
+        }
+    }
+    if (!hasPixels)
+        return out;
+    // For each row, find the lower envelope of distance parabolas along x.
+    // The vertical pass above has already found each column's nearest source y.
+    const v = new Int32Array(width), z = new Float64Array(width + 1);
+    const f = new Float64Array(width), sourceY = new Int32Array(width);
+    const r2 = (radius + .25) * (radius + .25);
+    for (let y = 0; y < height; y++) {
+        let k = -1;
+        for (let x = 0; x < width; x++) {
+            const sy = nearestY[y * width + x];
+            sourceY[x] = sy;
+            f[x] = sy < 0 ? Infinity : (y - sy) * (y - sy);
+            if (!Number.isFinite(f[x]))
+                continue;
+            let point = 0;
+            while (k >= 0) {
+                const q = v[k];
+                point = ((f[x] + x * x) - (f[q] + q * q)) / (2 * (x - q));
+                if (point > z[k])
+                    break;
+                k--;
+            }
+            k++;
+            v[k] = x;
+            z[k] = k === 0 ? -Infinity : point;
+            z[k + 1] = Infinity;
+        }
+        if (k < 0)
+            continue;
+        let which = 0;
+        for (let x = 0; x < width; x++) {
+            while (which < k && z[which + 1] < x)
+                which++;
+            const q = v[which], distance = f[q] + (x - q) * (x - q);
+            if (distance <= r2)
+                out[y * width + x] = alpha[sourceY[q] * width + q];
+        }
+    }
+    return out;
+}
+function parseColour(colour) {
+    const hex = /^#([a-f\d]{3}|[a-f\d]{6})$/i.exec(colour || '');
+    if (!hex)
+        return [0, 0, 0];
+    let h = hex[1];
+    if (h.length === 3)
+        h = [...h].map(c => c + c).join('');
+    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+function shadePixels(mask, width, height, e, ratio) {
+    const pixels = width * height, alpha = new Uint8ClampedArray(pixels);
+    for (let p = 0; p < pixels; p++)
+        alpha[p] = mask.data[p * 4 + 3];
+    const spread = spreadAlpha(alpha, width, height, Math.max(0, Number(e.shadowSpread) || 0) * ratio);
+    const [red, green, blue] = parseColour(e.shadowColor || '#000000');
+    const opacity = (0, model_1.clamp)(Number(e.shadowOpacity ?? 65) || 0, 0, 100) / 100;
+    const dx = Math.round((Number(e.shadowOffsetX) || 0) * ratio), dy = Math.round((Number(e.shadowOffsetY) || 0) * ratio);
+    const output = new ImageData(width, height);
+    for (let y = 0; y < height; y++)
+        for (let x = 0; x < width; x++) {
+            const sx = x - dx, sy = y - dy;
+            if (sx < 0 || sy < 0 || sx >= width || sy >= height)
+                continue;
+            const a = spread[sy * width + sx];
+            if (!a)
+                continue;
+            const i = (y * width + x) * 4;
+            output.data[i] = red;
+            output.data[i + 1] = green;
+            output.data[i + 2] = blue;
+            output.data[i + 3] = Math.round(a * opacity);
+        }
+    return output;
+}
+/** Image-space rasterization works for all elements, including images with alpha. */
+function makeShadow(e, value, img, ratio) {
+    if (!(0, exports.hasShadow)(e) || !Number.isFinite(ratio) || ratio <= 0)
+        return null;
+    const spread = nonnegative(e.shadowSpread), ox = Math.abs(Number(e.shadowOffsetX) || 0), oy = Math.abs(Number(e.shadowOffsetY) || 0);
+    const pad = Math.ceil(Math.max(spread, 0) + Math.max(ox, oy) + Math.max(0, e.borderWidth || 0) / 2 + 3);
+    const width = Math.ceil((e.w + pad * 2) * ratio), height = Math.ceil((e.h + pad * 2) * ratio);
+    if (width < 1 || height < 1 || width * height > 16000000)
+        return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context?.getImageData || !context.putImageData)
+        return null;
+    context.setTransform?.(ratio, 0, 0, ratio, (pad - e.x) * ratio, (pad - e.y) * ratio);
+    (0, element_paint_1.paintElement)(context, e, value, img);
+    const mask = context.getImageData(0, 0, width, height);
+    const colored = shadePixels(mask, width, height, e, ratio);
+    // putImageData ignores the active transform, which is intentional here.
+    context.putImageData(colored, 0, 0);
+    return { canvas, pad, ratio };
+}
+// Preview shadows are keyed by content, not the frame position, so dragging
+// does not re-rasterize a large alpha mask on every pointermove.
+const previewCache = new Map();
+const imageIds = new WeakMap();
+let nextImageId = 1;
+function previewShadow(e, value, img, ratio) {
+    if (!(0, exports.hasShadow)(e))
+        return null;
+    const local = { ...e, x: 0, y: 0 };
+    // Cache on the decoded image identity; never copy multi-megabyte image data URLs
+    // into the cache key (or re-hash them on every drag).
+    let imageId = 0;
+    if (img) {
+        imageId = imageIds.get(img) || nextImageId++;
+        imageIds.set(img, imageId);
+    }
+    const cacheKey = JSON.stringify([local, value, ratio, imageId]);
+    const previous = previewCache.get(cacheKey);
+    if (previous)
+        return previous;
+    const result = makeShadow(local, value, img, ratio);
+    if (!result || typeof result.canvas.toDataURL !== 'function')
+        return null;
+    const graphic = { src: result.canvas.toDataURL('image/png'), width: result.canvas.width / ratio, height: result.canvas.height / ratio, pad: result.pad };
+    previewCache.set(cacheKey, graphic);
+    if (previewCache.size > 24)
+        previewCache.delete(previewCache.keys().next().value);
+    return graphic;
 }
 
 },

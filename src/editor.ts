@@ -136,8 +136,9 @@ function handleProp(input){const key=input.dataset.prop;if(!key)return;let v=inp
  if(key==='projectName'){S.projectName=String(v);return}
  if(key==='card.name'){if(card())card().name=String(v)||'Untitled card';return}
  if(key==='name'){const e=templateEl(S.selected);if(e)e.name=uniqName(v,e.id);return}
- if(['x','y','w','h','gutterLeft','gutterRight','gutterTop','gutterBottom'].includes(key)){v=px(Number(v),S.template.unit,S.template.dpi);if(key==='w'||key==='h')v=Math.max(1,v);if(key.startsWith('gutter'))v=Math.max(0,v)}
- else if(['fontSize','fontWeight','lineHeight','letterSpacing','borderWidth','radius','opacity','fillOpacity','borderOpacity','textOpacity','gradientAngle','imgScale','imgOffsetX','imgOffsetY','imgRotation'].includes(key)){v=Number(v);if(['opacity','fillOpacity','borderOpacity','textOpacity'].includes(key))v=clamp(v,0,100);if(key==='fontSize')v=Math.max(1,v);if(key==='imgScale')v=Math.max(.01,v);if(key==='borderWidth')v=Math.max(0,v)}
+ if(['shadowOffsetX','shadowOffsetY','shadowSpread'].includes(key)){v=Number(v)*96/S.template.dpi;if(key==='shadowSpread')v=Math.max(0,v)}
+ else if(['x','y','w','h','gutterLeft','gutterRight','gutterTop','gutterBottom'].includes(key)){v=px(Number(v),S.template.unit,S.template.dpi);if(key==='w'||key==='h')v=Math.max(1,v);if(key.startsWith('gutter'))v=Math.max(0,v)}
+ else if(['fontSize','fontWeight','lineHeight','letterSpacing','borderWidth','radius','opacity','fillOpacity','borderOpacity','textOpacity','gradientAngle','imgScale','imgOffsetX','imgOffsetY','imgRotation','shadowOpacity'].includes(key)){v=Number(v);if(['opacity','fillOpacity','borderOpacity','textOpacity','shadowOpacity'].includes(key))v=clamp(v,0,100);if(key==='fontSize')v=Math.max(1,v);if(key==='imgScale')v=Math.max(.01,v);if(key==='borderWidth')v=Math.max(0,v)}
  if(S.selected){
   // Changing sets invalidates the previous fixed-image choice, even when
   // both sets happen to contain identically named files.
@@ -148,8 +149,9 @@ function handleProp(input){const key=input.dataset.prop;if(!key)return;let v=inp
   patchElement(S.selected,{[key]:v});
  }
 }
-// Ignore delayed input/change events from an inspector that no longer
-// belongs to the selected element or card.
+// The event target may be from the previous inspector after a pointerdown has
+// selected a different element. Never apply a stale input/change to that new
+// selection (or to another card). The input event already committed live edits.
 function activeInspectorInput(inp){
  const d=inp.dataset;
  if(!d)return false;

@@ -34,8 +34,9 @@ export function renderLeft(){
   const panel=document.querySelector('#'+id);if(panel)panel.scrollTop=offset;
  }
 }
-// Bind fields to the element and card for which they were rendered. A delayed
-// blur/change after selection changes must not edit the newly selected element.
+// Record the selection and card to which a control belongs when it is created.
+// A blur/change event from an old input may arrive AFTER the user selects a new
+// element. Without this context it can incorrectly update the new element.
 function editorScope(){return `data-edit-owner="${escapeHTML(S.selected||'')}" data-edit-mode="${S.mode}" data-edit-card="${S.cardIndex}"`}
 function field(label,key,value,type='text',extra=''){return`<div class="field"><label>${escapeHTML(label)}</label><input ${editorScope()} data-prop="${key}" type="${type}" value="${escapeHTML(value)}" ${extra}></div>`}
 function selectionField(label,key,items,value){return `<div class="field"><label>${escapeHTML(label)}</label><select ${editorScope()} data-prop="${key}">${items.map(([v,l])=>`<option value="${escapeHTML(v)}" ${String(v)===String(value)?'selected':''}>${escapeHTML(l)}</option>`).join('')}</select></div>`}
@@ -62,7 +63,7 @@ export function renderInspector(){const box=$('#inspector');if(!S.selected&&S.mo
  const entries=S.template.elements.filter(e=>textKinds.includes(e.kind));
  out+=`<div class="section-title">Element values</div><div class="small" style="padding:0 0 14px">These fields change only this card. Select a layer to adjust its position or formatting.</div>`;
  for(const e of entries){if(e.kind==='text')out+=`<div class="field"><label>${escapeHTML(e.name)}</label><textarea ${editorScope()} data-cardvalue="${e.id}" style="min-height:62px">${escapeHTML(actualValue(e))}</textarea></div>`;
- else if(e.autoMode==='single')out+='<div class="field"><label>'+escapeHTML(e.name)+' — fixed image</label><div class="small" style="padding:0">'+escapeHTML(e.singleImage||'(no image selected)')+' · Set in Template mode; identical on every card.</div></div>';
+ else if(e.autoMode==='single')out+=`<div class="field"><label>${escapeHTML(e.name)} — fixed image</label><div class="small" style="padding:0">${escapeHTML(e.singleImage||'(no image selected)')} · Set in Template mode; identical on every card.</div></div>`;
  else out+=`<div class="field"><label>${escapeHTML(e.name)} — image filename</label><input ${editorScope()} data-cardvalue="${e.id}" value="${escapeHTML(card()?.values?.[e.id]||'')}" placeholder="Blank = automatic" list="allImageFiles"></div>`}
  out+=`<datalist id="allImageFiles">${S.sets.flatMap(set=>set.images.map(im=>`<option value="${escapeHTML(set.name+'/'+im.name)}"></option>`)).join('')}</datalist>`;
  box.innerHTML=out;return}
@@ -81,7 +82,7 @@ export function renderInspector(){const box=$('#inspector');if(!S.selected&&S.mo
  else html+=`<div class="warn">Changes here affect only <b>${escapeHTML(card()?.name)}</b>. Switch to Template to edit every card.</div>`;
  if(S.mode==='cards'&&textKinds.includes(raw.kind)){
  if(raw.kind==='text')html+=`<div class="field"><label>Card text</label><textarea ${editorScope()} data-cardvalue="${raw.id}">${escapeHTML(actualValue(raw))}</textarea></div>`;
- if(raw.kind==='image'&&raw.autoMode==='single')html+='<div class="small" style="padding:0 0 10px">Fixed image: <b>'+escapeHTML(raw.singleImage||'(none selected)')+'</b>. Change it in Template mode; card-specific image values are ignored.</div>';
+ if(raw.kind==='image'&&raw.autoMode==='single')html+=`<div class="small" style="padding:0 0 10px">Fixed image: <b>${escapeHTML(raw.singleImage||'(none selected)')}</b>. Change it in Template mode; card-specific image values are ignored.</div>`;
  else if(raw.kind==='image')html+=`<div class="field"><label>Image filename (blank = automatic)</label><input ${editorScope()} data-cardvalue="${raw.id}" value="${escapeHTML(card()?.values?.[raw.id]||'')}" list="imageFiles" placeholder="Set name/image.png"><datalist id="imageFiles">${S.sets.flatMap(s=>s.images.map(im=>`<option value="${escapeHTML(s.name+'/'+im.name)}"></option>`)).join('')}</datalist></div><div class="small" style="padding:0 0 10px">Enter <b>none</b> to leave this frame empty.</div>`;
  }
  const f=unitFactor(S.template.unit,S.template.dpi);
@@ -120,12 +121,14 @@ export function renderInspector(){const box=$('#inspector');if(!S.selected&&S.mo
   field('Rotation (degrees, clockwise)','imgRotation',e.imgRotation??0,'number','step="1"')+
   `<div class="asset-actions" style="margin:0 0 12px"><button class="secondary" data-action="image-rotate-left">Rotate 90° left</button><button class="secondary" data-action="image-rotate-right">Rotate 90° right</button></div>`;
  html+=`<div class="small" style="padding:0 0 12px">Transforms the image inside its frame. The frame, crop boundary, and border remain unchanged.</div>`;
- if(S.mode==='template')html+=`${selectionField('Automatically use image set','autoSet',[['','None'],...S.sets.map(x=>[x.id,x.name])],e.autoSet)}${selectionField('Image assignment','autoMode',[['sequence','Sequential (no repeat)'],['cycle','Cycle through set'],['random','Deterministic random'],['single','Single Image (same on all cards)']],e.autoMode)}`;
- if(S.mode==='template'&&e.autoMode==='single'){
-  const set=S.sets.find(s=>s.id===e.autoSet||s.name===e.autoSet);
-  if(set?.images.length){
-   html+=selectionField('Single image','singleImage',[['','Choose an image…'],...set.images.map(im=>[im.name,im.name])],e.singleImage||'');
-  }else html+='<div class="small" style="padding:0 0 10px">'+(set?'Add images to this set before choosing a fixed image.':'Choose an image set first.')+'</div>';
+ if(S.mode==='template'){
+  html+=`${selectionField('Automatically use image set','autoSet',[['','None'],...S.sets.map(x=>[x.id,x.name])],e.autoSet)}${selectionField('Image assignment','autoMode',[['sequence','Sequential (no repeat)'],['cycle','Cycle through set'],['random','Deterministic random'],['single','Single Image (same on all cards)']],e.autoMode)}`;
+  if(e.autoMode==='single'){
+   const set=S.sets.find(s=>s.id===e.autoSet||s.name===e.autoSet);
+   if(set?.images.length){
+    html+=selectionField('Single image','singleImage',[['','Choose an image…'],...set.images.map(im=>[im.name,im.name])],e.singleImage||'');
+   }else html+=`<div class="small" style="padding:0 0 10px">${set?'Add images to this set before choosing a fixed image.':'Choose an image set first.'}</div>`;
+  }
  }
  }
  if(raw.kind==='shape')html+=`<div class="section-title">Shape</div>${selectionField('Shape','shape',[['rect','Rectangle'],['ellipse','Ellipse']],e.shape)}`;
@@ -147,6 +150,15 @@ export function renderInspector(){const box=$('#inspector');if(!S.selected&&S.mo
  html+=opacityField(raw.kind==='image'?'Image opacity (%)':'Background opacity (%)','fillOpacity');
  html+=opacityField('Border opacity (%)','borderOpacity');
  if(raw.kind==='text')html+=opacityField('Text opacity (%)','textOpacity');
+ html+=`<div class="section-title">Shadow</div>`+
+  checkbox('Enable shadow','shadowEnabled',e.shadowEnabled===true);
+ if(e.shadowEnabled){
+  html+=`<div class="fields-two">${field('Shadow colour','shadowColor',e.shadowColor||'#000000','color')}${field('Opacity (%)','shadowOpacity',e.shadowOpacity??65,'number','min="0" max="100" step="1"')}</div>`;
+  const spx=(v:number|undefined)=>fmt((Number(v)||0)*S.template.dpi/96);
+  html+=`<div class="fields-two">${field('Offset X (export px)','shadowOffsetX',spx(e.shadowOffsetX),'number','step="1"')}${field('Offset Y (export px)','shadowOffsetY',spx(e.shadowOffsetY),'number','step="1"')}</div>`+
+   field('Spread (export px)','shadowSpread',spx(e.shadowSpread),'number','min="0" step="1"')+
+   `<div class="small" style="padding:0 0 10px">Shadows follow visible text, fills, borders and image alpha, including transparent gaps. Overlapping shadows stack (additive mode).</div>`;
+ }
  if(S.mode==='cards')html+=`<div class="inspector-action"><button class="secondary" data-action="reset-element">${isExtra(raw.id)?'Remove card-only element':'Reset this element to template'}</button></div>`;
  box.innerHTML=html;
 }

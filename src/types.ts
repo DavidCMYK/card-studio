@@ -20,6 +20,10 @@ export interface CardElement {
   fillMode: 'none' | 'solid' | 'gradient';
   fill1: string; fill2: string; gradientAngle: number;
   borderWidth: number; borderColor: string;
+  /** Per-element pixel-alpha shadow. Missing/false means no shadow in legacy files. */
+  shadowEnabled?: boolean; shadowColor?: string; shadowOpacity?: number;
+  /** Shadow offset and circular spread, stored as 96-DPI design coordinates. */
+  shadowOffsetX?: number; shadowOffsetY?: number; shadowSpread?: number;
   /** Legacy overall opacity (0–100), used as the fallback for older documents. */
   opacity?: number;
   /** Independent component opacities (0–100). Missing values use legacy opacity or 100. */
