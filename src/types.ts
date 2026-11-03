@@ -46,7 +46,8 @@ export interface CardElement {
   /** Filename in autoSet used for every card when autoMode is single. */
   singleImage?: string;
 }
-export interface CardTemplate { name: string; width: number; height: number; unit: Units; dpi: number; background: string; elements: CardElement[]; }
+export type ShadowOverlapMode = 'add' | 'merge';
+export interface CardTemplate { shadowOverlapMode?: ShadowOverlapMode; name: string; width: number; height: number; unit: Units; dpi: number; background: string; elements: CardElement[]; }
 export interface ImageAsset { name: string; data: string; }
 export interface ImageSet { id: string; name: string; images: ImageAsset[]; }
 export interface StagedCard { id: string; name: string; values: Record<string,string>; overrides: Record<string,Partial<CardElement>>; extraElements: CardElement[]; }
