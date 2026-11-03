@@ -85,6 +85,7 @@ function start(){
  const leftHead=document.createElement('div');leftHead.className='m-sheet-head m-only';leftHead.innerHTML='<strong>Library</strong><button data-mobile="close" aria-label="Close panel">✕</button>';$('.side-left').prepend(leftHead);
  const rightClose=document.createElement('button');rightClose.className='m-only m-close';rightClose.dataset.mobile='close';rightClose.textContent='✕';rightClose.setAttribute('aria-label','Close properties');$('.side-right .side-head').append(rightClose);
  const desktopSwitch=document.createElement('button');desktopSwitch.dataset.mobile='switch';desktopSwitch.textContent='Switch to mobile layout';$('.file-menu-panel').append(desktopSwitch);
+ // Capture before desktop actions repaint and detach the clicked panel row.
  document.addEventListener('click',(e:MouseEvent)=>{
   const target=e.target as HTMLElement,control=target.closest('[data-mobile]') as HTMLElement|null;
   if(control){
@@ -96,7 +97,7 @@ function start(){
   }
   if(mobile()&&(target.closest('.m-actions [data-action]')||target.closest('.side-left [data-action]')||target.closest('[data-layer]')||target.closest('.sidebar-cards [data-cardindex]')))closePanel();
   queueMicrotask(refresh);
- });
+ },true);
  document.addEventListener('keydown',(e:KeyboardEvent)=>{if(e.key==='Escape'&&panel!=='none')closePanel()});
  document.addEventListener('change',()=>queueMicrotask(refresh));
  document.addEventListener('pointerup',()=>queueMicrotask(refresh));
