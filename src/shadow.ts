@@ -85,9 +85,53 @@ export function makeShadow(e:CardElement,value:string,img:CanvasImageSource|null
  return {canvas,pad,ratio};
 }
 
+/** A shadow placement in the card's native (96-dpi) coordinate system. */
+export interface PlacedShadow { graphic:ShadowGraphic; x:number; y:number; }
+/**
+ * Max-alpha compositing: the strongest shadow wins at each pixel. Colour comes
+ * from that winning shadow; equal-alpha ties use the later layer's colour.
+ * Unlike source-over, two 50%-opaque shadows remain 50% where they overlap.
+ */
+export function mergeShadowPixels(target:ImageData,source:ImageData,left:number,top:number):void{
+ const tw=target.width,th=target.height,sw=source.width,sh=source.height;
+ const x0=Math.max(0,left),x1=Math.min(tw,left+sw);
+ const y0=Math.max(0,top),y1=Math.min(th,top+sh);
+ if(x0>=x1||y0>=y1)return;
+ const dest=target.data,src=source.data;
+ for(let y=y0;y<y1;y++){
+  let di=(y*tw+x0)*4,si=((y-top)*sw+x0-left)*4;
+  for(let x=x0;x<x1;x++,di+=4,si+=4){
+   const alpha=src[si+3];
+   if(alpha>0&&alpha>=dest[di+3]){
+    dest[di]=src[si];dest[di+1]=src[si+1];dest[di+2]=src[si+2];dest[di+3]=alpha;
+   }
+  }
+ }
+}
+/**
+ * Generate one shared RGBA shadow canvas at the specified output resolution.
+ * The visible elements are subsequently painted over this backdrop in their
+ * original order. This leaves transparent gaps and per-pixel opacities intact.
+ */
+export function mergedShadowCanvas(width:number,height:number,ratio:number,shadows:PlacedShadow[]):HTMLCanvasElement|null{
+ if(!shadows.length||width<1||height<1||width*height>75000000)return null;
+ const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
+ const ctx=canvas.getContext('2d',{willReadFrequently:true});
+ if(!ctx?.putImageData)return null;
+ const result=new ImageData(width,height);
+ for(const {graphic,x,y} of shadows){
+  const src=graphic.canvas.getContext('2d',{willReadFrequently:true});
+  if(!src?.getImageData)continue;
+  const pixels=src.getImageData(0,0,graphic.canvas.width,graphic.canvas.height);
+  mergeShadowPixels(result,pixels,Math.round((x-graphic.pad)*ratio),Math.round((y-graphic.pad)*ratio));
+ }
+ ctx.putImageData(result,0,0);
+ return canvas;
+}
+
 // Preview shadows are keyed by content, not the frame position, so dragging
 // does not re-rasterize a large alpha mask on every pointermove.
-const previewCache=new Map<string,{src:string;width:number;height:number;pad:number}>();
+const previewCache=new Map<string,{src:string;width:number;height:number;pad:number;canvas:HTMLCanvasElement;ratio:number}>();
 const imageIds=new WeakMap<object,number>();let nextImageId=1;
 export function previewShadow(e:CardElement,value:string,img:CanvasImageSource|null,ratio:number){
  if(!hasShadow(e))return null;
@@ -100,7 +144,7 @@ export function previewShadow(e:CardElement,value:string,img:CanvasImageSource|n
  const previous=previewCache.get(cacheKey);if(previous)return previous;
  const result=makeShadow(local,value,img,ratio);
  if(!result||typeof result.canvas.toDataURL!=='function')return null;
- const graphic={src:result.canvas.toDataURL('image/png'),width:result.canvas.width/ratio,height:result.canvas.height/ratio,pad:result.pad};
+ const graphic={src:result.canvas.toDataURL('image/png'),width:result.canvas.width/ratio,height:result.canvas.height/ratio,pad:result.pad,canvas:result.canvas,ratio};
  previewCache.set(cacheKey,graphic);
  if(previewCache.size>24)previewCache.delete(previewCache.keys().next().value!);
  return graphic;
