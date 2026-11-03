@@ -7,6 +7,7 @@ const output = path.join(root, 'public');
 const assets = [
   'index.html',
   'styles.css',
+  'mobile.css',
   'dist/app.js',
   'vendor/jszip.min.js',
 ];
