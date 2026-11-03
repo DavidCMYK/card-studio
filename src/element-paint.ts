@@ -45,6 +45,13 @@ function drawText(ctx:CanvasRenderingContext2D,e:CardElement,value:string,layout
  }
  ctx.restore();
 }
+/** Paint glyphs in the already-computed text box; never auto-size a second time. */
+export function paintTextContent(ctx:CanvasRenderingContext2D,e:CardElement,value:string){
+ const finalBox={...e,autoWidth:false,autoHeight:false};
+ ctx.save();ctx.globalAlpha=opacityFor(e,'textOpacity');
+ drawText(ctx,finalBox,value,layoutTextBox(finalBox,value));
+ ctx.restore();
+}
 /** Render the real visible composite. Transparent pixels contribute no shadow mask. */
 export function paintElement(ctx:CanvasRenderingContext2D,e:CardElement,value:string,img:CanvasImageSource|null,layout?:TextLayout|null){
  ctx.save();
@@ -59,12 +66,13 @@ export function paintElement(ctx:CanvasRenderingContext2D,e:CardElement,value:st
   }else ctx.drawImage(img,e.x+bb.x,e.y+bb.y,bb.w,bb.h);
   ctx.restore();
  }
- if(e.kind==='text'){
-  ctx.globalAlpha=opacityFor(e,'textOpacity');
-  drawText(ctx,e,value,layout||layoutTextBox(e,value));
- }
+ if(e.kind==='text')paintTextContent(ctx,e,value);
  if(e.borderWidth>0){
-  ctx.globalAlpha=opacityFor(e,'borderOpacity');shapePath(ctx,e);
+  ctx.globalAlpha=opacityFor(e,'borderOpacity');
+  // CSS borders sit INSIDE their frame. Centered Canvas strokes used to extend
+  // beyond the frame, making the shadow spread look stronger outside than in.
+  const inset=Math.min(e.borderWidth/2,e.w/2,e.h/2);
+  shapePath(ctx,{...e,x:e.x+inset,y:e.y+inset,w:Math.max(0,e.w-2*inset),h:Math.max(0,e.h-2*inset),radius:Math.max(0,(e.radius||0)-inset)});
   ctx.lineWidth=e.borderWidth;ctx.strokeStyle=e.borderColor;ctx.stroke();
  }
  ctx.restore();
