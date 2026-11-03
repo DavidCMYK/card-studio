@@ -104,7 +104,8 @@ function start(){
   requestAnimationFrame(refresh);
  },true);
  document.addEventListener('keydown',(e:KeyboardEvent)=>{if(e.key==='Escape'&&panel!=='none')closePanel()});
- document.addEventListener('change',()=>queueMicrotask(refresh));
+ document.addEventListener('cardstudio:repaint',refresh);
+ document.addEventListener('change',()=>requestAnimationFrame(refresh));
  document.addEventListener('pointerup',()=>queueMicrotask(refresh));
  window.addEventListener('resize',autoLayout);
  installMobileGestures(refresh,()=>{autoFit=false});
