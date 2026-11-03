@@ -103,3 +103,58 @@ test('preview and PNG exports use the same image-space shadow generator and per-
   assert.ok(drawCalls.length>=2,'export composites each element shadow beneath its source');
  }finally{global.document=oldDoc;global.ImageData=oldImageData;}
 });
+
+test('transparent PNG antialiasing never creates radial low-alpha streaks',()=>{
+ const w=35,h=35;
+ const alpha=mask(w,h,[[17,17,255],[17,16,20],[16,17,20],[18,17,20],[17,18,20],[3,3,128],[31,31,64]]);
+ const spread=spreadAlpha(alpha,w,h,5);
+ for(let y=12;y<=22;y++)for(let x=12;x<=22;x++){
+  if((x-17)**2+(y-17)**2<=25)
+   assert.equal(at(spread,w,x,y),255,'opaque image interior must dominate anti-aliased edges');
+ }
+ assert.equal(at(spread,w,17,8),0,'transparent gap remains clear');
+});
+test('circular max-alpha dilation agrees with brute-force partial-alpha reference',()=>{
+ const w=17,h=15,alpha=new Uint8ClampedArray(w*h);
+ for(let p=0;p<alpha.length;p++)alpha[p]=(p*29+(p%7)*17)%5===0?0:(p*31)%256;
+ for(const r of [0,1,2,3.5]){
+  const found=spreadAlpha(alpha,w,h,r);
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+   let expected=0;
+   const limit=r+.25;
+   for(let sy=0;sy<h;sy++)for(let sx=0;sx<w;sx++)
+    if(Math.hypot(sx-x,sy-y)<=limit)expected=Math.max(expected,alpha[sy*w+sx]);
+   assert.equal(at(found,w,x,y),expected);
+  }
+ }
+});
+test('border shadow mask is inset to match the visible border',()=>{
+ const {paintElement}=require('../.build/element-paint.js');
+ const paths=[];
+ const ctx={save(){},restore(){},beginPath(){},rect(...a){paths.push(a)},clip(){},stroke(){},fillRect(){}};
+ const e=model.makeElement('shape',{x:20,y:30,w:100,h:90,shape:'rect',radius:0,fillMode:'none',borderWidth:8});
+ paintElement(ctx,e,'',null);
+ assert.deepEqual(paths.at(-1),[24,34,92,82]);
+ const w=32,h=32,alpha=new Uint8ClampedArray(w*h);
+ for(let p=10;p<=21;p++)for(const [x,y] of [[p,10],[p,21],[10,p],[21,p]])alpha[y*w+x]=255;
+ const spread=spreadAlpha(alpha,w,h,3);
+ assert.equal(at(spread,w,7,16),255,'outside');
+ assert.equal(at(spread,w,13,16),255,'inside');
+ assert.equal(at(spread,w,16,16),0,'hole');
+});
+test('shadowed text preview uses the same glyph painter as its shadow mask',()=>{
+ const {paintTextContent}=require('../.build/element-paint.js');
+ const {previewTextContent}=require('../.build/shadow.js');
+ const previous=global.document,positions=[];
+ global.document={createElement(){
+  const ctx={save(){},restore(){},beginPath(){},rect(){},clip(){},fillText(t,x,y){positions.push([x,y])},measureText(t){return {width:String(t).length*8}},scale(){}};
+  return {width:0,height:0,getContext(){return ctx},toDataURL(){return 'data:image/png;base64,cg=='}};
+ }};
+ try{
+  const e=model.makeElement('text',{x:5,y:7,w:120,h:80,fillMode:'none',shadowEnabled:true,autoWidth:true,autoHeight:true,text:'HI'});
+  assert.match(previewTextContent(e,'HI',2),/^data:image\/png/);
+  const ctx={save(){},restore(){},beginPath(){},rect(){},clip(){},fillText(t,x,y){positions.push([x,y])},measureText(t){return {width:String(t).length*8}}};
+  paintTextContent(ctx,{...e,x:0,y:0},'HI');
+  assert.deepEqual(positions[0],positions.at(-1));
+ }finally{global.document=previous}
+});
