@@ -34,6 +34,19 @@ export function initial():StudioProject{
  const set:CardSet={id:uid(),name:'Default set',frontTemplateId:template.id!};
  return {type:'cardstudio-project',version:2,projectName:'Untitled deck',fonts:[],template,templates:[template],cardSets:[set],selectedTemplateId:template.id,side:'front',sets:[],cards:[{id:uid(),setId:set.id,name:'Card 001',values:{},overrides:{},extraElements:[]}],mode:'template',cardIndex:0,selected:null,zoom:1.55};
 }
+/** Apply defaults without accidentally replacing a legacy project's own template.
+ * Previous single-template files have no templates/cardSets/selectedTemplateId;
+ * leaving these fields inherited from initial() would silently show a blank
+ * default design and orphan the saved card values and image frames. */
+export function loadedProject(value:Partial<StudioProject>):StudioProject{
+ const defaults=initial();
+ return {
+  ...defaults,...value,
+  templates:Array.isArray(value.templates)&&value.templates.length?value.templates:[value.template||defaults.template],
+  cardSets:Array.isArray(value.cardSets)?value.cardSets:[],
+  selectedTemplateId:value.selectedTemplateId
+ };
+}
 /** Resolve legacy projects without mutating artwork, IDs of existing elements, or card data.
  * The template alias ALWAYS points to one of templates[] in memory. */
 export function normalizeProject(value:StudioProject):StudioProject{
