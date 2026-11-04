@@ -112,3 +112,6 @@
 :root[data-layout="mobile"] .inspector-fold>summary{min-height:47px;padding-top:15px;font-size:14px}
 :root[data-layout="mobile"] .inspector-fold>summary:after{top:12px}
 :root[data-layout="mobile"] .inspector-fold-body{padding:13px 12px 4px}
+
+:root[data-layout="mobile"] .font-browser-list button{min-height:43px;font-size:14px}
+:root[data-layout="mobile"] .font-browser-list{max-height:230px}

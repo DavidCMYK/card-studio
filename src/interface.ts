@@ -62,7 +62,47 @@ export function updateDimensionReadouts(){
  const elementNode=document.querySelector('#elementPixelReadout');
  if(elementNode)elementNode.textContent=elementReadout();
 }
-const fontOptions=['Arial','Arial Black','Calibri','Cambria','Comic Sans MS','Courier New','Garamond','Georgia','Helvetica','Impact','Palatino Linotype','Segoe UI','Tahoma','Times New Roman','Trebuchet MS','Verdana'];let knownFonts=[...fontOptions];
+const fontOptions=['Arial','Arial Black','Calibri','Cambria','Comic Sans MS','Courier New','Garamond','Georgia','Helvetica','Impact','Palatino Linotype','Segoe UI','Tahoma','Times New Roman','Trebuchet MS','Verdana'];
+let knownFonts=[...fontOptions];
+let discoveredFontFamilies:string[]=[];
+let fontBrowserOpen=false;
+let fontBrowserSearch='';
+export function showDiscoveredFonts(families:string[]){
+ discoveredFontFamilies=[...new Set(families.map(s=>s.trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+ setKnownFonts(discoveredFontFamilies);
+ fontBrowserOpen=true;fontBrowserSearch='';
+ renderInspector();
+}
+export function toggleFontBrowser(){
+ fontBrowserOpen=!fontBrowserOpen;
+ fontBrowserSearch='';
+ renderInspector();
+}
+export function closeFontBrowser(){fontBrowserOpen=false;fontBrowserSearch=''}
+export function filterFontBrowser(query:string){
+ fontBrowserSearch=query;
+ const box=$('#inspector') as HTMLElement;
+ const norm=query.trim().toLocaleLowerCase();
+ let visible=0;
+ box.querySelectorAll?.<HTMLElement>('[data-font-row]').forEach(row=>{
+  row.hidden=!((row.dataset.fontRow||'').toLocaleLowerCase().includes(norm));
+  if(!row.hidden)visible++;
+ });
+ const count=box.querySelector?.<HTMLElement>('#fontBrowserCount');
+ if(count)count.textContent=visible+' matching fonts';
+}
+function fontBrowserHTML(){
+ if(!fontBrowserOpen)return '';
+ const names=[...new Set(discoveredFontFamilies.length?[...discoveredFontFamilies,...bundledFontFamilies()]:[...knownFonts,...bundledFontFamilies()])].sort((a,b)=>a.localeCompare(b));
+ const search=fontBrowserSearch.trim().toLocaleLowerCase();
+ const visible=names.filter(name=>name.toLocaleLowerCase().includes(search));
+ return `<section class="font-browser" aria-label="Available fonts">
+  <div class="font-browser-header"><strong>${discoveredFontFamilies.length?'Found '+discoveredFontFamilies.length+' installed font families':'Suggested and embedded fonts'}</strong><span id="fontBrowserCount">${visible.length} matching fonts</span></div>
+  <div class="field"><label for="fontBrowserSearch">Search fonts</label><input id="fontBrowserSearch" data-font-filter="search" type="search" value="${escapeHTML(fontBrowserSearch)}" placeholder="Type part of a font name…" autocomplete="off"></div>
+  <div class="font-browser-list">${names.map(name=>`<button type="button" data-action="choose-font" data-font-family="${escapeHTML(name)}" data-font-row="${escapeHTML(name)}" ${name.toLocaleLowerCase().includes(search)?'':'hidden'}>${escapeHTML(name)}</button>`).join('')}</div>
+  <div class="small" style="padding:8px 0 0">Newly installed font missing? Fully close Chrome or Edge and reopen it, then scan again. You can also embed a font file directly.</div>
+ </section>`;
+}
 
 type InspectorTab='layout'|'content'|'style'|'rules';
 const inspectorTabs:InspectorTab[]=['layout','content','style','rules'];
@@ -84,7 +124,7 @@ function inspectorHeader(title:string,subtitle:string,tabs=false){
 }
 function fieldIdentifier(node:HTMLElement|null){
  if(!node?.dataset)return null;
- for(const key of ['prop','cardvalue','cardFilter','inspectorTab','action']){
+ for(const key of ['prop','cardvalue','cardFilter','fontFilter','inspectorTab','action']){
   if(node.dataset[key]!==undefined)return {key,value:node.dataset[key]};
  }
  if(node.tagName==='SUMMARY'&&node.parentElement?.dataset.inspectorFold)return {key:'fold',value:node.parentElement.dataset.inspectorFold};
@@ -109,7 +149,7 @@ function writeInspector(box:HTMLElement,html:string){
  box.innerHTML=html;
  if(identity){
   const next=identity.key==='fold'?box.querySelector?.<HTMLElement>(`details[data-inspector-fold="${identity.value}"] > summary`):
-   Array.from(box.querySelectorAll?.<HTMLElement>('[data-prop],[data-cardvalue],[data-card-filter],[data-inspector-tab],[data-action]')||[])
+   Array.from(box.querySelectorAll?.<HTMLElement>('[data-prop],[data-cardvalue],[data-card-filter],[data-font-filter],[data-inspector-tab],[data-action]')||[])
    .find(node=>node.dataset[identity.key]===identity.value);
   if(next){
    next.focus?.({preventScroll:true});
@@ -206,7 +246,9 @@ export function renderInspector(){
   else panes.content+=`<div class="field"><label for="selectedCardText">Card text</label><textarea id="selectedCardText" ${editorScope()} data-cardvalue="${raw.id}">${escapeHTML(actualValue(raw))}</textarea></div>`;
   panes.content+=`<div class="section-title">Typography</div>`+
    `<div class="field"><label for="inspectorFont">Font family</label><input id="inspectorFont" ${editorScope()} data-prop="font" list="fontOptions" value="${escapeHTML(e.font)}"><datalist id="fontOptions">${[...new Set([...knownFonts,...bundledFontFamilies()])].map(x=>`<option value="${escapeHTML(x)}"></option>`).join('')}</datalist></div>`+
-   `<div class="inspector-action"><button class="secondary" data-action="scan-fonts">Find installed fonts</button><button class="secondary" data-action="embed-fonts">Embed font files…</button></div><div class="inspector-action"><button class="secondary" data-action="embed-used-fonts">Embed installed fonts used in project…</button></div>`+
+   `<div class="inspector-action"><button class="secondary" data-action="scan-fonts">Find installed fonts</button><button class="secondary" data-action="browse-fonts" aria-expanded="${fontBrowserOpen}">${fontBrowserOpen?'Hide font list':'Browse fonts'}</button></div>`+
+   fontBrowserHTML()+
+   `<div class="inspector-action"><button class="secondary" data-action="embed-fonts">Embed font files…</button><button class="secondary" data-action="embed-used-fonts">Embed installed fonts used in project…</button></div>`+
    `<div class="small" style="padding:0 0 8px">${(S.fonts||[]).some(f=>f.family.toLowerCase()===String(e.font).toLowerCase())?'Embedded font travels with this project.':'Font not included in this project. Embed it to avoid substitutions on other devices.'}</div>`+
    `<div class="fields-two">${field('Font size (pt)','fontSize',e.fontSize,'number','min="1" step="0.5"')}${selectionField('Weight','fontWeight',[[100,'Thin'],[300,'Light'],[400,'Regular'],[500,'Medium'],[600,'Semibold'],[700,'Bold'],[800,'Extra bold'],[900,'Black']],e.fontWeight)}</div>`+
    checkbox('Italic','italic',e.italic)+checkbox('Underline','underline',e.underline)+
@@ -342,5 +384,5 @@ export function chooseCard(i){S.mode='cards';S.cardIndex=clamp(i,0,S.cards.lengt
 export function addElement(kind){const {w,h}=sizePx(),n=S.template.elements.filter(e=>e.kind===kind).length+1;const e=makeElement(kind,{name:uniqName(kind==='text'?`Text ${n}`:kind==='image'?`Image ${n}`:`Shape ${n}`),x:Math.round(w*.15),y:Math.round(h*.15),w:Math.round(w*.7),h:kind==='image'?Math.round(h*.38):kind==='shape'?Math.round(h*.17):65,text:'New text',fontSize:18});if(S.mode==='cards'){card().extraElements??=[];card().extraElements.push(e)}else S.template.elements.push(e);S.selected=e.id;repaint()}
 
 
-export function setKnownFonts(fonts: string[]) { knownFonts = fonts; }
+export function setKnownFonts(fonts: string[]) { knownFonts=[...new Set([...fontOptions,...knownFonts,...fonts])].sort((a,b)=>a.localeCompare(b)); }
 export function baseFonts() { return fontOptions; }

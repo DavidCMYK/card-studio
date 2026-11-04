@@ -111,7 +111,25 @@ const server=http.createServer((req,res)=>{
   const activation=await dp.evaluate(()=>window.__fontActivationCheck);
   assert.equal(activation.active,true,'font access requested during a user click');
   assert.deepEqual(activation.order,['query','confirm'],'permission request precedes licensing confirmation');
-  // Embed a real test-runner font, save a JSON project, and reopen it on mobile.
+  // Font discovery must visibly expose discovered families, not just change a hidden datalist.
+  await dp.locator('[data-layer]').filter({hasText:'Card Title'}).click();
+  await dp.locator('#inspector [data-inspector-tab="content"]').click();
+  await dp.evaluate(()=>{window.queryLocalFonts=()=>Promise.resolve([
+   {family:'New Fantasy Font',fullName:'New Fantasy Font Regular'},
+   {family:'Arial',fullName:'Arial Regular'},
+   {family:'New Fantasy Font',fullName:'New Fantasy Font Bold'}
+  ])});
+  await dp.locator('#inspector [data-action="scan-fonts"]').click();
+  await dp.locator('#inspector .font-browser').waitFor({state:'visible'});
+  assert.equal(await dp.locator('#inspector .font-browser-list button').filter({hasText:'New Fantasy Font'}).count(),1,'font scan deduplicates family and shows selection');
+  await dp.locator('#inspector [data-font-filter="search"]').fill('fantasy');
+  assert.equal(await dp.locator('#inspector .font-browser-list button:visible').count(),1,'font search filters results');
+  await dp.locator('#inspector [data-action="choose-font"]').filter({hasText:'New Fantasy Font'}).click();
+  assert.equal(await dp.locator('#inspector [data-prop="font"]').inputValue(),'New Fantasy Font','selecting discovered font updates text');
+  await dp.locator('#inspector [data-action="browse-fonts"]').click();
+  assert.equal(await dp.locator('#inspector [data-action="choose-font"]').filter({hasText:'New Fantasy Font'}).count(),1,'discovered list persists after selection');
+  await dp.locator('#inspector [data-action="browse-fonts"]').click();
+    // Embed a real test-runner font, save a JSON project, and reopen it on mobile.
   let portableProject=null,desktopPng=null;
   let fontPath='';
   try{fontPath=execFileSync('fc-match',['-f','%{file}\\n','DejaVu Sans'],{encoding:'utf8'}).trim().split('\\n')[0]}catch{}

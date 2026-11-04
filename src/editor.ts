@@ -1,7 +1,7 @@
 import { S, initial, replaceState, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, px, unitFactor, sizePx, clamp, uid } from './model';
 import { $ , toast } from './dom';
 import { renderStage } from './preview';
-import { repaint, renderInspector, renderLeft, renderCardControl, chooseCard, patchElement, addElement, updateDimensionReadouts, setKnownFonts, baseFonts, refreshHistoryButtons, selectInspectorTab, filterCardData } from './interface';
+import { repaint, renderInspector, renderLeft, renderCardControl, chooseCard, patchElement, addElement, updateDimensionReadouts, setKnownFonts, baseFonts, refreshHistoryButtons, selectInspectorTab, filterCardData, showDiscoveredFonts, toggleFontBrowser, closeFontBrowser, filterFontBrowser } from './interface';
 import { imageCache, cacheImage, getImageData, setImageUpdateHandler, imageScreenOffset, imageOffsetPatch } from './image-sets';
 import { exportPNG, exportAll } from './png-export';
 import { exportXLSX, readSheet } from './spreadsheet';
@@ -121,9 +121,33 @@ case 'image-rotate-left':case 'image-rotate-right':{
  const angle=((Number(current.imgRotation||0)+step)%360+360)%360;
  patchElement(raw.id,{imgRotation:angle});repaint();break;
 }
-case 'scan-fonts':scanFonts();break;
+case 'scan-fonts':void scanFonts();break;
+case 'browse-fonts':toggleFontBrowser();break;
+case 'choose-font':{
+ const raw=templateEl(S.selected),family=String(el?.dataset.fontFamily||'').trim();
+ if(raw?.kind==='text'&&family){patchElement(raw.id,{font:family});closeFontBrowser();repaint()}
+ break;
+}
 }}
-async function scanFonts(){if(!('queryLocalFonts' in window)){alert('This browser does not provide installed-font listing. You can still type the name of any installed font in the Font family field. Chrome or Edge on desktop may support font listing.');return}try{const fonts=await window.queryLocalFonts(),names=[...new Set(fonts.map(f=>f.family))].sort();setKnownFonts([...new Set([...baseFonts(),...names])]);renderInspector();toast(`Found ${names.length} installed font families`)}catch(err){alert('Font access was not granted. You can type an installed font name manually.')} }
+async function scanFonts(){
+ if(typeof window.queryLocalFonts!=='function'){
+  alert('Automatic font discovery requires desktop Chrome or Edge over HTTPS. You can still type a font family name or use Embed font files.');
+  return;
+ }
+ try{
+  // The API must run directly from the click to retain Chromium user activation.
+  const fonts=await window.queryLocalFonts();
+  const names=[...new Set(fonts.map(f=>String(f.family||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  showDiscoveredFonts(names);
+  if(names.length)toast('Found '+names.length+' installed font families. Select one from the list.');
+  else toast('No installed fonts returned. Check site permission or use Embed font files.');
+ }catch(err){
+  const name=(err as Error)?.name||'';
+  alert(name==='NotAllowedError'?
+   'Font access was denied. Allow local-font access in this site’s browser permissions, then try again.':
+   'Could not list installed fonts ('+(name||'browser error')+'). You can type a font name or use Embed font files.');
+ }
+}
 function handleProp(input){const key=input.dataset.prop;if(!key)return;let v=input.type==='checkbox'?input.checked:input.value;
  if(key.startsWith('template.')){
   const p=key.split('.')[1],template=S.template;
@@ -183,7 +207,7 @@ function activeInspectorInput(inp){
  if(d.editOwner===undefined)return true; // Programmatic/legacy inputs.
  return d.editOwner===(S.selected||'')&&d.editMode===S.mode&&Number(d.editCard)===S.cardIndex;
 }
-$('#inspector').addEventListener('input',event=>{const inp=event.target;if(inp.dataset.cardFilter!==undefined){filterCardData(inp.value);return}if(!activeInspectorInput(inp))return;noteLiveEdit();if(inp.dataset.cardvalue){const c=card();if(c){c.values??={};c.values[inp.dataset.cardvalue]=inp.value;renderStage();updateDimensionReadouts()}return}if(inp.dataset.prop){handleProp(inp);renderStage();updateDimensionReadouts();$('#projectTitle').textContent=S.projectName}});
+$('#inspector').addEventListener('input',event=>{const inp=event.target;if(inp.dataset.cardFilter!==undefined){filterCardData(inp.value);return}if(inp.dataset.fontFilter!==undefined){filterFontBrowser(inp.value);return}if(!activeInspectorInput(inp))return;noteLiveEdit();if(inp.dataset.cardvalue){const c=card();if(c){c.values??={};c.values[inp.dataset.cardvalue]=inp.value;renderStage();updateDimensionReadouts()}return}if(inp.dataset.prop){handleProp(inp);renderStage();updateDimensionReadouts();$('#projectTitle').textContent=S.projectName}});
 $('#inspector').addEventListener('focusout',()=>{checkpoint();refreshHistoryButtons()});
 // A synchronous inspector rebuild during change removes the focused input before
 // the browser finishes Tab/Shift+Tab navigation. Update the document immediately,
