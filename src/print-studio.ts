@@ -240,6 +240,7 @@ async function runPrint(previewSide?:'front'|'back'){
  finally{busy=false;buttons.forEach(b=>b.disabled=false);inputs.forEach(i=>i.disabled=false);}
 }
 export function openPrintStudio(){
+ imageMemo.clear();
  const holder=document.querySelector('#dialogHolder');if(!holder)return;
  holder.innerHTML=html();
  const root=holder.querySelector('#printModal') as HTMLElement;
