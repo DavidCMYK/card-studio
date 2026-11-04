@@ -132,7 +132,7 @@ case 'undo':if(undo()){imageCache.clear();void activateProjectFonts();repaint()}
  case 'add-card-to-set':newCard(null,el?.dataset.setId);break;
  case 'show-recovery':void showRecovery();break;
  case 'open-project':void openFromDisk('project');break;case 'save-project':void saveProject();break;case 'save-project-as':void saveProjectAs();break;case 'save-template':void saveTemplate();break;case 'save-template-as':void saveTemplateAs();break;case 'save-all-templates':void saveAllTemplates();break;case 'load-template':void openFromDisk('template');break;
-case 'mode-template':case 'card-setup':S.mode='template';syncEditorTemplate();repaint();break;case 'mode-cards':S.mode='cards';syncEditorTemplate();repaint();break;
+case 'mode-template':case 'card-setup':if(S.mode==='cards')S.selectedTemplateId=S.template.id;S.mode='template';syncEditorTemplate();repaint();break;case 'mode-cards':S.mode='cards';syncEditorTemplate();repaint();break;
 case 'add-text':case 'add-image':case 'add-shape':addElement(action.slice(4));break;
 case 'copy-element':copyElement();break;case 'cut-element':copyElement(true);break;case 'paste-element':pasteElement();break;
 case 'delete-element':if(!S.selected)return;if(S.mode==='cards'){if(isExtra(S.selected)){S.side==='back'?card().backExtraElements=cardExtras(card()).filter(x=>x.id!==S.selected):card().extraElements=cardExtras(card()).filter(x=>x.id!==S.selected)}else patchElement(S.selected,{hidden:true});S.selected=null;repaint();toast('Removed from this card only')}else if(confirm('Delete this element from the template and all cards?')){S.template.elements=S.template.elements.filter(x=>x.id!==S.selected);S.selected=null;repaint()}break;
