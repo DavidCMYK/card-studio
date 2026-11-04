@@ -9,7 +9,7 @@ import { exportPNG, exportAll, exportTrimmedPNG } from './png-export';
 import {guidesFor,changeBleedMode,setGuideDistance,distanceMm,validateGuides,setCutDimension,setCanvasDimension,setSafeZoneDimension,setGuideLinked,setGuideUnit,setGuideCornerRadius} from './card-guides';
 import { openPrintStudio } from './print-studio';
 import { exportXLSX, readSheet } from './spreadsheet';
-import { saveProject, saveProjectAs, saveTemplate, saveTemplateAs, openFromDisk, openJSON, resetFileHandles } from './project-storage';
+import { saveProject, saveProjectAs, saveTemplate, saveTemplateAs, saveAllTemplates, openFromDisk, openJSON, resetFileHandles } from './project-storage';
 import { importImages, setTargetImageSet } from './assets';
 import { openImageManager, closeImageManager, renderImageManager, imageManagerAction } from './image-manager';
 import { layoutTextBox } from './text-layout';
@@ -131,7 +131,7 @@ case 'undo':if(undo()){imageCache.clear();void activateProjectFonts();repaint()}
  }
  case 'add-card-to-set':newCard(null,el?.dataset.setId);break;
  case 'show-recovery':void showRecovery();break;
- case 'open-project':void openFromDisk('project');break;case 'save-project':void saveProject();break;case 'save-project-as':void saveProjectAs();break;case 'save-template':void saveTemplate();break;case 'save-template-as':void saveTemplateAs();break;case 'load-template':void openFromDisk('template');break;
+ case 'open-project':void openFromDisk('project');break;case 'save-project':void saveProject();break;case 'save-project-as':void saveProjectAs();break;case 'save-template':void saveTemplate();break;case 'save-template-as':void saveTemplateAs();break;case 'save-all-templates':void saveAllTemplates();break;case 'load-template':void openFromDisk('template');break;
 case 'mode-template':case 'card-setup':S.mode='template';syncEditorTemplate();repaint();break;case 'mode-cards':S.mode='cards';syncEditorTemplate();repaint();break;
 case 'add-text':case 'add-image':case 'add-shape':addElement(action.slice(4));break;
 case 'copy-element':copyElement();break;case 'cut-element':copyElement(true);break;case 'paste-element':pasteElement();break;
