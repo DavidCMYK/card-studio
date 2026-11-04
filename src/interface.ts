@@ -1,4 +1,4 @@
-import { S, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, clamp, px, fmt, sizePx, makeElement, textKinds, escapeHTML, unitFactor, exportPixels, templateExportSize, isExported, isDataExported, visibleOnCard, opacityFor } from './model';
+import { S, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, clamp, px, fmt, sizePx, makeElement, textKinds, escapeHTML, unitFactor, exportPixels, templateExportSize, isExported, isDataExported, visibleOnCard, opacityFor, cardSetFor } from './model';
 import {guideRects,displayedDistance,guidesFor} from './card-guides';
 import {guideSettingsHtml} from './guide-ui';
 import { $ } from './dom';
@@ -11,7 +11,14 @@ import {renderCardThumbnails} from './card-thumbnails';
 import {repositionImageId,canRepositionImage} from './image-reposition';
 import {isolatedTextId} from './text-isolation';
 import {imageFitAxes,imageScreenOffset,imageCache,getImageData} from './image-sets';
-export function renderCardControl(){const cc=$('#cardControl');cc.style.display=S.mode==='cards'?'flex':'none';if(S.mode!=='cards')return;cc.innerHTML=`<span style="font-weight:700;color:#62778f">CARD</span><button data-action="prev-card" title="Previous card">‹</button><select id="cardSelector">${S.cards.map((c,i)=>`<option value="${i}" ${i===S.cardIndex?'selected':''}>${escapeHTML(c.name)}</option>`).join('')}</select><button data-action="next-card" title="Next card">›</button><span style="color:#8a98a9;margin-left:auto">${S.cardIndex+1} / ${S.cards.length}</span>`}
+export function renderCardControl(){
+ const cc=$('#cardControl');cc.style.display=S.mode==='cards'?'flex':'none';if(S.mode!=='cards')return;
+ const set=cardSetFor(card());
+ cc.innerHTML=`<span style="font-weight:700;color:#62778f">CARD</span><button data-action="prev-card" title="Previous card">‹</button><select id="cardSelector">${S.cards.map((c,i)=>`<option value="${i}" ${i===S.cardIndex?'selected':''}>${escapeHTML(c.name)}</option>`).join('')}</select><button data-action="next-card" title="Next card">›</button>
+  <span class="small" style="padding:0 4px">${escapeHTML(set?.name||'')}</span>
+  <label class="small">Side <select id="cardSideSelector" aria-label="Card side"><option value="front" ${S.side!=='back'?'selected':''}>Front</option>${set?.backTemplateId?`<option value="back" ${S.side==='back'?'selected':''}>Back</option>`:''}</select></label>
+  <span style="color:#8a98a9;margin-left:auto">${S.cardIndex+1} / ${S.cards.length}</span>`;
+}
 export function renderLeft(){
  const v=$('#leftBody');
  const templateButton=$('#btnTemplate'),cardsButton=$('#btnCards');
@@ -20,16 +27,35 @@ export function renderLeft(){
  templateButton.setAttribute?.('aria-pressed',String(S.mode==='template'));
  cardsButton.setAttribute?.('aria-pressed',String(S.mode==='cards'));
  // Repaint on selection changes should never jump a toolbox back to its top.
- const previousScroll=Object.fromEntries(['layersScroll','cardsScroll','setsScroll'].map(id=>[id,document.querySelector('#'+id)?.scrollTop||0]));
+ const previousScroll=Object.fromEntries(['layersScroll','templatesScroll','cardSetsScroll','cardsScroll','setsScroll'].map(id=>[id,document.querySelector('#'+id)?.scrollTop||0]));
  const layers=[...layerEls()].filter(e=>S.mode==='template'||visibleOnCard(e,S.cardIndex,'cards')).reverse();
  let out=`<section class="sidebar-panel sidebar-layers" aria-label="Layers toolbox">
   <div class="side-head"><h2>LAYERS</h2><span class="pill">${layers.length}</span></div>
   <div class="sidebar-panel-scroll" id="layersScroll"><div class="small">Topmost layers are shown first. Select an element to edit it.</div>
   <div class="layer-list">${layers.map(e=>`<div class="layer-row ${e.id===S.selected?'active':''}" data-layer="${e.id}"><span style="font-size:15px;color:#7b91ad">${e.kind==='text'?'T':e.kind==='image'?'▧':'◇'}</span><span class="name">${escapeHTML(e.name)}<span class="sub">${e.kind}${e.locked?' · locked':''}${!isExported(e)?' · editor only':''}</span></span></div>`).join('')}</div></div>
  </section>`;
+ out+=`<section class="sidebar-panel sidebar-templates" aria-label="Templates toolbox">
+ <div class="side-head"><h2>TEMPLATES</h2><button data-action="new-template" title="Create empty template">＋ New</button></div>
+ <div class="sidebar-panel-scroll" id="templatesScroll">
+ ${(S.templates||[S.template]).map(t=>`<div class="asset-row ${S.mode==='template'&&S.selectedTemplateId===t.id?'active':''}">
+  <div class="asset-title"><button class="secondary" data-template-id="${escapeHTML(t.id||'')}" title="Edit shared template">${escapeHTML(t.name)}</button></div>
+  <div class="asset-actions"><button data-action="duplicate-template" data-template-id="${escapeHTML(t.id||'')}">Duplicate</button><button data-action="rename-template" data-template-id="${escapeHTML(t.id||'')}">Rename</button><button data-action="delete-template" data-template-id="${escapeHTML(t.id||'')}">Delete</button></div>
+ </div>`).join('')}
+ </div></section>`;
+ const templateChoices=(selected?:string,none=false)=>`${none?'<option value="">None</option>':''}${(S.templates||[]).map(t=>`<option value="${escapeHTML(t.id||'')}" ${selected===t.id?'selected':''}>${escapeHTML(t.name)}</option>`).join('')}`;
+ out+=`<section class="sidebar-panel sidebar-cardsets" aria-label="Card sets toolbox">
+ <div class="side-head"><h2>CARD SETS</h2><button data-action="new-card-set">＋ Set</button></div>
+ <div class="sidebar-panel-scroll" id="cardSetsScroll">
+ ${(S.cardSets||[]).map(set=>`<div class="asset-row">
+  <div class="asset-title"><strong>${escapeHTML(set.name)}</strong><span class="count">${S.cards.filter(c=>c.setId===set.id).length} cards</span></div>
+  <div class="field"><label>Front template</label><select data-set-side="front" data-set-id="${escapeHTML(set.id)}">${templateChoices(set.frontTemplateId)}</select></div>
+  <div class="field"><label>Back template</label><select data-set-side="back" data-set-id="${escapeHTML(set.id)}">${templateChoices(set.backTemplateId,true)}</select></div>
+  <div class="asset-actions"><button data-action="add-card-to-set" data-set-id="${escapeHTML(set.id)}">＋ Card</button><button data-action="rename-card-set" data-set-id="${escapeHTML(set.id)}">Rename</button><button data-action="delete-card-set" data-set-id="${escapeHTML(set.id)}">Delete</button></div>
+ </div>`).join('')}
+ </div></section>`;
  out+=`<section class="sidebar-panel sidebar-cards" aria-label="Staged cards toolbox">
   <div class="side-head"><h2>STAGED CARDS</h2><button data-action="add-card">＋ Add card</button></div>
-  <div class="sidebar-panel-scroll" id="cardsScroll"><div class="card-list">${S.cards.map((c,i)=>`<div class="card-row ${S.mode==='cards'&&i===S.cardIndex?'active':''}" data-cardindex="${i}"><span class="mini-art"><img data-card-thumb="${i}" alt="Preview of ${escapeHTML(c.name)}" loading="lazy"><span class="thumb-number">${String(i+1).padStart(2,'0')}</span></span><span class="name">${escapeHTML(c.name)}<span class="sub">${Object.keys(c.overrides||{}).length?'Custom layout':'Template layout'}</span></span><button class="small-btn" data-action="duplicate-card" data-cardindex="${i}" title="Duplicate card">⧉</button></div>`).join('')}</div></div>
+  <div class="sidebar-panel-scroll" id="cardsScroll"><div class="card-list">${S.cards.map((c,i)=>`<div class="card-row ${S.mode==='cards'&&i===S.cardIndex?'active':''}" data-cardindex="${i}"><span class="mini-art"><img data-card-thumb="${i}" alt="Preview of ${escapeHTML(c.name)}" loading="lazy"><span class="thumb-number">${String(i+1).padStart(2,'0')}</span></span><span class="name">${escapeHTML(c.name)}<span class="sub">${escapeHTML(cardSetFor(c)?.name||'Default set')} · ${Object.keys(c.overrides||{}).length?'Custom layout':'Template layout'}</span></span><button class="small-btn" data-action="duplicate-card" data-cardindex="${i}" title="Duplicate card">⧉</button></div>`).join('')}</div></div>
   ${S.mode==='cards'?'<div class="sidebar-panel-footer actionbar"><button class="secondary" data-action="delete-card">Delete card</button><button class="secondary" data-action="reset-card">Reset layout edits</button></div>':''}
  </section>`;
  out+=`<section class="sidebar-panel sidebar-sets" aria-label="Image sets toolbox">
@@ -222,6 +248,7 @@ export function renderInspector(){
   $('#rightTitle').textContent='Card data';
   let out=inspectorHeader(card()?.name||'Card',`Card ${S.cardIndex+1} of ${S.cards.length} · Spreadsheet values`);
   out+=field('Card name','card.name',card()?.name||'');
+  out+=selectionField('Card set','card.setId',(S.cardSets||[]).map(set=>[set.id,set.name]),card()?.setId||S.cardSets?.[0]?.id);
   out+=`<div class="section-title">Element values</div><div class="field"><label for="cardDataFilter">Find a field</label><input id="cardDataFilter" data-card-filter="search" type="search" placeholder="Filter element values…" value="${escapeHTML(cardDataSearch)}" autocomplete="off"></div>`;
   out+=`<div class="small" style="padding:0 0 12px">Only this card changes. Select a layer to edit its layout or appearance.</div>`;
   const entries=S.template.elements.filter(e=>textKinds.includes(e.kind));
