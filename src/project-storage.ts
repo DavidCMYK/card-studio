@@ -1,4 +1,4 @@
-import { S, initial, replaceState, safeFile,selectProjectTemplate,templateById,normalizeProject } from './model';
+import { S, initial, replaceState, safeFile,selectProjectTemplate,templateById,normalizeProject,uid } from './model';
 import {cloneTemplate} from './project-collections';
 import { $, jsonDownload, download, toast } from './dom';
 import { imageCache } from './image-sets';
@@ -17,7 +17,12 @@ export function resetFileHandles() { projectFileHandle = null; templateFileHandl
 const projectName = () => safeFile(S.projectName) + '.cardstudio.json';
 const templateName = () => safeFile(S.template.name) + '.template.json';
 const projectContents = () => ({...S, template:(S.templates||[S.template])[0],templates:S.templates||[S.template],cardSets:S.cardSets,type:'cardstudio-project',version:2});
-const templateContents = (template=S.template) => ({type:'cardstudio-template',version:2,template,fonts:S.fonts||[]});
+const templateContents = (template=S.template) => ({
+ type:'cardstudio-template',version:2,template,fonts:S.fonts||[],
+ // Include the artwork sets referenced by this template so it can be
+ // imported into a different project without orphaning its image frames.
+ sets:S.sets.filter(set=>template.elements.some(e=>e.kind==='image'&&(e.autoSet===set.id||e.autoSet===set.name)))
+});
 const filePicker = (type: 'project'|'template', name: string) => ({
  suggestedName: name,
  types:[{description: type==='project'?'Card Studio project':'Card Studio template',accept:{'application/json':['.json']}}]
@@ -144,7 +149,22 @@ export async function openJSON(file: {text: () => Promise<string>}, onlyTemplate
    // separately loaded template cannot accidentally share field IDs.
    normalizeProject(S);
    const added=cloneTemplate(obj.template,obj.template.name||'Imported template');
+   // Keep imported image assets independent from existing image sets.
+   const importedSets=Array.isArray(obj.sets)?obj.sets:[];
+   const remap=new Map<string,string>();
+   for(const assetSet of importedSets){
+    if(!Array.isArray(assetSet.images))continue;
+    const newSet={...structuredClone(assetSet),id:uid()};
+    S.sets.push(newSet);
+    if(assetSet.id)remap.set(String(assetSet.id),newSet.id);
+    if(assetSet.name)remap.set(String(assetSet.name),newSet.id);
+   }
+   for(const element of added.elements){
+    if(element.kind==='image'&&element.autoSet&&remap.has(element.autoSet))
+     element.autoSet=remap.get(element.autoSet)!;
+   }
    S.templates!.push(added);
+   imageCache.clear();
    const incoming=Array.isArray(obj.fonts)?obj.fonts:[];
    S.fonts??=[];
    for(const font of incoming){
