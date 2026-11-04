@@ -195,9 +195,19 @@ let lastImagePointer:{id:string;x:number;y:number;at:number}|null=null;
 $('#canvasOuter').addEventListener('pointerdown',e=>{if(!(e.pointerType==='touch'&&document.documentElement?.dataset.layout==='mobile')&&e.button===0&&!e.composedPath().includes(stage))clearSelection()});
 stage.addEventListener('pointerdown',e=>{
  if(e.button!==0||(e.pointerType==='touch'&&document.documentElement?.dataset.layout==='mobile'))return;
- const node=e.target.closest('.element');if(!node){clearSelection();return}
- const id=node.dataset.id;
- if(templateEl(id)?.kind==='image')lastImagePointer={id,x:e.clientX,y:e.clientY,at:Date.now()};
+ const now=Date.now(),previous=lastImagePointer;
+ const rapid=!!previous&&now-previous.at<490&&Math.hypot(previous.x-e.clientX,previous.y-e.clientY)<24;
+ const node=e.target.closest('.element');
+ const id=node?.dataset.id||(rapid?previous!.id:null);
+ if(!id){lastImagePointer=null;clearSelection();return}
+ const raw=templateEl(id);
+ if(rapid&&previous!.id===id&&raw?.kind==='image'){
+  // Recognize the second pointerdown before redraw removes the click target.
+  S.selected=id;drag=null;lastImagePointer=null;
+  if(enterImageReposition(id)){renderInspector();renderLeft();renderStage()}
+  e.preventDefault();return;
+ }
+ lastImagePointer=raw?.kind==='image'?{id,x:e.clientX,y:e.clientY,at:now}:null;
  if(repositionImageId()&&repositionImageId()!==id)stopImageReposition();
  S.selected=id;renderInspector();renderLeft();
  const el=effective(templateEl(id)),rect=elementGeometry(templateEl(id));
@@ -210,7 +220,7 @@ stage.addEventListener('pointerdown',e=>{
   imageStart:{...el},lockAspect:locksImageCornerAspect(el.kind,el.imageFit,handle)};
  e.preventDefault();
 });
-document.addEventListener('pointermove',e=>{if(!drag)return;const {w,h}=sizePx(),dx=(e.clientX-drag.initialX)/S.zoom,dy=(e.clientY-drag.initialY)/S.zoom;let patch;if(drag.type==='image'){patch=imageDragPatch(drag.imageStart,dx,dy)}else if(drag.type==='resize'){const rect=resizedRect(drag.visual,drag.handle||'se',dx,dy,{w,h},drag.lockAspect);const handle=drag.handle||'se';patch={};if(handle.includes('w')||handle.includes('e'))Object.assign(patch,{x:rect.x,w:rect.w,autoWidth:false});if(handle.includes('n')||handle.includes('s'))Object.assign(patch,{y:rect.y,h:rect.h,autoHeight:false})}else patch={x:Math.round(clamp(drag.x+dx,-drag.w+4,w-4)),y:Math.round(clamp(drag.y+dy,-drag.h+4,h-4))};patchElement(drag.id,patch);renderStage();renderInspector()});
+document.addEventListener('pointermove',e=>{if(!drag)return;if(Math.hypot(e.clientX-drag.initialX,e.clientY-drag.initialY)>9)lastImagePointer=null;const {w,h}=sizePx(),dx=(e.clientX-drag.initialX)/S.zoom,dy=(e.clientY-drag.initialY)/S.zoom;let patch;if(drag.type==='image'){patch=imageDragPatch(drag.imageStart,dx,dy)}else if(drag.type==='resize'){const rect=resizedRect(drag.visual,drag.handle||'se',dx,dy,{w,h},drag.lockAspect);const handle=drag.handle||'se';patch={};if(handle.includes('w')||handle.includes('e'))Object.assign(patch,{x:rect.x,w:rect.w,autoWidth:false});if(handle.includes('n')||handle.includes('s'))Object.assign(patch,{y:rect.y,h:rect.h,autoHeight:false})}else patch={x:Math.round(clamp(drag.x+dx,-drag.w+4,w-4)),y:Math.round(clamp(drag.y+dy,-drag.h+4,h-4))};patchElement(drag.id,patch);renderStage();renderInspector()});
 document.addEventListener('pointerup',()=>{if(drag){drag=null;checkpoint();refreshHistoryButtons();renderInspector();renderLeft();renderStage()}});
 function onImageDoubleClick(e:MouseEvent){
  if(document.documentElement?.dataset.layout==='mobile')return;
