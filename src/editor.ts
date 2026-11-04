@@ -233,7 +233,9 @@ function handleProp(input){const key=input.dataset.prop;if(!key)return;let v=inp
 
  if(key.startsWith('template.')){
   const p=key.split('.')[1],template=S.template;
-  if(p==='unit'){
+  if(p==='name'){
+    v=uniqueTemplateName(String(v),template.id);
+  }else if(p==='unit'){
     const oldFactor=unitFactor(template.unit,template.dpi),newFactor=unitFactor(v,template.dpi);
     template.width=Number((template.width*oldFactor/newFactor).toFixed(12));
     template.height=Number((template.height*oldFactor/newFactor).toFixed(12));
