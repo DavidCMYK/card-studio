@@ -1,13 +1,23 @@
 /** Dependency-free PDF writer: one JPEG-encoded full-resolution print sheet per page. */
 export interface PdfJpegPage {jpeg:Uint8Array;pixelWidth:number;pixelHeight:number;widthMm:number;heightMm:number;}
-const encoder=new TextEncoder();
+// PDF syntax here is ASCII, apart from the deliberately binary header marker.
+// Write these bytes directly: TextEncoder is not available in every test runtime.
+function pdfBytes(value:string):Uint8Array {
+  const bytes=new Uint8Array(value.length);
+  for(let i=0;i<value.length;i++){
+    const code=value.charCodeAt(i);
+    if(code>255)throw Error('Non-Latin-1 character in PDF syntax');
+    bytes[i]=code;
+  }
+  return bytes;
+}
 export function buildPrintPdf(pages:PdfJpegPage[]):Blob {
   if(!pages.length)throw Error('There are no print pages');
   const data:Uint8Array[]=[];
   const offsets:number[]=[0];
   let position=0;
   const add=(bytes:Uint8Array)=>{data.push(bytes);position+=bytes.byteLength;};
-  const str=(s:string)=>add(encoder.encode(s));
+  const str=(s:string)=>add(pdfBytes(s));
   const obj=(id:number,text:string)=>{offsets[id]=position;str(id+' 0 obj\n'+text+'\nendobj\n');};
   str('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
   obj(1,'<< /Type /Catalog /Pages 2 0 R >>');
@@ -22,7 +32,7 @@ export function buildPrintPdf(pages:PdfJpegPage[]):Blob {
     str(im+' 0 obj\n<< /Type /XObject /Subtype /Image /Width '+page.pixelWidth+' /Height '+page.pixelHeight+' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length '+page.jpeg.byteLength+' >>\nstream\n');
     add(page.jpeg);
     str('\nendstream\nendobj\n');
-    const command=encoder.encode('q\n'+w+' 0 0 '+h+' 0 0 cm\n/Sheet'+i+' Do\nQ\n');
+    const command=pdfBytes('q\n'+w+' 0 0 '+h+' 0 0 cm\n/Sheet'+i+' Do\nQ\n');
     offsets[content]=position;
     str(content+' 0 obj\n<< /Length '+command.byteLength+' >>\nstream\n');
     add(command);
