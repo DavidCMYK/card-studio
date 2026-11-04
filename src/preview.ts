@@ -12,11 +12,11 @@ export function renderStage(){const st=$('#stage'),{w,h}=sizePx(),z=S.zoom;st.st
  const bar=document.querySelector('#imageRepositionBar') as HTMLElement|null;
  if(bar){
   bar.hidden=!activeImage&&!activeText;
-  const title=bar.querySelector('strong'),button=bar.querySelector('button');
+  const title=bar.querySelector?.('strong'),button=bar.querySelector?.('button');
   if(title)title.textContent=activeText?'Edit text independently':'Reposition image';
   if(button)button.dataset.action=activeText?'finish-text-isolation':'finish-reposition-image';
   if(activeText){
-   const hint=bar.querySelector('#imageRepositionHint');
+   const hint=bar.querySelector?.('#imageRepositionHint');
    if(hint)hint.textContent='Move or resize text · Linked shapes and images stay in place';
   }
  }
