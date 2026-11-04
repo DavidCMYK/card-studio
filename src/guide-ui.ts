@@ -14,7 +14,7 @@ export function guideSettingsHtml(t:CardTemplate,
   return checkbox('Same '+name.toLowerCase()+' distance on every side','guide.'+kind+'Linked',linked)+
    (linked?input('top'):'<div class="fields-two">'+['top','right','bottom','left'].map(input).join('')+'</div>');
  };
- return '<div class="small" style="padding:0 0 8px">Canvas edge = artwork edge. A trim guide is only needed when the canvas includes bleed.</div>'+
+ return '<div class="small" style="padding:0 0 8px">The canvas edge is the artwork boundary, not a guide. The cut guide is inset when bleed is present; without bleed it coincides with the canvas edge.</div>'+
  selectionField('Canvas dimensions represent','guide.bleedMode',[
   ['trim','Finished card size (canvas excludes bleed)'],['bleed','Full artwork size (canvas includes bleed)']],g.bleedMode)+
  '<div class="small" style="padding:0 0 9px">Cut size stays fixed when changing bleed or canvas size. Changing bleed expands/shrinks the canvas; changing canvas recalculates bleed. Changing the bleed mode adds/removes the configured bleed from the canvas. Existing artwork coordinates are never changed.</div>'+
