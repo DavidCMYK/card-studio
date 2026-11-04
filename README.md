@@ -119,3 +119,10 @@ The test deployment is also a Progressive Web App (PWA). Once it has loaded onli
 On Android Chrome, open the test site online, then use the browser menu's **Install app** or **Add to Home screen** option. On desktop Chrome/Edge, look for the browser's Install app control. Installation support and menu wording vary by browser. Launch it once while online to finish caching; afterward, editing and local recovery work offline.
 
 PWA storage is tied to the exact site origin. Installing the *test* address does not migrate local drafts to a future live domain; save JSON files to move projects between devices or environments. An installed PWA is still a web application; Android/iOS native wrappers remain separate future work.
+
+
+## Print sheets PDF (test branch)
+
+Open **Print sheets PDF** from the desktop toolbar or mobile Export menu to create printable A4, Letter, or custom-size PDF sheets. Choose portrait/landscape paper, margins, card spacing, cut marks, 150/300 DPI, and edge-extension bleed. Select cards and quantities without duplicating staged cards. Add a shared back image or a different back image per card; double-sided output alternates front/back pages and mirrors placement for long- or short-edge duplex printing. Preview the first front or back sheet before exporting.
+
+Print at **actual size / 100%**, not fit-to-page. Edge-extension bleed repeats the outer edge pixels; it is not a substitute for artwork composed with a genuine bleed area. Printer alignment varies, so test duplex registration before producing a large deck. This initial PDF output embeds raster RGB JPEG sheets, not CMYK or vector elements. Print selections, quantities, backs and print settings are saved in project JSON. Printed card designs preserve the existing shared template and individual card overrides.
