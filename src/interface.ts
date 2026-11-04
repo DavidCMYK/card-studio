@@ -268,7 +268,8 @@ export function renderInspector(){
  $('#rightTitle').textContent='Element properties';
  const panes:Record<InspectorTab,string>={layout:'',content:'',style:'',rules:''};
  const f=unitFactor(S.template.unit,S.template.dpi),unit=S.template.unit;
- panes.layout+=`<div class="section-title">Position and size (${unit})</div><div class="fields-two">${field('X ('+unit+')','x',fmt(geometry.x/f),'number','step="any"')}${field('Y ('+unit+')','y',fmt(geometry.y/f),'number','step="any"')}${field('Width ('+unit+')','w',fmt(geometry.w/f),'number','min="0.01" step="any"')}${field('Height ('+unit+')','h',fmt(geometry.h/f),'number','min="0.01" step="any"')}</div><div class="small" style="padding:4px 0 12px" id="elementPixelReadout">${elementReadout()}</div>`;
+ const dimensionValue=(value:number)=>unit==='px'?value/f:fmt(value/f);
+ panes.layout+=`<div class="section-title">Position and size (${unit})</div><div class="fields-two">${field('X ('+unit+')','x',dimensionValue(geometry.x),'number','step="any"')}${field('Y ('+unit+')','y',dimensionValue(geometry.y),'number','step="any"')}${field('Width ('+unit+')','w',dimensionValue(geometry.w),'number','min="0.01" step="any"')}${field('Height ('+unit+')','h',dimensionValue(geometry.h),'number','min="0.01" step="any"')}</div><div class="small" style="padding:4px 0 12px" id="elementPixelReadout">${elementReadout()}</div>`;
  panes.layout+=checkbox('Lock position','locked',e.locked);
  if(raw.kind==='text'){
   const isolated=isolatedTextId()===raw.id;
@@ -277,13 +278,12 @@ export function renderInspector(){
    checkbox('Auto width (expand horizontally)','autoWidth',e.autoWidth===true)+
    checkbox('Auto height (expand vertically)','autoHeight',e.autoHeight===true)+
    `<div class="small" style="padding:0 0 12px">The box grows from its text alignment. Width and Height above are the anchor dimensions.</div>`);
-  const factor=unitFactor(unit,S.template.dpi);
   panes.layout+=fold('text-gutters',`Text gutters (${unit})`,
    `<div class="fields-two">`+
-   field('Left ('+unit+')','gutterLeft',fmt((e.gutterLeft||0)/factor),'number','min="0" step="any"')+
-   field('Right ('+unit+')','gutterRight',fmt((e.gutterRight||0)/factor),'number','min="0" step="any"')+
-   field('Top ('+unit+')','gutterTop',fmt((e.gutterTop||0)/factor),'number','min="0" step="any"')+
-   field('Bottom ('+unit+')','gutterBottom',fmt((e.gutterBottom||0)/factor),'number','min="0" step="any"')+
+   field('Left ('+unit+')','gutterLeft',dimensionValue(e.gutterLeft||0),'number','min="0" step="any"')+
+   field('Right ('+unit+')','gutterRight',dimensionValue(e.gutterRight||0),'number','min="0" step="any"')+
+   field('Top ('+unit+')','gutterTop',dimensionValue(e.gutterTop||0),'number','min="0" step="any"')+
+   field('Bottom ('+unit+')','gutterBottom',dimensionValue(e.gutterBottom||0),'number','min="0" step="any"')+
    `</div><div class="small" style="padding:0 0 10px">Text remains inside these clearances; the border and fill still cover the full box.</div>`);
  }else if(e.linkedTextId){
   panes.layout+=fold('anchor-edges','Anchor edges to text',
@@ -326,8 +326,8 @@ export function renderInspector(){
   if(e.imageFit==='free')panes.content+=field('Image scale (×)','imgScale',e.imgScale,'number','min="0.01" step="0.1"');
   if(axes.x||axes.y){
    panes.content+=`<div class="fields-two">`+
-    (axes.x?field('Offset X (px)','imgOffsetX',Number(offset.x.toFixed(4)),'number','step="1"'):'')+
-    (axes.y?field('Offset Y (px)','imgOffsetY',Number(offset.y.toFixed(4)),'number','step="1"'):'')+
+    (axes.x?field('Offset X (px)','imgOffsetX',offset.x,'number','step="1"'):'')+
+    (axes.y?field('Offset Y (px)','imgOffsetY',offset.y,'number','step="1"'):'')+
     `</div>`;
   }
   if(canRepositionImage(e)){
@@ -363,7 +363,7 @@ export function renderInspector(){
  panes.style+=`<div class="section-title">Shadow</div>`+
   checkbox('Enable shadow','shadowEnabled',e.shadowEnabled===true);
  if(e.shadowEnabled){
-  const spx=(v:number|undefined)=>fmt((Number(v)||0)*S.template.dpi/96);
+  const spx=(v:number|undefined)=>(Number(v)||0)*S.template.dpi/96;
   panes.style+=fold('shadow-advanced','Shadow controls',
    `<div class="fields-two">${field('Shadow colour','shadowColor',e.shadowColor||'#000000','color')}${field('Opacity (%)','shadowOpacity',e.shadowOpacity??65,'number','min="0" max="100" step="1"')}</div>`+
    `<div class="fields-two">${field('Offset X (export px)','shadowOffsetX',spx(e.shadowOffsetX),'number','step="1"')}${field('Offset Y (export px)','shadowOffsetY',spx(e.shadowOffsetY),'number','step="1"')}</div>`+
