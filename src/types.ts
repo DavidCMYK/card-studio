@@ -1,3 +1,4 @@
+import type { PrintOptions } from './print-layout';
 /** Persisted project schema (compatible with v1 Card Studio JSON files). */
 export type ElementKind = 'text' | 'image' | 'shape';
 export type Units = 'mm' | 'in' | 'px';
@@ -52,10 +53,11 @@ export type ShadowOverlapMode = 'add' | 'merge';
 export interface CardTemplate { shadowOverlapMode?: ShadowOverlapMode; name: string; width: number; height: number; unit: Units; dpi: number; background: string; elements: CardElement[]; }
 export interface ImageAsset { name: string; data: string; }
 export interface ImageSet { id: string; name: string; images: ImageAsset[]; }
-export interface StagedCard { id: string; name: string; values: Record<string,string>; overrides: Record<string,Partial<CardElement>>; extraElements: CardElement[]; }
+export interface StagedCard { id: string; name: string; values: Record<string,string>; overrides: Record<string,Partial<CardElement>>; extraElements: CardElement[]; printEnabled?: boolean; printQuantity?: number; printBack?: string; }
 /** Font binary carried inside projects/templates for consistent cross-device rendering. */
 export interface EmbeddedFont { family:string; filename:string; data:string; weight?:number; style?:'normal'|'italic'; }
 export interface StudioProject {
+  printSetup?: PrintOptions;
   type: 'cardstudio-project'; version: number; projectName: string;
   template: CardTemplate; sets: ImageSet[]; cards: StagedCard[]; fonts?: EmbeddedFont[];
   mode: 'template' | 'cards'; cardIndex: number; selected: string | null; zoom: number;
