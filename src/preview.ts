@@ -1,4 +1,5 @@
 import { S, sizePx, layerEls, effective, actualValue, escapeHTML, templateExportSize, visibleOnCard, opacityFor } from './model';
+import {guideOverlay} from './guide-overlay';
 import { $ } from './dom';
 import { getImageData, cacheImage, imgBox } from './image-sets';
 import { layoutTextBox } from './text-layout';
@@ -81,6 +82,6 @@ export function renderStage(){const st=$('#stage'),{w,h}=sizePx(),z=S.zoom;st.st
    html+=visibleElements[i].html;
   }
  }else html=visibleElements.map(v=>v.html).join('');
- st.innerHTML=html;$('#statusLeft').textContent=`${S.template.width} × ${S.template.height} ${S.template.unit} · ${templateExportSize().w} × ${templateExportSize().h} export px · ${S.template.dpi} DPI`;
+ st.innerHTML=html+guideOverlay(S.template,S.mode,S.zoom);$('#statusLeft').textContent=`${S.template.width} × ${S.template.height} ${S.template.unit} · ${templateExportSize().w} × ${templateExportSize().h} export px · ${S.template.dpi} DPI`;
  $('#zoomLabel').textContent=Math.round(S.zoom*100)+'%';
 }
