@@ -65,3 +65,12 @@ Cloudflare Pages test uses the browser's IndexedDB on its own origin. A producti
 5. If browser storage is blocked or full, local autosave shows a warning; saving/exporting project files should continue to work.
 
 The backup does not migrate between desktop and phone and is not a cloud sync. The site retains the latest local recovery copy only. Browser site-data clearing destroys it. Full project files are the source of truth.
+
+
+## Offline/PWA verification
+
+- On the test Pages address, verify the manifest, the 192px and 512px PNG icons, and service worker are served. The service worker cache name is tied to the current deployed Git commit.
+- Visit online, let the service worker install, reload once, then switch the device offline. Card Studio should still display its canvas, support editing and retain local recovery.
+- After editing offline, reload while offline, choose Restore, and verify the document.
+- The static shell is cached; project JSON files are **not** automatically cached or synchronized. The PWA needs a first online visit.
+- Installing the test URL and later visiting a production URL use different IndexedDB and service-worker scopes.

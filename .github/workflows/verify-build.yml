@@ -27,6 +27,11 @@ jobs:
           test -s public/mobile.css
           test -s public/dist/app.js
           test -s public/vendor/jszip.min.js
+          test -s public/manifest.webmanifest
+          test -s public/service-worker.js
+          test -s public/icons/card-192.png
+          test -s public/icons/card-512.png
+          ! grep -q '__CACHE_VERSION__' public/service-worker.js
           test -s wrangler.test.jsonc
 
       - name: Verify mobile packaging asset output
@@ -35,4 +40,6 @@ jobs:
           test -s mobile-build/index.html
           test -s mobile-build/mobile.css
           test -s mobile-build/dist/app.js
+          test -s mobile-build/manifest.webmanifest
+          test -s mobile-build/icons/card-512.png
           grep -q 'appTarget="mobile"' mobile-build/index.html

@@ -110,3 +110,12 @@ For precise placement on a phone or tablet, select an element and tap Move to us
 - Private browsing, disabled site storage, full device storage, or clearing site data can prevent or erase local recovery. It is a safety net, not a replacement for saved project files. A tab closed instantly after editing may lose the last few changes if its final IndexedDB write does not complete.
 
 The browser regression suite covers recover/discard after reload, explicit Save, a 240-card deck with embedded artwork, desktop/mobile PNG export equality, and tablet orientation changes.
+
+
+## Installable offline web app (test branch)
+
+The test deployment is also a Progressive Web App (PWA). Once it has loaded online, a service worker caches the application shell (HTML, CSS, JavaScript and icons), making the **editor available without internet access**. It does **not** upload your project files or use cloud storage. Embedded artwork/font data and browser recovery remain available offline in their normal storage.
+
+On Android Chrome, open the test site online, then use the browser menu's **Install app** or **Add to Home screen** option. On desktop Chrome/Edge, look for the browser's Install app control. Installation support and menu wording vary by browser. Launch it once while online to finish caching; afterward, editing and local recovery work offline.
+
+PWA storage is tied to the exact site origin. Installing the *test* address does not migrate local drafts to a future live domain; save JSON files to move projects between devices or environments. An installed PWA is still a web application; Android/iOS native wrappers remain separate future work.

@@ -23,6 +23,18 @@ async function get(path) {
    assert.match(css,/data-layout="mobile"/,'mobile layout styles deployed');
    const js=await (await get('dist/app.js')).text();
    assert.match(js,/mobile-interface/,'mobile editor code deployed');
+   const manifest=await (await get('manifest.webmanifest')).json();
+   assert.equal(manifest.display,'standalone');
+   assert.deepEqual(manifest.icons.map(icon=>icon.sizes),['192x192','512x512']);
+   const sw=await (await get('service-worker.js')).text();
+   assert.ok(sw.includes(marker.commit),'offline cache is versioned to deployed commit');
+   assert.doesNotMatch(sw,/__CACHE_VERSION__/,'service worker build token replaced');
+   for(const size of [192,512]){
+    const bytes=Buffer.from(await (await get('icons/card-'+size+'.png')).arrayBuffer());
+    assert.equal(bytes.subarray(1,4).toString(),'PNG');
+    assert.equal(bytes.readUInt32BE(16),size);
+    assert.equal(bytes.readUInt32BE(20),size);
+   }
    console.log('Live Pages verified: '+url+' branch='+marker.branch+' commit='+marker.commit);
    return;
   }catch(e){last=e;if(attempt<39)await sleep(10000)}
