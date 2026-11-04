@@ -4,7 +4,7 @@ import { $, jsonDownload, download, toast } from './dom';
 import { imageCache } from './image-sets';
 import { repaint } from './interface';
 import {activateProjectFonts,unbundledFontFamilies} from './project-fonts';
-import {resetHistory,historyRevision} from './history';
+import {resetHistory,historyRevision,checkpoint} from './history';
 import {recordProjectSaved,recordProjectReplaced} from './recovery';
 
 // File handles are deliberately kept out of saved project JSON. They are only
@@ -193,7 +193,10 @@ export async function openJSON(file: {text: () => Promise<string>}, onlyTemplate
    imageCache.clear();projectFileHandle=handle;templateFileHandles.clear();
    toast('Project loaded');
   }
-  resetHistory();recordProjectReplaced();
+  // Adding a template is an ordinary undoable edit, not a new project.
+  // Only opening a whole project resets history and the recovery document.
+  if(onlyTemplate||obj.type==='cardstudio-template')checkpoint();
+  else{resetHistory();recordProjectReplaced();}
   await activateProjectFonts();
   repaint();
   // Even familiar system fonts (Georgia, Arial, etc.) are not guaranteed to
