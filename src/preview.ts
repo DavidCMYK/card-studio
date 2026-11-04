@@ -15,6 +15,13 @@ export function renderStage(){const st=$('#stage'),{w,h}=sizePx(),z=S.zoom;st.st
  for(const raw of layerEls()){
   const e=effective(raw);if(S.mode==='template'?e.hidden:!visibleOnCard(raw,S.cardIndex,'cards'))continue;
   const selected=S.selected===raw.id,repositioning=activeImage===raw.id,src=getImageData(raw,S.cardIndex,S.mode);const geom=elementGeometry(raw,S.cardIndex,S.mode);let content='',ghost='';
+  if(repositioning){
+   const hint=document.querySelector('#imageRepositionHint');
+   if(hint)hint.textContent=e.imageFit==='free'?'Drag to move · Wheel or pinch to resize':
+    e.imageFit==='width'?'Drag vertically · Width remains fitted':
+    e.imageFit==='height'?'Drag horizontally · Height remains fitted':
+    'Drag along cropped axes only · Scale stays automatic';
+  }
   const value=e.kind==='text'?actualValue(raw):'';
   if(e.kind==='text'){
    const layout=layoutTextBox(e,actualValue(raw));
