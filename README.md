@@ -95,3 +95,5 @@ Both desktop and mobile use the same document history: Undo (Ctrl/Cmd+Z) and Red
 To fix missing fonts in an existing desktop project, open it on desktop and use File → Embed installed project fonts… (on supported Chrome/Edge with permission), or File → Embed font files… to select licensed TTF, OTF, WOFF or WOFF2 files. The font family name entered must match the text element. Save the project and open the new JSON on your phone. Embedded fonts are used for previews and PNG exports. They are never silently copied from your computer. JSON sizes can increase with bundled font files.
 
 The mobile Cards panel shows lazy-rendered artwork thumbnails; they omit expensive shadow compositing, while PNG exports retain the full renderer.
+
+For precise placement on a phone or tablet, select an element and tap Move to use the arrow-pad. Switch between 1 and 10 design-pixel increments; each tap can be undone independently.

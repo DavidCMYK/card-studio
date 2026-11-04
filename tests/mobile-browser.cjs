@@ -97,6 +97,14 @@ const server=http.createServer((req,res)=>{
   assert.doesNotMatch(await page.locator('#stage').innerText(),/Mobile editing\s+works/,'mobile undo');
   await page.locator('.m-appbar [data-action="redo"]').click();
   assert.match(await page.locator('#stage').innerText(),/Mobile editing\s+works/,'mobile redo');
+  const beforeNudge=await page.locator('#stage .element.selected').getAttribute('style');
+  await page.locator('.m-selection [data-mobile="nudge"]').click();
+  await page.locator('.m-actions [data-mobile="nudge-right"]').click();
+  const afterNudge=await page.locator('#stage .element.selected').getAttribute('style');
+  assert.notEqual(afterNudge,beforeNudge,'mobile precision nudge changes geometry');
+  await page.locator('.m-actions [data-mobile="nudge-step"]').click();
+  assert.match(await page.locator('.m-actions [data-mobile="nudge-step"]').innerText(),/10 px/);
+  await page.locator('.m-actions [data-mobile="close"]').click();
   await page.locator('.m-dock [data-mobile="properties"]').click();
   await page.locator('.side-right').waitFor({state:'visible',timeout:5000});
   assert.ok((await page.locator('.side-right .inspect').innerText()).length>10);
