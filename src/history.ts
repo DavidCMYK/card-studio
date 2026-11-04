@@ -62,7 +62,6 @@ export function checkpoint():boolean {
  current=next;future.length=0;return true;
 }
 export function undo():boolean {
- if(!past.length)return false;
  // A still-focused input/unfinished drag may have changed state without a repaint.
  checkpoint();
  if(!past.length)return false;
