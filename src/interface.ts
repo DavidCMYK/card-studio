@@ -254,7 +254,7 @@ export function renderInspector(){
    `<div class="fields-two">${field('Shadow colour','shadowColor',e.shadowColor||'#000000','color')}${field('Opacity (%)','shadowOpacity',e.shadowOpacity??65,'number','min="0" max="100" step="1"')}</div>`+
    `<div class="fields-two">${field('Offset X (export px)','shadowOffsetX',spx(e.shadowOffsetX),'number','step="1"')}${field('Offset Y (export px)','shadowOffsetY',spx(e.shadowOffsetY),'number','step="1"')}</div>`+
    field('Spread (export px)','shadowSpread',spx(e.shadowSpread),'number','min="0" step="1"')+
-   `<div class="small" style="padding:0 0 10px">Shadows follow visible text, fills, borders and image transparency.</div>`,true);
+   `<div class="small" style="padding:0 0 10px">Shadows follow visible text, fills, borders and image transparency. Choose Add or Merge for overlapping shadows in Card setup.</div>`,true);
  }
  panes.rules+=`<div class="section-title">Visibility</div>`+checkbox('Hide element','hidden',e.hidden);
  if(raw.kind==='text')panes.rules+=checkbox('Invisible if empty','invisibleIfEmpty',e.invisibleIfEmpty!==false)+
