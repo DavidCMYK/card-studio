@@ -5,7 +5,7 @@
 import {S,initial,replaceState} from './model';
 import type {StudioProject} from './types';
 
-type View = Pick<StudioProject,'mode'|'cardIndex'|'selected'>;
+type View = Pick<StudioProject,'mode'|'cardIndex'|'selected'|'selectedTemplateId'|'side'>;
 type RecordState = {doc:any;fingerprint:string;view:View};
 const MAX_STEPS=60;
 const dataToKey=new Map<string,string>(),keyToData=new Map<string,string>();
@@ -32,11 +32,14 @@ function take():RecordState{
  const doc={
   projectName:S.projectName,
   template:structuredClone(S.template),
+  templates:structuredClone(S.templates||[S.template]),
+  cardSets:structuredClone(S.cardSets||[]),
+  printSetup:structuredClone(S.printSetup),
   cards:structuredClone(S.cards),
   sets:S.sets.map(set=>({id:set.id,name:set.name,images:set.images.map(im=>({name:im.name,data:intern(im.data)}))})),
   fonts:(S.fonts||[]).map(font=>({...font,data:intern(font.data)}))
  };
- const view:View={mode:S.mode,cardIndex:S.cardIndex,selected:S.selected};
+ const view:View={mode:S.mode,cardIndex:S.cardIndex,selected:S.selected,selectedTemplateId:S.selectedTemplateId,side:S.side};
  return {doc,fingerprint:JSON.stringify(doc),view};
 }
 function restore(state:RecordState){
@@ -47,6 +50,7 @@ function restore(state:RecordState){
  replaceState({
   ...initial(),...doc,
   mode:state.view.mode,cardIndex:Math.max(0,Math.min(state.view.cardIndex,doc.cards.length-1)),
+  selectedTemplateId:state.view.selectedTemplateId,side:state.view.side,
   selected:state.view.selected,zoom:preservedZoom
  });
  if(S.selected&&!S.template.elements.some(e=>e.id===S.selected)&&!S.cards[S.cardIndex]?.extraElements.some(e=>e.id===S.selected))S.selected=null;
