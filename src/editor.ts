@@ -203,6 +203,8 @@ function handleProp(input){const key=input.dataset.prop;if(!key)return;let v=inp
   }else if(['width','height'].includes(p)){
     v=Number(v);
     if(!Number.isFinite(v)||v<=0)return;
+    try{validateGuides({...template,[p]:v})}
+    catch(err){toast((err as Error).message);return;}
   }
   template[p]=v;
   return;
