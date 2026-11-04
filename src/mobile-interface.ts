@@ -17,7 +17,7 @@ const key='cardstudio.interface-layout';
 const mobile=()=>root.dataset.layout==='mobile';
 const menus:Record<string,Array<[string,string]>>={
  add:[['add-text','Add text'],['add-image','Add image frame'],['add-shape','Add shape']],
- file:[['show-recovery','Local recovery…'],['new-project','New project'],['open-project','Open project'],['load-template','Open template'],['embed-fonts','Embed font files…'],['embed-used-fonts','Embed installed fonts…'],['save-project','Save project'],['save-project-as','Save project as…'],['save-template','Save template'],['save-template-as','Save template as…']],
+ file:[['toggle-guides','Show/hide card guides'],['show-recovery','Local recovery…'],['new-project','New project'],['open-project','Open project'],['load-template','Open template'],['embed-fonts','Embed font files…'],['embed-used-fonts','Embed installed fonts…'],['save-project','Save project'],['save-project-as','Save project as…'],['save-template','Save template'],['save-template-as','Save template as…']],
  export:[['export-current','Export current PNG'],['export-all','Export all cards ZIP'],['print-sheets','Print sheets PDF'],['export-sheet','Export staging XLSX'],['import-sheet','Import card data CSV/XLSX']]
 };
 let panel:Panel='none',autoFit=true,nudgeStep=1;
