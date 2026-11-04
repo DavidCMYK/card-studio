@@ -1,7 +1,8 @@
 import {S,templateEl,effective,sizePx,clamp} from './model';
 import { $ } from './dom';
 import {renderStage} from './preview';
-import {renderInspector,renderLeft,patchElement} from './interface';
+import {renderInspector,renderLeft,patchElement,refreshHistoryButtons} from './interface';
+import {checkpoint} from './history';
 import {elementGeometry} from './anchor-layout';
 import {resizedRect,locksImageCornerAspect,ResizeHandle} from './resize';
 type P={x:number;y:number};
@@ -65,7 +66,7 @@ export function installMobileGestures(refresh:()=>void,manualZoom:()=>void){
  const end=(e:PointerEvent)=>{
   if(e.pointerType!=='touch'||!points.has(e.pointerId))return;
   points.delete(e.pointerId);if(points.size<2)pinchDistance=0;
-  if(!points.size){const changed=!!drag?.moved||hadPinch;drag=null;pan=null;hadPinch=false;if(changed)repaintSelection();else refresh()}
+  if(!points.size){const changed=!!drag?.moved||hadPinch;drag=null;pan=null;hadPinch=false;if(changed){checkpoint();refreshHistoryButtons();repaintSelection()}else refresh()}
   else{drag=null;pan=null;hadPinch=true}
  };
  document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end);
