@@ -81,11 +81,18 @@ test('safe zone cannot exceed trim and cannot be negative',()=>{
  assert.throws(()=>g.setSafeZoneDimension(t,'height',0),/greater/);
  assert.deepEqual({t,cards},before);
 });
-test('pixel / inch conversions preserve physical dimensions and invariants',()=>{
- const {t}=doc();g.setGuideUnit(t,'px');t.unit='px';t.width=69*300/25.4;t.height=94*300/25.4;
- g.setCutDimension(t,'width',65*300/25.4);near(g.canvasDimensionsMm(t).width,71);near(g.trimDimensionsMm(t).width,65);
- g.setCanvasDimension(t,'width',75*300/25.4);near(g.trimDimensionsMm(t).width,65);
- g.setSafeZoneDimension(t,'width',60*300/25.4);near(g.safeDimensionsMm(t).width,60);
+test('pixel / inch conversions preserve locked cut and bleed after rounding entries',()=>{
+ const {t}=doc();
+ g.setGuideUnit(t,'px');t.unit='px';t.width=69*300/25.4;t.height=94*300/25.4;
+ const mmAfterPixelEntry=mm=>Math.round(mm*300/25.4)*25.4/300;
+ g.setCutDimension(t,'width',65*300/25.4);
+ near(g.trimDimensionsMm(t).width,mmAfterPixelEntry(65));
+ near(g.canvasDimensionsMm(t).width,mmAfterPixelEntry(65)+6);
+ g.setCanvasDimension(t,'width',75*300/25.4);
+ near(g.canvasDimensionsMm(t).width,mmAfterPixelEntry(75));
+ near(g.trimDimensionsMm(t).width,mmAfterPixelEntry(65));
+ g.setSafeZoneDimension(t,'width',60*300/25.4);
+ near(g.safeDimensionsMm(t).width,mmAfterPixelEntry(60));
  near(g.distanceInUnit(3,'in',300),3/25.4);
 });
 test('unlinked asymmetric margins remain nonnegative and target dimensions match',()=>{
