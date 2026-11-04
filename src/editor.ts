@@ -162,11 +162,10 @@ function handleProp(input){const key=input.dataset.prop;if(!key)return;let v=inp
   try{
    if(parts[1]==='bleedMode'){
     if(v!=='trim'&&v!=='bleed')return;
-    changeBleedMode(S.template,S.cards,v,g.modeChange!=='reinterpret');
+    changeBleedMode(S.template,S.cards,v);
    }else if(parts[1]==='unit'){
     if(['mm','in','px'].includes(v))S.template.guides={...g,unit:v};
-   }else if(parts[1]==='modeChange'){
-    S.template.guides={...g,modeChange:v==='reinterpret'?'reinterpret':'preserve'};
+
    }else if(parts[1]==='bleedLinked'||parts[1]==='safeLinked'){
     const kind=parts[1].startsWith('bleed')?'bleed':'safe';
     S.template.guides={...g,[parts[1]]:Boolean(v)};
