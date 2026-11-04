@@ -40,12 +40,18 @@ const server=http.createServer((req,res)=>{
   await dp.locator('#stage .element').first().waitFor();
   assert.equal(await dp.locator('.top').isVisible(),true,'desktop toolbar visible');
   assert.equal(await dp.locator('#mobileShell').isVisible(),false,'mobile toolbar hidden on desktop');
+  assert.equal(await dp.locator('#inspector .inspector-fold').count(),4,'card setup grouped into four collapsible sections');
+  assert.equal(await dp.locator('#inspector [data-inspector-fold="setup-dimensions"]').getAttribute('open'),'','dimensions initially expanded');
+  await dp.locator('#inspector [data-inspector-fold="setup-rendering"] summary').click();
+  assert.equal(await dp.locator('#inspector [data-inspector-fold="setup-rendering"]').getAttribute('open'),'','rendering can expand');
 
   // Desktop: double-click enters image-content mode; drag and wheel change only image placement.
   await dp.locator('#stage .element').nth(2).dblclick({position:{x:42,y:42}});
   assert.equal(await dp.locator('#imageRepositionBar').isVisible(),true,'double-click enters image reposition mode');
   assert.equal(await dp.locator('#stage .element.repositioning').count(),1,'reposition frame marked');
   assert.equal(await dp.locator('#stage .element.repositioning .resize-handle').count(),0,'no frame handles in crop mode');
+  await dp.locator('#inspector [data-inspector-tab="content"]').click();
+  assert.equal(await dp.locator('#inspector [data-inspector-tab="content"]').getAttribute('aria-selected'),'true');
   const beforeFrameLeft=await dp.locator('#stage .element.repositioning').evaluate(el=>el.style.left);
   const beforeImageOffset=Number(await dp.locator('#inspector [data-prop="imgOffsetX"]').inputValue());
   let cropRect=await dp.locator('#stage .element.repositioning').boundingBox();
@@ -99,8 +105,12 @@ const server=http.createServer((req,res)=>{
    await dp.locator('#fontFiles').setInputFiles({name:'Portable-Integration.ttf',mimeType:'font/ttf',buffer:fs.readFileSync(fontPath)});
    await dp.waitForFunction(()=>[...document.fonts].some(f=>f.family==='Portable Integration'&&f.status==='loaded'),null,{timeout:12000});
    await dp.locator('[data-layer]').filter({hasText:'Card Title'}).click();
+   await dp.locator('#inspector [data-inspector-tab="content"]').click();
    await dp.locator('#inspector input[data-prop="font"]').fill('Portable Integration');
    await dp.locator('#inspector input[data-prop="font"]').press('Tab');
+   await dp.waitForTimeout(30);
+   assert.equal(await dp.evaluate(()=>document.activeElement?.dataset.action),'scan-fonts',
+    'Tab from changed font input proceeds to next control');
    // A second default text element uses Georgia. Embed its actual font too:
    // all used font faces must be portable for exact cross-device PNG output.
    await dp.locator('[data-layer]').filter({hasText:'Description'}).click();
@@ -168,6 +178,9 @@ const server=http.createServer((req,res)=>{
   await mobileImage.tap();await mobileImage.tap();
   assert.equal(await page.locator('#imageRepositionBar').isVisible(),true,'double-tap enters image reposition mode');
   assert.equal(await page.locator('#stage .element.repositioning').count(),1,'mobile crop frame marked');
+  // Switch the existing (currently closed) properties view to Content without
+  // opening the full-height mobile panel over the gesture target.
+  await page.evaluate(()=>document.querySelector('#inspector [data-inspector-tab="content"]').click());
   const mobileBeforeFrame=await page.locator('#stage .element.repositioning').evaluate(el=>el.style.left);
   const mobileBeforeOffset=Number(await page.locator('#inspector [data-prop="imgOffsetX"]').inputValue());
   const mobileBeforeZoom=Number(await page.locator('#inspector [data-prop="imgZoom"]').inputValue());
@@ -224,6 +237,13 @@ const server=http.createServer((req,res)=>{
   await page.locator('.m-actions [data-mobile="close"]').click();
   await page.locator('.m-dock [data-mobile="properties"]').click();
   await page.locator('.side-right').waitFor({state:'visible',timeout:5000});
+  assert.equal(await page.locator('#inspector [data-inspector-tab]').count(),4,'mobile shares property tabs');
+  await page.locator('#inspector [data-inspector-tab="layout"]').click();
+  assert.ok(await page.locator('#inspector input[data-prop="x"]').count(),'Layout shows position');
+  await page.locator('#inspector [data-inspector-tab="style"]').click();
+  assert.ok(await page.locator('#inspector [data-prop="fillMode"]').count(),'Style shows appearance');
+  await page.locator('#inspector [data-inspector-tab="rules"]').click();
+  assert.ok(await page.locator('#inspector [data-prop="hidden"]').count(),'Rules shows visibility');
   assert.ok((await page.locator('.side-right .inspect').innerText()).length>10);
   await page.locator('.side-right [data-mobile="close"]').click();
   await page.locator('.m-dock [data-mobile="fit"]').click();
