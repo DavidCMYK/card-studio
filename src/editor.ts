@@ -5,7 +5,7 @@ import { renderStage } from './preview';
 import { repaint, renderInspector, renderLeft, renderCardControl, chooseCard, patchElement, addElement, updateDimensionReadouts, setKnownFonts, baseFonts, refreshHistoryButtons, selectInspectorTab, filterCardData, showDiscoveredFonts, toggleFontBrowser, closeFontBrowser, filterFontBrowser } from './interface';
 import { imageCache, cacheImage, getImageData, setImageUpdateHandler, imageScreenOffset, imageOffsetPatch } from './image-sets';
 import { exportPNG, exportAll, exportTrimmedPNG } from './png-export';
-import {guidesFor,changeBleedMode,setGuideDistance,distanceMm,validateGuides,setCutDimension,setCanvasDimension,setSafeZoneDimension,setGuideLinked,setGuideUnit} from './card-guides';
+import {guidesFor,changeBleedMode,setGuideDistance,distanceMm,validateGuides,setCutDimension,setCanvasDimension,setSafeZoneDimension,setGuideLinked,setGuideUnit,setGuideCornerRadius} from './card-guides';
 import { openPrintStudio } from './print-studio';
 import { exportXLSX, readSheet } from './spreadsheet';
 import { saveProject, saveProjectAs, saveTemplate, saveTemplateAs, openFromDisk, openJSON, resetFileHandles } from './project-storage';
@@ -169,6 +169,10 @@ function handleProp(input){const key=input.dataset.prop;if(!key)return;let v=inp
     setCutDimension(S.template,parts[2] as 'width'|'height',Number(v));
    }else if(parts[1]==='safeZone'&&(parts[2]==='width'||parts[2]==='height')){
     setSafeZoneDimension(S.template,parts[2] as 'width'|'height',Number(v));
+   }else if(parts[1]==='radius'&&['canvas','cut','safe'].includes(parts[2])){
+    const value=Number(v);
+    if(v===''||!Number.isFinite(value)||value<0)return;
+    setGuideCornerRadius(S.template,parts[2] as 'canvas'|'cut'|'safe',distanceMm(value,g.unit,S.template.dpi));
    }else if(parts[1]==='bleedLinked'||parts[1]==='safeLinked'){
     setGuideLinked(S.template,parts[1].startsWith('bleed')?'bleed':'safe',Boolean(v));
    }else if(parts[1]==='bleed'||parts[1]==='safe'){
