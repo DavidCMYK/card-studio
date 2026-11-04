@@ -127,7 +127,7 @@ const server=http.createServer((req,res)=>{
   assert.match(await gp.locator('#newProjectError').textContent(),/cannot exceed/,'new project rejects unsafe dimensions');
   await gp.locator('#newProjectDialog [name="unit"]').selectOption('px');
   assert.equal(await gp.locator('#newProjectDialog [name="cutWidth"]').getAttribute('step'),'1','new project pixel dimensions use integer steps');
-  assert.match(await gp.locator('#newProjectDialog [name="cutWidth"]').inputValue(),/^\\d+$/,'new project displays integer pixel cut size');
+  assert.match(await gp.locator('#newProjectDialog [name="cutWidth"]').inputValue(),/^\d+$/,'new project displays integer pixel cut size');
   await gp.locator('#newProjectDialog [name="cutWidth"]').fill('807.6');
   await gp.locator('#newProjectDialog [name="cutWidth"]').press('Tab');
   assert.equal(await gp.locator('#newProjectDialog [name="cutWidth"]').inputValue(),'808','new project rounds fractional pixel input');
