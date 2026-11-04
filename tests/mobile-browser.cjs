@@ -52,6 +52,9 @@ const server=http.createServer((req,res)=>{
   assert.equal(await dp.locator('#stage .element.repositioning .resize-handle').count(),0,'no frame handles in crop mode');
   await dp.locator('#inspector [data-inspector-tab="content"]').click();
   assert.equal(await dp.locator('#inspector [data-inspector-tab="content"]').getAttribute('aria-selected'),'true');
+  await dp.locator('#inspector [data-prop="imageFit"]').selectOption('free');
+  await dp.locator('#inspector [data-prop="imgScale"]').waitFor();
+  assert.equal(await dp.locator('#inspector [data-prop="imgZoom"]').count(),0,'old zoom removed');
   const beforeFrameLeft=await dp.locator('#stage .element.repositioning').evaluate(el=>el.style.left);
   const beforeImageOffset=Number(await dp.locator('#inspector [data-prop="imgOffsetX"]').inputValue());
   let cropRect=await dp.locator('#stage .element.repositioning').boundingBox();
@@ -63,7 +66,19 @@ const server=http.createServer((req,res)=>{
   assert.equal(await dp.locator('#stage .element.repositioning').evaluate(el=>el.style.left),beforeFrameLeft,
    'drag must not move frame');
   await dp.mouse.move(cropX,cropY);await dp.mouse.wheel(0,-180);
-  await dp.waitForFunction(()=>Number(document.querySelector('#inspector [data-prop="imgZoom"]')?.value)>1);
+  await dp.waitForFunction(()=>Number(document.querySelector('#inspector [data-prop="imgScale"]')?.value)>1);
+  // Fit width must ignore horizontal dragging; fit height must ignore vertical dragging.
+  await dp.locator('#inspector [data-prop="imageFit"]').selectOption('width');
+  assert.equal(await dp.locator('#inspector [data-prop="imgScale"]').count(),0,'fit width cannot scale');
+  assert.equal(await dp.locator('#inspector [data-prop="imgOffsetX"]').count(),0,'fit width locks X');
+  const widthY=Number(await dp.locator('#inspector [data-prop="imgOffsetY"]').inputValue());
+  await dp.mouse.move(cropX,cropY);await dp.mouse.down();await dp.mouse.move(cropX+40,cropY,{steps:3});await dp.mouse.up();
+  assert.equal(Number(await dp.locator('#inspector [data-prop="imgOffsetY"]').inputValue()),widthY,'horizontal drag has no effect in width fit');
+  await dp.locator('#inspector [data-prop="imageFit"]').selectOption('height');
+  assert.equal(await dp.locator('#inspector [data-prop="imgOffsetY"]').count(),0,'fit height locks Y');
+  const heightX=Number(await dp.locator('#inspector [data-prop="imgOffsetX"]').inputValue());
+  await dp.mouse.move(cropX,cropY);await dp.mouse.down();await dp.mouse.move(cropX,cropY+30,{steps:3});await dp.mouse.up();
+  assert.equal(Number(await dp.locator('#inspector [data-prop="imgOffsetX"]').inputValue()),heightX,'vertical drag has no effect in height fit');
   await dp.locator('#imageRepositionBar button').click();
   assert.equal(await dp.locator('#imageRepositionBar').isVisible(),false,'Done ends crop mode');
   cropRect=await dp.locator('#stage .element.selected').boundingBox();
@@ -183,10 +198,15 @@ const server=http.createServer((req,res)=>{
   assert.equal(await page.locator('#stage .element.repositioning').count(),1,'mobile crop frame marked');
   // Switch the existing (currently closed) properties view to Content without
   // opening the full-height mobile panel over the gesture target.
-  await page.evaluate(()=>document.querySelector('#inspector [data-inspector-tab="content"]').click());
+  await page.evaluate(()=>{
+   document.querySelector('#inspector [data-inspector-tab="content"]').click();
+   const field=document.querySelector('#inspector [data-prop="imageFit"]');
+   field.value='free';field.dispatchEvent(new Event('input',{bubbles:true}));field.dispatchEvent(new Event('change',{bubbles:true}));
+  });
+  await page.waitForFunction(()=>document.querySelector('#inspector [data-prop="imgScale"]'));
   const mobileBeforeFrame=await page.locator('#stage .element.repositioning').evaluate(el=>el.style.left);
   const mobileBeforeOffset=Number(await page.locator('#inspector [data-prop="imgOffsetX"]').inputValue());
-  const mobileBeforeZoom=Number(await page.locator('#inspector [data-prop="imgZoom"]').inputValue());
+  const mobileBeforeScale=Number(await page.locator('#inspector [data-prop="imgScale"]').inputValue());
   const mobileBeforeStageWidth=await page.locator('#stage').evaluate(el=>el.style.width);
   const imageRect=await page.locator('#stage .element.repositioning').boundingBox();
   const midX=Math.round(imageRect.x+imageRect.width*.50),midY=Math.round(imageRect.y+imageRect.height*.52);
@@ -203,8 +223,8 @@ const server=http.createServer((req,res)=>{
   await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[finger(21,midX-25,midY),finger(22,midX+25,midY)]});
   await client.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[finger(21,midX-43,midY),finger(22,midX+43,midY)]});
   await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-  assert.ok(Number(await page.locator('#inspector [data-prop="imgZoom"]').inputValue())>mobileBeforeZoom,
-    'two-finger pinch increases image zoom');
+  assert.ok(Number(await page.locator('#inspector [data-prop="imgScale"]').inputValue())>mobileBeforeScale,
+    'two-finger pinch increases Free image scale');
   assert.equal(await page.locator('#stage').evaluate(el=>el.style.width),mobileBeforeStageWidth,
     'image pinch must not zoom the whole card');
   await client.detach();
