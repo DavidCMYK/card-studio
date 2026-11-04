@@ -56,6 +56,11 @@ export function openNewProjectDialog(onCreate:(project:StudioProject)=>void){
    const v=values(),delta=2*v.bleed*(v.mode==='bleed'?1:-1);
    input('width').value=String(Number((v.width+delta).toFixed(8)));
    input('height').value=String(Number((v.height+delta).toFixed(8)));
+  }else if(target.name==='bleed'&&values().mode==='bleed'){
+   // New-project sizing keeps the proposed finished card size stable.
+   const v=values(),delta=2*(v.bleed-old.bleed);
+   input('width').value=String(Number((v.width+delta).toFixed(8)));
+   input('height').value=String(Number((v.height+delta).toFixed(8)));
   }
   old=values();refresh();
  });
