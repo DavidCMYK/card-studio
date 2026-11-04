@@ -5,7 +5,7 @@ import { renderStage } from './preview';
 import { repaint, renderInspector, renderLeft, renderCardControl, chooseCard, patchElement, addElement, updateDimensionReadouts, setKnownFonts, baseFonts, refreshHistoryButtons, selectInspectorTab, filterCardData, showDiscoveredFonts, toggleFontBrowser, closeFontBrowser, filterFontBrowser } from './interface';
 import { imageCache, cacheImage, getImageData, setImageUpdateHandler, imageScreenOffset, imageOffsetPatch } from './image-sets';
 import { exportPNG, exportAll, exportTrimmedPNG } from './png-export';
-import {guidesFor,changeBleedMode,setGuideDistance,distanceMm,validateGuides} from './card-guides';
+import {guidesFor,changeBleedMode,setGuideDistance,distanceMm,validateGuides,setCutDimension,setCanvasDimension,setSafeZoneDimension,setGuideLinked,setGuideUnit} from './card-guides';
 import { openPrintStudio } from './print-studio';
 import { exportXLSX, readSheet } from './spreadsheet';
 import { saveProject, saveProjectAs, saveTemplate, saveTemplateAs, openFromDisk, openJSON, resetFileHandles } from './project-storage';
@@ -164,12 +164,13 @@ function handleProp(input){const key=input.dataset.prop;if(!key)return;let v=inp
     if(v!=='trim'&&v!=='bleed')return;
     changeBleedMode(S.template,S.cards,v);
    }else if(parts[1]==='unit'){
-    if(['mm','in','px'].includes(v))S.template.guides={...g,unit:v};
-
+    if(['mm','in','px'].includes(v))setGuideUnit(S.template,v);
+   }else if(parts[1]==='cut'&&(parts[2]==='width'||parts[2]==='height')){
+    setCutDimension(S.template,parts[2],Number(v));
+   }else if(parts[1]==='safeZone'&&(parts[2]==='width'||parts[2]==='height')){
+    setSafeZoneDimension(S.template,parts[2],Number(v));
    }else if(parts[1]==='bleedLinked'||parts[1]==='safeLinked'){
-    const kind=parts[1].startsWith('bleed')?'bleed':'safe';
-    S.template.guides={...g,[parts[1]]:Boolean(v)};
-    if(v)setGuideDistance(S.template,S.cards,kind,'top',g[kind].top);
+    setGuideLinked(S.template,parts[1].startsWith('bleed')?'bleed':'safe',Boolean(v));
    }else if(parts[1]==='bleed'||parts[1]==='safe'){
     const edge=parts[2];
     if(!['top','right','bottom','left'].includes(edge))return;
@@ -200,10 +201,9 @@ function handleProp(input){const key=input.dataset.prop;if(!key)return;let v=inp
     }
     v=newDpi;
   }else if(['width','height'].includes(p)){
-    v=Number(v);
-    if(!Number.isFinite(v)||v<=0)return;
-    try{validateGuides({...template,[p]:v})}
-    catch(err){toast((err as Error).message);return;}
+    try{setCanvasDimension(template,p,Number(v))}
+    catch(err){toast((err as Error).message)}
+    return;
   }
   template[p]=v;
   return;
