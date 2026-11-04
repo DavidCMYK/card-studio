@@ -42,8 +42,6 @@ export interface CardElement {
   gutterLeft?: number; gutterRight?: number; gutterTop?: number; gutterBottom?: number;
   imageFit: 'cover' | 'contain' | 'width' | 'height' | 'stretch' | 'free';
   imgScale: number; imgOffsetX: number; imgOffsetY: number;
-  /** Non-destructive zoom for all image fit modes. Missing means 1 for old files. */
-  imgZoom?: number;
   /** Transform image content about the frame centre, leaving frame and border intact. */
   imgFlipX?: boolean; imgFlipY?: boolean; imgRotation?: number;
   autoSet: string; autoMode: 'cycle' | 'sequence' | 'random' | 'single';
