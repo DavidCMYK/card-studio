@@ -88,3 +88,11 @@
 :root[data-layout="mobile"][data-mobile-panel="cards"] .sidebar-cards .card-row .sub{font-size:11px}
 :root[data-layout="mobile"][data-mobile-panel="cards"] .sidebar-cards .card-row .small-btn{position:absolute;top:8px;right:8px;background:#fffffff0;border:1px solid #d5e0ec;min-width:35px;min-height:35px}
 :root[data-layout="mobile"] .m-appbar [data-action="undo"],:root[data-layout="mobile"] .m-appbar [data-action="redo"]{min-width:39px;padding:6px;font-size:22px;line-height:1}
+
+/* Precision movement for touch use. */
+:root[data-layout="mobile"][data-mobile-panel="nudge"] .m-actions{display:flex}
+:root[data-layout="mobile"] .m-selection #mobileNudgeButton{margin-left:auto}
+:root[data-layout="mobile"] .m-nudge-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;max-width:380px;margin:12px auto 2px;width:100%}
+:root[data-layout="mobile"] .m-nudge-grid span{min-height:48px}
+:root[data-layout="mobile"] .m-action-list .m-nudge-grid button{display:grid;place-items:center;text-align:center;min-height:52px;padding:6px;border:1px solid #d4e1ef;border-radius:10px;background:#f1f6fd;color:#235590;font-size:24px;font-weight:700}
+:root[data-layout="mobile"] .m-action-list .m-nudge-grid [data-mobile="nudge-step"]{font-size:12px;background:#e4efff}
