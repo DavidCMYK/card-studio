@@ -2,6 +2,8 @@ import { S, initial, replaceState, safeFile } from './model';
 import { $, jsonDownload, toast } from './dom';
 import { imageCache } from './image-sets';
 import { repaint } from './interface';
+import {activateProjectFonts,unbundledFontFamilies} from './project-fonts';
+import {resetHistory} from './history';
 
 // File handles are deliberately kept out of saved project JSON. They are only
 // valid for the browser session and must be granted by the user via a picker.
@@ -13,7 +15,7 @@ export function resetFileHandles() { projectFileHandle = null; templateFileHandl
 const projectName = () => safeFile(S.projectName) + '.cardstudio.json';
 const templateName = () => safeFile(S.template.name) + '.template.json';
 const projectContents = () => ({...S, type:'cardstudio-project', version:2});
-const templateContents = () => ({type:'cardstudio-template', version:2, template:S.template});
+const templateContents = () => ({type:'cardstudio-template', version:2, template:S.template,fonts:S.fonts||[]});
 const filePicker = (type: 'project'|'template', name: string) => ({
  suggestedName: name,
  types:[{description: type==='project'?'Card Studio project':'Card Studio template',accept:{'application/json':['.json']}}]
@@ -102,17 +104,22 @@ export async function openJSON(file: {text: () => Promise<string>}, onlyTemplate
   if(!obj.template?.elements||!Array.isArray(obj.template.elements))throw Error('Not a Card Studio project or template');
   if(onlyTemplate && obj.type==='cardstudio-project')throw Error('This is a project file, not a template. Use Open project instead.');
   if(onlyTemplate||obj.type==='cardstudio-template'){
-   S.template=obj.template;S.selected=null;
+   S.template=obj.template;S.fonts=Array.isArray(obj.fonts)?obj.fonts:[];S.selected=null;
    for(const e of S.template.elements)if(e.kind==='image'&&!S.sets.some(x=>x.id===e.autoSet))e.autoSet='';
    for(const c of S.cards){c.overrides={};c.values={};c.extraElements=[]}
    templateFileHandle=handle;
    toast('Template loaded. Existing staged cards reset.');
   }else{
    if(!Array.isArray(obj.cards)||!Array.isArray(obj.sets))throw Error('Project does not contain cards and image sets');
-   replaceState({...initial(),...obj,mode:'template',selected:null,cardIndex:0});
+   replaceState({...initial(),...obj,fonts:Array.isArray(obj.fonts)?obj.fonts:[],mode:'template',selected:null,cardIndex:0});
    imageCache.clear();projectFileHandle=handle;templateFileHandle=null;
    toast('Project loaded');
   }
-  repaint();return true;
+  resetHistory();
+  await activateProjectFonts();
+  repaint();
+  const missing=unbundledFontFamilies().filter(f=>!['arial','georgia','times new roman','courier new','verdana','tahoma','trebuchet ms'].includes(f.toLowerCase()));
+  if(missing.length)toast('Project uses fonts not included in the file: '+missing.slice(0,3).join(', ')+(missing.length>3?'…':''));
+  return true;
  }catch(err){alert('Could not open file: '+(err as Error).message);return false;}
 }
