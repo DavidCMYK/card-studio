@@ -111,6 +111,9 @@ const server=http.createServer((req,res)=>{
    await dp.waitForTimeout(30);
    assert.equal(await dp.evaluate(()=>document.activeElement?.dataset.action),'scan-fonts',
     'Tab from changed font input proceeds to next control');
+   await dp.keyboard.press('Shift+Tab');
+   assert.equal(await dp.evaluate(()=>document.activeElement?.dataset.prop),'font',
+    'Shift+Tab returns to the previous input');
    // A second default text element uses Georgia. Embed its actual font too:
    // all used font faces must be portable for exact cross-device PNG output.
    await dp.locator('[data-layer]').filter({hasText:'Description'}).click();
@@ -210,6 +213,18 @@ const server=http.createServer((req,res)=>{
   assert.equal(await page.locator('.top').isVisible(),false,'desktop controls hidden on phone');
   await page.locator('.m-mode [data-action="mode-cards"]').click();
   await page.locator('#mobileCardNav').waitFor({state:'visible',timeout:5000});
+  await page.locator('.m-dock [data-mobile="properties"]').click();
+  const filter=page.locator('#inspector [data-card-filter="search"]');
+  await filter.waitFor({state:'visible'});
+  const allRows=await page.locator('#inspector [data-card-row]:visible').count();
+  assert.ok(allRows>=2,'card data has several editable fields');
+  await filter.fill('no-field-matches-this');
+  assert.equal(await page.locator('#inspector [data-card-row]:visible').count(),0,'search filters card values');
+  await filter.fill('Card Title');
+  assert.equal(await page.locator('#inspector [data-card-row]:visible').count(),1,'search finds matching field');
+  await filter.fill('');
+  assert.equal(await page.locator('#inspector [data-card-row]:visible').count(),allRows,'clearing search restores all fields');
+  await page.locator('.side-right [data-mobile="close"]').click();
   await page.locator('.m-dock [data-mobile="cards"]').click();
   await page.locator('.side-left').waitFor({state:'visible',timeout:5000});
   await page.waitForFunction(()=>document.querySelector('img[data-card-thumb="0"]')?.getAttribute('src')?.startsWith('data:image/png'),null,{timeout:10000});
