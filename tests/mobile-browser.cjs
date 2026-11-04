@@ -146,7 +146,7 @@ const server=http.createServer((req,res)=>{
   assert.equal(await gp.locator('#newProjectDialog [name="width"]').inputValue(),'69','new-project defaults retain standard cut and bleed');
   await gp.locator('#newProjectDialog button[type="submit"]').click();
   await gp.locator('#newProjectDialog').waitFor({state:'detached'});
-  assert.equal(Number(await gp.locator('[data-prop="template.width"]').inputValue()),69,'new project's canvas size is explicit');
+  assert.equal(Number(await gp.locator('[data-prop="template.width"]').inputValue()),69,"new project's canvas size is explicit");
   assert.equal(await gp.locator('#stage .guide-trim').count(),1,'new project starts with trim guide');
   const cutRadiusPixels=await gp.locator('#stage .guide-trim').evaluate(el=>parseFloat(el.style.borderRadius));
   const safeRadiusPixels=await gp.locator('#stage .guide-safe').evaluate(el=>parseFloat(el.style.borderRadius));
