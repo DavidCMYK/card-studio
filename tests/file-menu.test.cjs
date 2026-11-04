@@ -34,6 +34,11 @@ function fakeDOM() {
   body:{append(){}},
  };
  global.URL = {createObjectURL:()=> 'blob:fake', revokeObjectURL(){}};
+ // Browser APIs used while repainting an imported project with real artwork.
+ global.Image = class { set src(value) { this.source=value; } };
+ // Preserve the underlying browser error instead of masking it with
+ // ReferenceError: alert is not defined in Node's test environment.
+ global.alert = message => { throw new Error('Unexpected browser alert: '+message); };
 }
 
 test('File menu exposes project and template Save / Save As',()=>{
