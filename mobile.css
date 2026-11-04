@@ -105,3 +105,10 @@
 :root[data-layout="mobile"] .image-reposition-bar{gap:8px;padding:7px 12px;font-size:12px;min-height:46px}
 :root[data-layout="mobile"] .image-reposition-bar span{display:none}
 :root[data-layout="mobile"] .image-reposition-bar button{margin-left:auto;min-height:38px;min-width:78px}
+
+/* Reuse the same inspector categories inside the touch property sheet. */
+:root[data-layout="mobile"] .inspector-sticky{margin:-12px -17px 14px;padding:13px 17px 0;top:0}
+:root[data-layout="mobile"] .inspector-tabs button{min-height:44px;font-size:12px;padding:11px 1px 9px}
+:root[data-layout="mobile"] .inspector-fold>summary{min-height:47px;padding-top:15px;font-size:14px}
+:root[data-layout="mobile"] .inspector-fold>summary:after{top:12px}
+:root[data-layout="mobile"] .inspector-fold-body{padding:13px 12px 4px}

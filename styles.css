@@ -74,3 +74,24 @@
 .element.repositioning .selection-label{background:#1955ac}
 .element .image-reposition-ghost{position:absolute;inset:0;overflow:visible;pointer-events:none;opacity:.28;clip-path:polygon(evenodd,-10000px -10000px,10000px -10000px,10000px 10000px,-10000px 10000px,-10000px -10000px,0 0,100% 0,100% 100%,0 100%,0 0)}
 .element .image-reposition-ghost img{position:absolute;max-width:none;display:block;pointer-events:none}
+
+/* Properties inspector: fixed context, four compact categories and optional sections. */
+.inspector-sticky{position:sticky;top:0;z-index:6;background:#fff;margin:-8px -17px 14px;padding:12px 17px 0;border-bottom:1px solid #e3e9f1}
+.inspector-sticky .inspector-heading{margin:0 0 3px;font-size:17px;overflow-wrap:anywhere}
+.inspector-sticky .inspector-sub{margin-bottom:12px}
+.inspector-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;margin:0 -3px}
+.inspector-tabs button{min-width:0;border:0;border-bottom:3px solid transparent;border-radius:5px 5px 0 0;background:transparent;color:#6b7f9a;font-size:11px;font-weight:700;padding:10px 2px 9px;cursor:pointer}
+.inspector-tabs button:hover{background:#f0f5fb;color:#225aa5}
+.inspector-tabs button.active{border-bottom-color:#3077e2;color:#195cbd;background:#eaf3ff}
+.inspector-pane{padding:0 0 5px;min-height:100px}
+.inspector-pane>.section-title:first-child{margin-top:3px}
+.inspector-fold{border:1px solid #dfe6ef;border-radius:9px;margin:0 0 10px;overflow:visible;background:#fff}
+.inspector-fold>summary{list-style:none;cursor:pointer;position:relative;padding:12px 28px 12px 12px;font-weight:700;font-size:12px;color:#314a69;user-select:none}
+.inspector-fold>summary::-webkit-details-marker{display:none}
+.inspector-fold>summary:after{content:"⌄";position:absolute;right:12px;top:9px;font-size:17px;color:#6d8095;transition:transform .12s}
+.inspector-fold[open]>summary:after{transform:rotate(180deg)}
+.inspector-fold[open]>summary{border-bottom:1px solid #e8edf3;background:#f8fafc;border-radius:9px 9px 0 0}
+.inspector-fold-body{padding:12px 12px 3px}
+.inspector-fold .field:last-child{margin-bottom:8px}
+[data-card-row][hidden]{display:none!important}
+#inspector .field label[for]{cursor:pointer}

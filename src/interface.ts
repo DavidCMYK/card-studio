@@ -43,8 +43,8 @@ export function renderLeft(){
 // A blur/change event from an old input may arrive AFTER the user selects a new
 // element. Without this context it can incorrectly update the new element.
 function editorScope(){return `data-edit-owner="${escapeHTML(S.selected||'')}" data-edit-mode="${S.mode}" data-edit-card="${S.cardIndex}"`}
-function field(label,key,value,type='text',extra=''){return`<div class="field"><label>${escapeHTML(label)}</label><input ${editorScope()} data-prop="${key}" type="${type}" value="${escapeHTML(value)}" ${extra}></div>`}
-function selectionField(label,key,items,value){return `<div class="field"><label>${escapeHTML(label)}</label><select ${editorScope()} data-prop="${key}">${items.map(([v,l])=>`<option value="${escapeHTML(v)}" ${String(v)===String(value)?'selected':''}>${escapeHTML(l)}</option>`).join('')}</select></div>`}
+function field(label,key,value,type='text',extra=''){return`<div class="field"><label for="inspector-${key}">${escapeHTML(label)}</label><input id="inspector-${key}" ${editorScope()} data-prop="${key}" type="${type}" value="${escapeHTML(value)}" ${extra}></div>`}
+function selectionField(label,key,items,value){return `<div class="field"><label for="inspector-${key}">${escapeHTML(label)}</label><select id="inspector-${key}" ${editorScope()} data-prop="${key}">${items.map(([v,l])=>`<option value="${escapeHTML(v)}" ${String(v)===String(value)?'selected':''}>${escapeHTML(l)}</option>`).join('')}</select></div>`}
 function checkbox(label,key,value){return `<label class="toggle-line"><input ${editorScope()} type="checkbox" data-prop="${key}" ${value?'checked':''}>${escapeHTML(label)}</label>`}
 // All pixel labels are export-image pixels at the selected resolution.
 const sizeReadout=()=>{const {w,h}=templateExportSize();return `${w.toLocaleString('en-US')} × ${h.toLocaleString('en-US')} px at ${S.template.dpi} DPI`};
