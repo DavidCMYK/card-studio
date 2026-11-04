@@ -95,8 +95,11 @@ export async function embedInstalledUsedFonts():Promise<{added:number;missing:st
  if(typeof query!=='function')throw Error('Installed font access is unavailable here. Choose Embed font files instead.');
  const used=unbundledFontFamilies();
  if(!used.length)return {added:0,missing:[]};
- if(!confirm('Embed these fonts inside this project?\n'+used.join(', ')+'\n\nOnly continue if the font licences permit embedding in your project file.'))return {added:0,missing:used};
+ // This must be invoked directly from the originating click before any modal
+ // confirmation or await. Chromium otherwise rejects with "User activation is required".
+ // Access is permission-gated; no font bytes are copied until consent below.
  const entries=await query.call(window);
+ if(!confirm('Embed these fonts inside this project?\n'+used.join(', ')+'\n\nOnly continue if the font licences permit embedding in your project file.'))return {added:0,missing:used};
  let added=0;
  for(const family of used){
   const matches=entries.filter((f:any)=>String(f.family).toLowerCase()===family.toLowerCase());
