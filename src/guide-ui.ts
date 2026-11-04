@@ -17,13 +17,13 @@ export function guideSettingsHtml(t:CardTemplate,
  return '<div class="small" style="padding:0 0 8px">Canvas edge = artwork edge. A trim guide is only needed when the canvas includes bleed.</div>'+
  selectionField('Canvas dimensions represent','guide.bleedMode',[
   ['trim','Finished card size (canvas excludes bleed)'],['bleed','Full artwork size (canvas includes bleed)']],g.bleedMode)+
- '<div class="small" style="padding:0 0 9px">These settings never resize your canvas or move any artwork. In bleed mode, finished cut size = canvas minus bleed. To keep the same finished size, change Canvas width/height yourself in Dimensions above.</div>'+
+ '<div class="small" style="padding:0 0 9px">Cut size stays fixed when changing bleed or canvas size. Changing bleed expands/shrinks the canvas; changing canvas recalculates bleed. Changing the bleed mode adds/removes the configured bleed from the canvas. Existing artwork coordinates are never changed.</div>'+
  selectionField('Guide distance units','guide.unit',[
   ['mm','Millimetres (mm)'],['in','Inches (in)'],['px','Pixels (at template DPI)']],u)+
  sideInputs('bleed')+
- '<div class="small" style="padding:0 0 9px">'+(g.bleedMode==='bleed'?'Bleed is included in the canvas and PDF output.':'Bleed distances are stored but inactive until you select artwork including bleed.')+'</div>'+
+ '<div class="small" style="padding:0 0 9px">'+(g.bleedMode==='bleed'?'Bleed changes the canvas (cut size is locked) and is included in PDF artwork.':'Changing bleed automatically switches to canvas-includes-bleed mode.')+'</div>'+
  sideInputs('safe')+
- '<div class="small" style="padding:0 0 8px">Safe area is measured inward from the finished-card trim edge.</div>'+
+ '<div class="small" style="padding:0 0 8px">Safety buffer is measured inward from the cut line. Change either the buffers here or Safe-zone width/height in Dimensions; neither changes the finished cut size.</div>'+
  checkbox('Show guides in Template mode','guide.showTemplate',g.showTemplate)+
  checkbox('Show guides in Cards mode','guide.showCards',g.showCards)+
  checkbox('Dim outside the safe area','guide.dimUnsafe',g.dimUnsafe)+
