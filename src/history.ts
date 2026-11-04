@@ -29,13 +29,18 @@ function intern(data:string):string {
 }
 function decode(key:string):string{return keyToData.get(key)||key}
 function take():RecordState{
+ // Keep legacy raster backs out of repeated undo snapshots, like image sets.
+ const cards=structuredClone(S.cards);
+ for(const card of cards)if(card.printBack)card.printBack=intern(card.printBack);
+ const printSetup=structuredClone(S.printSetup);
+ if(printSetup?.sharedBack)printSetup.sharedBack=intern(printSetup.sharedBack);
  const doc={
   projectName:S.projectName,
   template:structuredClone((S.templates||[S.template])[0]),
   templates:structuredClone(S.templates||[S.template]),
   cardSets:structuredClone(S.cardSets||[]),
-  printSetup:structuredClone(S.printSetup),
-  cards:structuredClone(S.cards),
+  printSetup,
+  cards,
   sets:S.sets.map(set=>({id:set.id,name:set.name,images:set.images.map(im=>({name:im.name,data:intern(im.data)}))})),
   fonts:(S.fonts||[]).map(font=>({...font,data:intern(font.data)}))
  };
@@ -46,6 +51,8 @@ function restore(state:RecordState){
  const doc=structuredClone(state.doc);
  for(const set of doc.sets)for(const image of set.images)image.data=decode(image.data);
  for(const font of doc.fonts||[])font.data=decode(font.data);
+ for(const card of doc.cards||[])if(card.printBack)card.printBack=decode(card.printBack);
+ if(doc.printSetup?.sharedBack)doc.printSetup.sharedBack=decode(doc.printSetup.sharedBack);
  const preservedZoom=S.zoom;
  replaceState({
   ...initial(),...doc,
