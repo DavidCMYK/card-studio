@@ -6,7 +6,8 @@ import { elementGeometry, offsetsForRect, anchorEdges } from './anchor-layout';
 import {checkpoint,historyState} from './history';
 import {bundledFontFamilies} from './project-fonts';
 import {renderCardThumbnails} from './card-thumbnails';
-import {repositionImageId} from './image-reposition';
+import {repositionImageId,canRepositionImage} from './image-reposition';
+import {imageFitAxes,imageScreenOffset,imageCache,getImageData} from './image-sets';
 export function renderCardControl(){const cc=$('#cardControl');cc.style.display=S.mode==='cards'?'flex':'none';if(S.mode!=='cards')return;cc.innerHTML=`<span style="font-weight:700;color:#62778f">CARD</span><button data-action="prev-card" title="Previous card">‹</button><select id="cardSelector">${S.cards.map((c,i)=>`<option value="${i}" ${i===S.cardIndex?'selected':''}>${escapeHTML(c.name)}</option>`).join('')}</select><button data-action="next-card" title="Next card">›</button><span style="color:#8a98a9;margin-left:auto">${S.cardIndex+1} / ${S.cards.length}</span>`}
 export function renderLeft(){
  const v=$('#leftBody');
@@ -224,10 +225,26 @@ export function renderInspector(){
      `<div class="small" style="padding:0 0 10px">${set?'Add images to this set first.':'Choose an image set first.'}</div>`;
    }
   }
+  const frame={...e,...geometry};
+  const source=getImageData(raw,S.cardIndex,S.mode),cached=source?imageCache.get(source):null;
+  const image=cached?.loaded?cached.im:null;
+  const axes=imageFitAxes(frame,image),offset=imageScreenOffset(frame,image);
   panes.content+=`<div class="section-title">Image framing</div>`+
-   selectionField('Fit inside frame','imageFit',[['cover','Cover frame (crop)'],['contain','Fit whole image'],['width','Fit to frame width'],['height','Fit to frame height'],['stretch','Stretch to frame'],['free','Free / original size']],e.imageFit)+
-   `<div class="fields-two">${field('Image zoom (×)','imgZoom',e.imgZoom??1,'number','min="0.05" max="20" step="0.1"')}${(e.imageFit==='free'?field('Free resize scale','imgScale',e.imgScale,'number','min="0.01" step="0.1"'):'')}${field('Offset X (px)','imgOffsetX',e.imgOffsetX,'number','step="1"')}${field('Offset Y (px)','imgOffsetY',e.imgOffsetY,'number','step="1"')}</div>`+
-   `<div class="inspector-action"><button class="secondary" data-action="${repositionImageId()===raw.id?'finish-reposition-image':'reposition-image'}">${repositionImageId()===raw.id?'Done repositioning':'Reposition image'}</button></div><div class="small" style="padding:0 0 12px">Double-click (double-tap on mobile) to reposition. Drag to pan; wheel or pinch to zoom. Escape or Done to finish.</div>`;
+   selectionField('Fit inside frame','imageFit',[['cover','Cover frame (crop)'],['contain','Fit whole image'],['width','Fit to frame width'],['height','Fit to frame height'],['stretch','Stretch to frame'],['free','Free / original size']],e.imageFit);
+  if(e.imageFit==='free')panes.content+=field('Image scale (×)','imgScale',e.imgScale,'number','min="0.01" step="0.1"');
+  if(axes.x||axes.y){
+   panes.content+=`<div class="fields-two">`+
+    (axes.x?field('Offset X (px)','imgOffsetX',Number(offset.x.toFixed(4)),'number','step="1"'):'')+
+    (axes.y?field('Offset Y (px)','imgOffsetY',Number(offset.y.toFixed(4)),'number','step="1"'):'')+
+    `</div>`;
+  }
+  if(canRepositionImage(e)){
+   const hint=e.imageFit==='free'?'Drag to pan. Wheel or pinch adjusts the Free image scale.':
+    e.imageFit==='width'?'Fit width locks horizontal movement. Drag vertically only.':
+    e.imageFit==='height'?'Fit height locks vertical movement. Drag horizontally only.':
+    'Cover permits panning only along cropped axes; image scale stays automatic.';
+   panes.content+=`<div class="inspector-action"><button class="secondary" data-action="${repositionImageId()===raw.id?'finish-reposition-image':'reposition-image'}">${repositionImageId()===raw.id?'Done repositioning':'Reposition image'}</button></div><div class="small" style="padding:0 0 12px">${hint} Double-click (double-tap on mobile) to reposition, Escape or Done to finish.</div>`;
+  }else panes.content+=`<div class="small" style="padding:0 0 12px">This fit mode fixes the image inside its frame; repositioning and scaling are disabled.</div>`;
   panes.content+=fold('image-transforms','Image transforms',
    checkbox('Flip horizontally','imgFlipX',e.imgFlipX===true)+
    checkbox('Flip vertically','imgFlipY',e.imgFlipY===true)+
