@@ -38,3 +38,14 @@ test('PDF writer produces valid page tree, offsets and image stream',async()=>{
  assert.match(s,/\/DCTDecode/);
  assert.match(s,/startxref\n\d+\n%%EOF/);
 });
+test('PDF module works in a browser-like sandbox where TextEncoder is absent',async()=>{
+ const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
+ const source=fs.readFileSync(path.resolve(__dirname,'../.build/print-pdf.js'),'utf8');
+ const scope={exports:{},Uint8Array,ArrayBuffer,Blob};
+ vm.runInNewContext(source,scope);
+ const pdf=scope.exports.buildPrintPdf([{
+  jpeg:Uint8Array.from([255,216,255,217]),pixelWidth:2,pixelHeight:2,widthMm:210,heightMm:297
+ }]);
+ assert.equal(pdf.type,'application/pdf');
+ assert.ok(Buffer.from(await pdf.arrayBuffer()).toString('latin1').startsWith('%PDF-1.4'));
+});
