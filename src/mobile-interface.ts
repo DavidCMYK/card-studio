@@ -1,4 +1,4 @@
-import {S,sizePx,templateEl,card} from './model';
+import {S,sizePx,templateEl,card,assignedTemplate,setCardSide} from './model';
 import {$} from './dom';
 import {renderStage} from './preview';
 import {repaint,patchElement} from './interface';
@@ -34,6 +34,8 @@ function refresh(){
  const title=document.getElementById('mobileProjectName');if(title)title.textContent=S.projectName;
  const name=document.getElementById('mobileCardLabel');if(name)name.textContent=(card()?.name||'Card')+' · '+(S.cardIndex+1)+' / '+S.cards.length;
  const nav=document.getElementById('mobileCardNav');if(nav)nav.hidden=S.mode!=='cards';
+  const sideToggle=document.getElementById('mobileSideToggle') as HTMLButtonElement|null;
+  if(sideToggle){sideToggle.hidden=S.mode!=='cards';sideToggle.disabled=!assignedTemplate(S.cardIndex,'back');sideToggle.textContent=S.side==='back'?'Back':'Front';}
  const selected=S.selected?templateEl(S.selected):null;
  const context=document.getElementById('mobileSelection');if(context)context.hidden=!selected&&S.mode!=='cards';
  const selectedName=document.getElementById('mobileSelectionName');if(selectedName)selectedName.textContent=selected?selected.name:'Card data';
@@ -88,7 +90,7 @@ function start(){
  header.innerHTML='<div class="m-appbar"><button data-mobile="file" aria-label="Project menu">☰</button><strong id="mobileProjectName">Card Studio</strong><button data-action="undo" aria-label="Undo" title="Undo" disabled>↶</button><button data-action="redo" aria-label="Redo" title="Redo" disabled>↷</button><button data-action="save-project">Save</button><button data-mobile="export">Export</button></div><div class="m-mode" role="group" aria-label="Editing mode"><button data-action="mode-template">Template</button><button data-action="mode-cards">Cards</button></div>';
  app.prepend(header);
  const nav=document.createElement('div');nav.id='mobileCardNav';nav.className='m-card-nav';
- nav.innerHTML='<button data-action="prev-card" aria-label="Previous card">‹</button><button data-mobile="cards" id="mobileCardLabel">Card</button><button data-action="next-card" aria-label="Next card">›</button>';
+ nav.innerHTML='<button data-action="prev-card" aria-label="Previous card">‹</button><button data-mobile="cards" id="mobileCardLabel">Card</button><button data-action="next-card" aria-label="Next card">›</button><button data-mobile="side-toggle" id="mobileSideToggle" title="Switch card front or back">Front</button>';
  $('.viewport').append(nav);
  const context=document.createElement('div');context.id='mobileSelection';context.className='m-selection';
  context.innerHTML='<div><strong id="mobileSelectionName"></strong><small id="mobileSelectionScope"></small></div><button data-mobile="nudge" id="mobileNudgeButton">Move</button><button data-mobile="quick" id="mobileQuickButton">Edit</button>';
@@ -123,6 +125,7 @@ function start(){
    else if(command==='switch')setLayout(mobile()?'desktop':'mobile',true);
    else if(command==='close')closePanel();
    else if(command==='fit'){fitCanvas();closePanel()}
+    else if(command==='side-toggle'){if(setCardSide(S.side==='back'?'front':'back')){repaint();fitCanvas()}closePanel()}
    else showPanel(command as Panel);
   }
   if(mobile()&&(target.closest('.m-actions [data-action]')||target.closest('.side-left [data-action]')||target.closest('.side-right [data-action="reposition-image"],.side-right [data-action="isolate-text"]')||target.closest('[data-layer]')||target.closest('.sidebar-cards [data-cardindex]')))closePanel();
