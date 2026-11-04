@@ -30,6 +30,13 @@ const server=http.createServer((req,res)=>{
   await dp.locator('#stage .element').first().waitFor();
   assert.equal(await dp.locator('.top').isVisible(),true,'desktop toolbar visible');
   assert.equal(await dp.locator('#mobileShell').isVisible(),false,'mobile toolbar hidden on desktop');
+  const desktopElements=await dp.locator('#stage .element').count();
+  await dp.locator('.work-tools [data-action="add-shape"]').click();
+  assert.equal(await dp.locator('#stage .element').count(),desktopElements+1,'desktop add shape');
+  await dp.locator('.work-tools [data-action="undo"]').click();
+  assert.equal(await dp.locator('#stage .element').count(),desktopElements,'desktop undo');
+  await dp.locator('.work-tools [data-action="redo"]').click();
+  assert.equal(await dp.locator('#stage .element').count(),desktopElements+1,'desktop redo');
   await dp.screenshot({path:'test-results/desktop.png'});
   await desktop.close();
 
@@ -42,6 +49,7 @@ const server=http.createServer((req,res)=>{
   await page.locator('#mobileCardNav').waitFor({state:'visible',timeout:5000});
   await page.locator('.m-dock [data-mobile="cards"]').click();
   await page.locator('.side-left').waitFor({state:'visible',timeout:5000});
+  await page.waitForFunction(()=>document.querySelector('img[data-card-thumb="0"]')?.getAttribute('src')?.startsWith('data:image/png'),null,{timeout:10000});
   await page.locator('.sidebar-cards [data-action="add-card"]').click();
   assert.match(await page.locator('#mobileCardLabel').innerText(),/Card 002/,'new card selected');
   await page.locator('.m-dock [data-mobile="add"]').click();
@@ -52,6 +60,10 @@ const server=http.createServer((req,res)=>{
   await page.locator('#mobileQuickText').fill('Mobile editing works');
   await page.locator('[data-mobile="apply-text"]').click();
   assert.match(await page.locator('#stage').innerText(),/Mobile editing\s+works/,'per-card text replaced');
+  await page.locator('.m-appbar [data-action="undo"]').click();
+  assert.doesNotMatch(await page.locator('#stage').innerText(),/Mobile editing\s+works/,'mobile undo');
+  await page.locator('.m-appbar [data-action="redo"]').click();
+  assert.match(await page.locator('#stage').innerText(),/Mobile editing\s+works/,'mobile redo');
   await page.locator('.m-dock [data-mobile="properties"]').click();
   await page.locator('.side-right').waitFor({state:'visible',timeout:5000});
   assert.ok((await page.locator('.side-right .inspect').innerText()).length>10);

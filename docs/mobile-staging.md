@@ -48,3 +48,7 @@ Reference: https://developers.cloudflare.com/workers/ci-cd/builds/build-branches
 - `main`, the current production Worker, and its `wrangler.jsonc` are untouched.
 - No custom domain or route should be attached to the test project.
 - A test Pages URL is distinct from `workers.dev`, and can be used without a separate Worker.
+
+## Portable fonts and undo on mobile
+
+Older projects save font family names only. To transfer exact fonts to a different device, first open the project on desktop and use File → Embed font files… or (where supported) Embed installed project fonts…, then save the JSON again. Only embed fonts you are licensed to bundle. The new project includes the font data, so a separate installation is unnecessary. Both desktop and mobile share session-only Undo/Redo, which is not serialized.

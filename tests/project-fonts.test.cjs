@@ -34,3 +34,16 @@ test('font faces are loaded through browser font API',async()=>{
  assert.equal(deleted.length,1);
  delete global.FontFace;delete global.document;
 });
+
+test('importing font files stores bytes inside the project',async()=>{
+ model.replaceState(model.initial());
+ class FileReaderStub{
+  readAsDataURL(blob){this.result='data:font/ttf;base64,QUJDRA==';queueMicrotask(()=>this.onload?.())}
+ }
+ global.FileReader=FileReaderStub;
+ const {added,skipped}=await fonts.importFontFiles([{name:'Custom-Lab-Regular.ttf',size:4,type:'font/ttf'}],()=> 'Custom Lab');
+ assert.equal(added,1);assert.equal(skipped,0);
+ assert.equal(model.S.fonts[0].family,'Custom Lab');
+ assert.equal(model.S.fonts[0].data,'data:font/ttf;base64,QUJDRA==');
+ delete global.FileReader;
+});

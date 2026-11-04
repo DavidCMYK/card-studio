@@ -70,7 +70,7 @@ Existing version 1 `.cardstudio.json` project files and `.template.json` files r
 
 ## Notes
 
-This is an initial editor. Check the export output and dimensions before production printing. Fonts that are not installed on the computer may be substituted. The bundled JSZip library retains its original license notice.
+This is an initial editor. Check the export output and dimensions before production printing. For exact fonts across devices, use File → Embed font files… or Embed installed project fonts… before saving. Only embed fonts whose licences permit embedding. Older files with font names alone use substitute fonts on phones. The bundled JSZip library retains its original license notice.
 
 ### Save and Save As
 
@@ -86,3 +86,12 @@ Connect this GitHub repository to Cloudflare. Use `npm run build:pages` as the b
 ## Mobile development and test Worker
 
 Mobile development is isolated on [`feature/mobile-studio`](https://github.com/DavidCMYK/card-studio/tree/feature/mobile-studio). The permanent live Worker configuration stays in `wrangler.jsonc`; the independent test Worker uses `wrangler.test.jsonc`. See [`docs/mobile-staging.md`](docs/mobile-staging.md) for Cloudflare Git-branch setup and deployment safeguards.
+
+
+## Undo/redo and portable fonts (mobile development)
+
+Both desktop and mobile use the same document history: Undo (Ctrl/Cmd+Z) and Redo (Ctrl/Cmd+Shift+Z or Ctrl+Y). Each completed drag or inspector edit is one step. History retains up to 60 steps, resets when opening or creating a different project, and is not saved to JSON. Native text-input undo is retained while the input is focused.
+
+To fix missing fonts in an existing desktop project, open it on desktop and use File → Embed installed project fonts… (on supported Chrome/Edge with permission), or File → Embed font files… to select licensed TTF, OTF, WOFF or WOFF2 files. The font family name entered must match the text element. Save the project and open the new JSON on your phone. Embedded fonts are used for previews and PNG exports. They are never silently copied from your computer. JSON sizes can increase with bundled font files.
+
+The mobile Cards panel shows lazy-rendered artwork thumbnails; they omit expensive shadow compositing, while PNG exports retain the full renderer.

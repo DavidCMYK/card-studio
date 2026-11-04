@@ -72,6 +72,7 @@ export function undo():boolean {
  restore(previous);current=take();documentRevision++;return true;
 }
 export function redo():boolean {
+ checkpoint();
  if(!future.length)return false;
  past.push(take());if(past.length>MAX_STEPS)past.shift();
  const next=future.pop()!;
