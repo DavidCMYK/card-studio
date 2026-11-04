@@ -95,11 +95,13 @@ export function setCardSide(side:CardSide):boolean{
 }
 
 export const card=()=>S.cards[S.cardIndex]||null;
-export const templateEl=(id: string | null)=>S.template.elements.find(e=>e.id===id)||(S.mode==='cards'?card()?.extraElements?.find(e=>e.id===id):null);
-export const layerEls=()=>[...S.template.elements,...(S.mode==='cards'?(card()?.extraElements||[]):[])];
+export const cardExtras=(c:StagedCard|undefined,side:CardSide=S.side||'front')=>side==='back'?(c?.backExtraElements||[]):(c?.extraElements||[]);
+export function ensureCardExtras(c:StagedCard,side:CardSide=S.side||'front'){if(side==='back')return c.backExtraElements??=[];return c.extraElements??=[];}
+export const templateEl=(id: string | null)=>S.template.elements.find(e=>e.id===id)||(S.mode==='cards'?cardExtras(card()).find(e=>e.id===id):null);
+export const layerEls=()=>[...S.template.elements,...(S.mode==='cards'?cardExtras(card()):[])];
 export const isExported=(e: CardElement)=>e.includeInExport !== false;
 export const isDataExported=(e: CardElement)=>e.includeInDataExport !== false;
-export const isExtra=(id: string | null)=>!!card()?.extraElements?.some(e=>e.id===id);
+export const isExtra=(id: string | null)=>cardExtras(card()).some(e=>e.id===id);
 export const effective=(e: CardElement)=>S.mode==='cards'&&card()&&!isExtra(e.id)?{...e,...(card().overrides?.[e.id]||{})}:e;
 export const actualValue=(e: CardElement)=>S.mode==='cards'&&card()&&Object.prototype.hasOwnProperty.call(card().values||{},e.id)?card().values[e.id]:(e.kind==='text'?e.text:'');
 /** Resolve spreadsheet/card data for any card index, without changing the UI selection. */
@@ -108,7 +110,7 @@ export function cardTextValue(e: CardElement, cardIndex: number): string {
  return String(Object.prototype.hasOwnProperty.call(values,e.id)?values[e.id]:e.text??'');
 }
 /** Single visibility rule shared by card preview, layers, and all PNG exports. */
-export function visibleOnCard(raw: CardElement, cardIndex: number, mode: 'template'|'cards'='cards'): boolean {
+export function visibleOnCard(raw: CardElement, cardIndex: number, mode: 'template'|'cards'='cards',template:CardTemplate=S.template,side:CardSide=S.side||'front'): boolean {
  const overrides=mode==='cards'?S.cards[cardIndex]?.overrides?.[raw.id]:null;
  const el=overrides?{...raw,...overrides}:raw;
  if(el.hidden||!isExported(raw)||!isExported(el))return false;
@@ -116,10 +118,10 @@ export function visibleOnCard(raw: CardElement, cardIndex: number, mode: 'templa
  if(mode!=='cards')return true;
  if(el.kind==='text')return el.invisibleIfEmpty===false||cardTextValue(raw,cardIndex).trim()!=='';
  if((el.kind==='shape'||el.kind==='image')&&el.linkedTextId){
-  const source=[...S.template.elements,...(S.cards[cardIndex]?.extraElements||[])]
+  const source=[...template.elements,...cardExtras(S.cards[cardIndex],side)]
    .find(item=>item.id===el.linkedTextId&&item.kind==='text');
   // Orphaned links are ignored rather than concealing the element unexpectedly.
-  return !source||visibleOnCard(source,cardIndex,'cards');
+  return !source||visibleOnCard(source,cardIndex,'cards',template,side);
  }
  return true;
 }
