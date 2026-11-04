@@ -45,6 +45,6 @@ const branch = process.env.CF_PAGES_BRANCH || process.env.GITHUB_REF_NAME ||
   execFileSync('git',['branch','--show-current'],{cwd:root,encoding:'utf8'}).trim();
 writeIcons(output);
 const worker=path.join(output,'service-worker.js');
-fs.writeFileSync(worker,fs.readFileSync(worker,'utf8').replace('__CACHE_VERSION__',commit));
+fs.writeFileSync(worker,fs.readFileSync(worker,'utf8').replaceAll('__CACHE_VERSION__',commit));
 fs.writeFileSync(path.join(output,'build-info.json'),JSON.stringify({commit,branch},null,2)+'\n');
 console.log(`Cloudflare Pages: prepared ${assets.length} static files in public/ (${branch} @ ${commit.slice(0,10)})`);
