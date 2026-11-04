@@ -51,8 +51,10 @@ export interface CardTemplate { shadowOverlapMode?: ShadowOverlapMode; name: str
 export interface ImageAsset { name: string; data: string; }
 export interface ImageSet { id: string; name: string; images: ImageAsset[]; }
 export interface StagedCard { id: string; name: string; values: Record<string,string>; overrides: Record<string,Partial<CardElement>>; extraElements: CardElement[]; }
+/** Font binary carried inside projects/templates for consistent cross-device rendering. */
+export interface EmbeddedFont { family:string; filename:string; data:string; weight?:number; style?:'normal'|'italic'; }
 export interface StudioProject {
   type: 'cardstudio-project'; version: number; projectName: string;
-  template: CardTemplate; sets: ImageSet[]; cards: StagedCard[];
+  template: CardTemplate; sets: ImageSet[]; cards: StagedCard[]; fonts?: EmbeddedFont[];
   mode: 'template' | 'cards'; cardIndex: number; selected: string | null; zoom: number;
 }
