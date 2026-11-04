@@ -96,6 +96,15 @@ const server=http.createServer((req,res)=>{
   assert.equal(Number(await gp.locator('[data-prop="template.width"]').inputValue()),66,'removing bleed shrinks canvas to cut');
   assert.equal(Number(await gp.locator('[data-prop="guide.cut.width"]').inputValue()),66,'cut retained when disabling bleed');
   assert.equal(await gp.locator('#stage .guide-trim').count(),1,'rounded cut guide remains visible when cut coincides with canvas edge');
+  await gp.locator('#inspector [data-prop="template.unit"]').selectOption('px');
+  assert.equal(await gp.locator('#inspector [data-prop="template.width"]').getAttribute('step'),'1','canvas pixel size uses integer steps');
+  assert.equal(await gp.locator('#inspector [data-prop="guide.cut.width"]').getAttribute('step'),'1','cut pixel size uses integer steps');
+  assert.equal(Number(await gp.locator('[data-prop="template.width"]').inputValue()),Math.round(66*300/25.4),'displayed canvas pixel dimension is an integer');
+  await gp.locator('#inspector [data-prop="template.width"]').fill('781.7');
+  await gp.locator('#inspector [data-prop="template.width"]').press('Tab');
+  assert.equal(Number(await gp.locator('[data-prop="template.width"]').inputValue()),782,'fractional canvas pixels round before applying');
+  assert.equal(Number(await gp.locator('[data-prop="guide.cut.width"]').inputValue()),Math.round(66*300/25.4),'canvas pixel edit keeps cut size locked');
+
   await gp.evaluate(()=>document.activeElement?.blur());
   await gp.keyboard.press('g');
   assert.equal(await gp.locator('#stage .guide-safe').count(),0,'G toggles guides');
@@ -116,6 +125,13 @@ const server=http.createServer((req,res)=>{
   await gp.locator('#newProjectDialog [name="safeWidth"]').fill('70');
   await gp.locator('#newProjectDialog [name="safeWidth"]').press('Tab');
   assert.match(await gp.locator('#newProjectError').textContent(),/cannot exceed/,'new project rejects unsafe dimensions');
+  await gp.locator('#newProjectDialog [name="unit"]').selectOption('px');
+  assert.equal(await gp.locator('#newProjectDialog [name="cutWidth"]').getAttribute('step'),'1','new project pixel dimensions use integer steps');
+  assert.match(await gp.locator('#newProjectDialog [name="cutWidth"]').inputValue(),/^\\d+$/,'new project displays integer pixel cut size');
+  await gp.locator('#newProjectDialog [name="cutWidth"]').fill('807.6');
+  await gp.locator('#newProjectDialog [name="cutWidth"]').press('Tab');
+  assert.equal(await gp.locator('#newProjectDialog [name="cutWidth"]').inputValue(),'808','new project rounds fractional pixel input');
+
   await gp.locator('#newProjectDialog [data-new-project="cancel"]').click();
   await gp.locator('#newProjectDialog').waitFor({state:'detached'});
   await gp.locator('#fileMenu summary').click();
