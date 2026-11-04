@@ -52,3 +52,16 @@ Reference: https://developers.cloudflare.com/workers/ci-cd/builds/build-branches
 ## Portable fonts and undo on mobile
 
 Older projects save font family names only. To transfer exact fonts to a different device, first open the project on desktop and use File → Embed font files… or (where supported) Embed installed project fonts…, then save the JSON again. Only embed fonts you are licensed to bundle. The new project includes the font data, so a separate installation is unnecessary. Both desktop and mobile share session-only Undo/Redo, which is not serialized.
+
+
+## Local recovery acceptance
+
+Cloudflare Pages test uses the browser's IndexedDB on its own origin. A production domain or a separately installed app would have **different** local storage.
+
+1. Open the test site on a desktop or phone, edit a card, then leave the page idle until the status reads **Backed up locally** (on mobile: Project menu).
+2. Reload. The explicit **Recover unsaved changes?** dialog should offer **Restore changes**, **Download backup JSON**, and **Discard backup**.
+3. Restore, verify the text/artwork/cards, and then use **Save project** to create a permanent file. A recovered browser draft does not have its old native file write handle.
+4. Test discard as well: after deleting a recovery copy and reloading, the recovery prompt should not return.
+5. If browser storage is blocked or full, local autosave shows a warning; saving/exporting project files should continue to work.
+
+The backup does not migrate between desktop and phone and is not a cloud sync. The site retains the latest local recovery copy only. Browser site-data clearing destroys it. Full project files are the source of truth.

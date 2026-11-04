@@ -97,3 +97,16 @@ To fix missing fonts in an existing desktop project, open it on desktop and use 
 The mobile Cards panel shows lazy-rendered artwork thumbnails; they omit expensive shadow compositing, while PNG exports retain the full renderer.
 
 For precise placement on a phone or tablet, select an element and tap Move to use the arrow-pad. Switch between 1 and 10 design-pixel increments; each tap can be undone independently.
+
+
+## Local autosave and crash recovery (test branch)
+
+- Every completed edit is backed up automatically to **IndexedDB in this browser**, usually after 1.6 seconds without another edit. Inspector fields also update their recovery copy while you type, and hiding/closing the tab triggers a best-effort final write.
+- On the next visit, Card Studio **asks** whether to restore the latest local copy, download it as project JSON, or discard it. It never loads recovery data over your work without your permission.
+- A confirmed native **Save project** clears the current tab's recovery copy. A download-only fallback does **not** claim to overwrite a file and therefore keeps the local recovery.
+- Use **File → Local recovery…** to reopen the recovery prompt.
+- Restored projects have **no write permission to any previous local file**. Use Save project / Save as to create a permanent JSON copy.
+- The browser currently retains **one latest recovery copy per site**; edits to another document in the same browser may replace it. Save valuable projects as JSON before switching. Recovery stays on that **device, browser profile and site address**; it does not sync between desktop and phone.
+- Private browsing, disabled site storage, full device storage, or clearing site data can prevent or erase local recovery. It is a safety net, not a replacement for saved project files. A tab closed instantly after editing may lose the last few changes if its final IndexedDB write does not complete.
+
+The browser regression suite covers recover/discard after reload, explicit Save, a 240-card deck with embedded artwork, desktop/mobile PNG export equality, and tablet orientation changes.
