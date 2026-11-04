@@ -35,7 +35,7 @@
 .top .mode-switch button.active:hover{background:#dfeaff}
 /* Three independent toolboxes: each scroll area is contained within its own panel. */
 .side-left{display:flex;flex-direction:column;overflow:hidden;padding:10px;background:#e6ebf2;min-width:0;min-height:0}
-.sidebar-stack{min-height:0;min-width:0;flex:1;display:grid;grid-template-rows:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr);gap:10px}
+.sidebar-stack{min-height:0;min-width:0;flex:1;display:grid;grid-template-rows:minmax(0,1.1fr) minmax(0,.8fr) minmax(0,1.3fr) minmax(0,1fr) minmax(0,.8fr);gap:8px}
 .sidebar-panel{display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden;border:1px solid #d4deea;border-radius:9px;background:white;box-shadow:0 1px 4px #1c36500e}
 .sidebar-panel .side-head{flex:none;padding:11px 12px 9px;border-bottom:1px solid #e6ebf1;min-height:45px}
 .sidebar-panel .side-head h2{letter-spacing:.9px}
@@ -124,3 +124,12 @@
 
 /* Rounded unsafe-region overlay follows the safe-zone curve, not its bounding box. */
 .card-guide-overlay .guide-dim-rounded{position:absolute;box-sizing:border-box;pointer-events:none;box-shadow:0 0 0 20000px #12243d33}
+
+/* Multi-template workspace: independently scrollable template and card-set lists. */
+.sidebar-templates .asset-row,.sidebar-cardsets .asset-row{margin:7px 9px;padding:8px}
+.sidebar-templates .asset-title button{display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;flex:1}
+.sidebar-templates .asset-row.active{border-color:#8db8f5;background:#eef5ff}
+.sidebar-cardsets .field{margin:8px 0}
+.sidebar-cardsets .field select{padding:6px;font-size:11px}
+.sidebar-templates .asset-actions,.sidebar-cardsets .asset-actions{flex-wrap:wrap;gap:4px}
+.sidebar-templates .asset-actions button,.sidebar-cardsets .asset-actions button{padding:4px 6px;font-size:10px}
