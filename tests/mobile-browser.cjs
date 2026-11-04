@@ -242,14 +242,23 @@ const server=http.createServer((req,res)=>{
    id:'bulk-'+i,name:'Card '+String(i+1).padStart(3,'0'),
    values:{[titleElement.id]:'Card title '+i},overrides:{},extraElements:[]
   }));
+  // Use real high-entropy PNG data, not tiny images that fit localStorage.
   const pixel=await rp.evaluate(()=>{
-   const c=document.createElement('canvas');c.width=96;c.height=96;
-   const x=c.getContext('2d');x.fillStyle='#b4a7d6';x.fillRect(0,0,96,96);
+   const c=document.createElement('canvas');c.width=512;c.height=512;
+   const x=c.getContext('2d'),image=x.createImageData(c.width,c.height);
+   let seed=20261104;
+   for(let i=0;i<image.data.length;i+=4){
+    seed=(Math.imul(seed,1664525)+1013904223)>>>0;
+    image.data[i]=seed&255;image.data[i+1]=(seed>>>8)&255;
+    image.data[i+2]=(seed>>>16)&255;image.data[i+3]=255;
+   }
+   x.putImageData(image,0,0);
    return c.toDataURL('image/png');
   });
-  base.sets=[{id:'bulk-images',name:'Artwork',images:Array.from({length:24},(_,i)=>({
+  base.sets=[{id:'bulk-images',name:'Artwork',images:Array.from({length:12},(_,i)=>({
    name:'image-'+i+'.png',data:pixel
   }))}];
+  assert.ok(Buffer.byteLength(JSON.stringify(base))>5*1024*1024,'large deck exceeds typical localStorage quota');
   await rp.locator('#openProjectFile').setInputFiles({
    name:'large-deck.cardstudio.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(base))
   });
@@ -264,7 +273,7 @@ const server=http.createServer((req,res)=>{
   const recoveredPath=await recoveredDownload.path();
   const recoveredData=JSON.parse(fs.readFileSync(recoveredPath,'utf8'));
   assert.equal(recoveredData.cards.length,240,'large deck card count retained');
-  assert.equal(recoveredData.sets[0].images.length,24,'all embedded artwork retained');
+  assert.equal(recoveredData.sets[0].images.length,12,'all embedded artwork retained');
   assert.equal(recoveredData.template.elements.length,base.template.elements.length+1,'unsaved edit retained in backup');
   await rp.locator('#recoveryRestore').click();
   await rp.locator('#recoveryDialog').waitFor({state:'detached',timeout:8000});
