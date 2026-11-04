@@ -202,10 +202,11 @@ const server=http.createServer((req,res)=>{
   assert.notEqual(await titleEl.getAttribute('style'),oldTitle,'independent text drag moves text');
   assert.equal(await follower.getAttribute('style'),oldFollower,'linked shape does not move with independent text');
   const sizeBefore=await titleEl.evaluate(el=>el.style.width);
-  const resize=await titleEl.locator('[data-handle="e"]').boundingBox();
+  // The title sits near the card's right edge; the west handle stays inside the card after moving.
+  const resize=await titleEl.locator('[data-handle="w"]').boundingBox();
   await independent.mouse.move(resize.x+resize.width/2,resize.y+resize.height/2);
   await independent.mouse.down();
-  await independent.mouse.move(resize.x+resize.width/2+32,resize.y+resize.height/2,{steps:4});
+  await independent.mouse.move(resize.x+resize.width/2-32,resize.y+resize.height/2,{steps:4});
   await independent.mouse.up();
   assert.notEqual(await titleEl.evaluate(el=>el.style.width),sizeBefore,'independent text resize changes text width');
   assert.equal(await follower.getAttribute('style'),oldFollower,'linked shape does not stretch with text');
