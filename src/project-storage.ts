@@ -57,8 +57,13 @@ async function saveDocument(type: 'project'|'template', saveAs = false): Promise
   return false;
  }
 }
-/** Save every template separately. Use a native directory where supported, or
- * download one ZIP with independent template files everywhere else. */
+/** Save every template separately. Known file handles always retain their own
+ * destinations; new templates use a chosen folder or a portable ZIP fallback. */
+async function writeTemplateFile(handle:SavedFileHandle,data:unknown):Promise<void>{
+ const writable=await handle.createWritable();
+ try{await writable.write(JSON.stringify(data,null,2));await writable.close();}
+ catch(error){try{await writable.abort?.();}catch{}throw error;}
+}
 export async function saveAllTemplates():Promise<void>{
  const templates=S.templates||[S.template],contents=templates.map(t=>({t,data:templateContents(t)}));
  const filenames=new Set<string>();
@@ -67,39 +72,39 @@ export async function saveAllTemplates():Promise<void>{
   while(filenames.has(name.toLowerCase()))name=stem+'_'+(index++)+'.template.json';
   filenames.add(name.toLowerCase());return {template:t,name,data};
  });
- // Existing per-template file grants can all be reused without prompting.
- if(entries.every(entry=>templateFileHandles.has(entry.template.id!))){
-  try{
-   for(const entry of entries){
-    const handle=templateFileHandles.get(entry.template.id!)!;
-    const writable=await handle.createWritable();
-    await writable.write(JSON.stringify(entry.data,null,2));
-    await writable.close();
-   }
-   toast('Saved '+entries.length+' templates to their existing files');
-   return;
-  }catch(error){alert('Could not update all template files: '+(error as Error).message);return;}
- }
+ const known=entries.filter(entry=>templateFileHandles.has(entry.template.id!));
+ const missing=entries.filter(entry=>!templateFileHandles.has(entry.template.id!));
  const directoryPicker=(window as any).showDirectoryPicker;
- if(typeof directoryPicker==='function'){
+ // Ask for a destination for new templates before touching existing files.
+ if(missing.length&&typeof directoryPicker==='function'){
   try{
    const directory=await directoryPicker.call(window,{mode:'readwrite'});
-   for(const entry of entries){
-    const handle=await directory.getFileHandle(entry.name,{create:true});
-    const writable=await handle.createWritable();
-    await writable.write(JSON.stringify(entry.data,null,2));
-    await writable.close();
-    templateFileHandles.set(entry.template.id!,handle);
-   }
-   toast('Saved '+entries.length+' individual templates into the selected folder');
-   return;
-  }catch(error){if(isCancel(error))return;alert('Could not save templates in folder: '+(error as Error).message);return;}
+   const newHandles=new Map<string,SavedFileHandle>();
+   for(const entry of missing)
+    newHandles.set(entry.template.id!,await directory.getFileHandle(entry.name,{create:true}));
+   for(const entry of entries)
+    await writeTemplateFile(templateFileHandles.get(entry.template.id!)||newHandles.get(entry.template.id!)!,entry.data);
+   for(const [id,handle] of newHandles)templateFileHandles.set(id,handle);
+   toast('Saved '+entries.length+' templates to their individual files');
+  }catch(error){if(!isCancel(error))alert('Could not save templates: '+(error as Error).message);}
+  return;
  }
- const zip=new JSZip();
- for(const entry of entries)zip.file(entry.name,JSON.stringify(entry.data,null,2));
- const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:4}});
- download(blob,safeFile(S.projectName)+'_templates.zip');
- toast('Downloaded '+entries.length+' separate template files in ZIP');
+ try{
+  for(const entry of known)
+   await writeTemplateFile(templateFileHandles.get(entry.template.id!)!,entry.data);
+  if(!missing.length){
+   toast('Saved '+entries.length+' templates to their existing files');
+   return;
+  }
+  // Non-Chromium browsers cannot choose a folder. Keep a full ZIP backup,
+  // even if some known template files were also overwritten directly.
+  const zip=new JSZip();
+  for(const entry of entries)zip.file(entry.name,JSON.stringify(entry.data,null,2));
+  const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:4}});
+  download(blob,safeFile(S.projectName)+'_templates.zip');
+  toast(known.length?'Saved '+known.length+' existing template files and downloaded all '+entries.length+' templates in ZIP':
+   'Downloaded '+entries.length+' separate template files in ZIP');
+ }catch(error){alert('Could not save all templates: '+(error as Error).message);}
 }
 export const saveProject=()=>saveDocument('project');
 export const saveProjectAs=()=>saveDocument('project',true);
