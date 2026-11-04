@@ -1,7 +1,7 @@
 import { S, initial, replaceState, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, px, unitFactor, sizePx, clamp, uid } from './model';
 import { $ , toast } from './dom';
 import { renderStage } from './preview';
-import { repaint, renderInspector, renderLeft, chooseCard, patchElement, addElement, updateDimensionReadouts, setKnownFonts, baseFonts, refreshHistoryButtons } from './interface';
+import { repaint, renderInspector, renderLeft, renderCardControl, chooseCard, patchElement, addElement, updateDimensionReadouts, setKnownFonts, baseFonts, refreshHistoryButtons, selectInspectorTab, filterCardData } from './interface';
 import { imageCache, cacheImage, getImageData, setImageUpdateHandler } from './image-sets';
 import { exportPNG, exportAll } from './png-export';
 import { exportXLSX, readSheet } from './spreadsheet';
@@ -173,9 +173,38 @@ function activeInspectorInput(inp){
  if(d.editOwner===undefined)return true; // Programmatic/legacy inputs.
  return d.editOwner===(S.selected||'')&&d.editMode===S.mode&&Number(d.editCard)===S.cardIndex;
 }
-$('#inspector').addEventListener('input',event=>{const inp=event.target;if(!activeInspectorInput(inp))return;noteLiveEdit();if(inp.dataset.cardvalue){const c=card();if(c){c.values??={};c.values[inp.dataset.cardvalue]=inp.value;renderStage();updateDimensionReadouts()}return}if(inp.dataset.prop){handleProp(inp);renderStage();updateDimensionReadouts();$('#projectTitle').textContent=S.projectName}});
+$('#inspector').addEventListener('input',event=>{const inp=event.target;if(inp.dataset.cardFilter!==undefined){filterCardData(inp.value);return}if(!activeInspectorInput(inp))return;noteLiveEdit();if(inp.dataset.cardvalue){const c=card();if(c){c.values??={};c.values[inp.dataset.cardvalue]=inp.value;renderStage();updateDimensionReadouts()}return}if(inp.dataset.prop){handleProp(inp);renderStage();updateDimensionReadouts();$('#projectTitle').textContent=S.projectName}});
 $('#inspector').addEventListener('focusout',()=>{checkpoint();refreshHistoryButtons()});
- $('#inspector').addEventListener('change',event=>{const inp=event.target;if(!activeInspectorInput(inp))return;if(inp.dataset.cardvalue){checkpoint();refreshHistoryButtons();renderLeft();return}if(inp.dataset.prop){handleProp(inp);repaint()}});
+// A synchronous inspector rebuild during change removes the focused input before
+// the browser finishes Tab/Shift+Tab navigation. Update the document immediately,
+// then rebuild the controls after focus has moved and restore that new focus.
+ $('#inspector').addEventListener('change',event=>{
+  const inp=event.target;
+  if(inp.dataset.cardFilter!==undefined||!activeInspectorInput(inp))return;
+  if(inp.dataset.cardvalue){checkpoint();refreshHistoryButtons();renderLeft();return}
+  if(inp.dataset.prop){
+   handleProp(inp);
+   repaint(false);
+   renderLeft();renderCardControl();
+   setTimeout(()=>renderInspector(),0);
+  }
+ });
+$('#inspector').addEventListener('click',event=>{
+ const control=(event.target as HTMLElement).closest?.('[data-inspector-tab]') as HTMLElement|null;
+ if(!control)return;
+ selectInspectorTab(control.dataset.inspectorTab as any);
+ event.preventDefault();
+});
+$('#inspector').addEventListener('keydown',event=>{
+ const tab=(event.target as HTMLElement).closest?.('[data-inspector-tab]') as HTMLElement|null;
+ if(!tab||!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+ const tabs=['layout','content','style','rules'];
+ const i=tabs.indexOf(tab.dataset.inspectorTab||'layout');
+ const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:
+  (i+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;
+ selectInspectorTab(tabs[next] as any);
+ event.preventDefault();
+});
 function listenClick(e){const menu=$('#fileMenu');const actionEl=e.target.closest('[data-action]');if(actionEl){menu.open=false;e.stopPropagation();mutateAction(actionEl.dataset.action,actionEl);return}if(menu.open&&!e.target.closest('#fileMenu'))menu.open=false;const listRow=e.target.closest('[data-layer]');if(listRow){S.selected=listRow.dataset.layer;repaint();return}const cardRow=e.target.closest('[data-cardindex]');if(cardRow){chooseCard(Number(cardRow.dataset.cardindex));return}}
 document.addEventListener('click',listenClick);
 $('#cardControl').addEventListener('change',e=>{if(e.target.id==='cardSelector')chooseCard(Number(e.target.value))});
