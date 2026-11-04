@@ -1,6 +1,6 @@
 /** Debounced, local-only crash recovery. Never overwrites a chosen project file. */
 import {S,initial,replaceState,escapeHTML} from './model';
-import {subscribeHistory,historyRevision,resetHistory} from './history';
+import {subscribeHistory,historyRevision,resetHistory,checkpoint} from './history';
 import {imageCache} from './image-sets';
 import {repaint} from './interface';
 import {activateProjectFonts} from './project-fonts';
@@ -44,6 +44,8 @@ function changed(){
  cancel();
  timer=setTimeout(()=>{timer=null;void flushRecovery()},DELAY);
 }
+/** Keep a draft of an actively edited text field without creating undo steps per keystroke. */
+export function noteLiveEdit(){changed()}
 export function flushRecovery():Promise<void>{
  if(!available||blocked||!dirty)return Promise.resolve();
  cancel();
@@ -169,6 +171,6 @@ export function initRecovery(onRestored:()=>void){
    else status('Local recovery ready');
   }catch(error){available=false;fail(error)}
  })();
- document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')void flushRecovery()});
- window.addEventListener('pagehide',()=>{void flushRecovery()});
+ document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){checkpoint();void flushRecovery()}});
+ window.addEventListener('pagehide',()=>{checkpoint();void flushRecovery()});
 }

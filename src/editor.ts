@@ -12,7 +12,7 @@ import { layoutTextBox } from './text-layout';
 import { resizedRect, locksImageCornerAspect } from './resize';
 import { elementGeometry } from './anchor-layout';
 import {checkpoint,undo,redo,resetHistory} from './history';
-import {showRecovery,recordProjectReplaced} from './recovery';
+import {showRecovery,recordProjectReplaced,noteLiveEdit} from './recovery';
 import {importFontFiles,embedInstalledUsedFonts,activateProjectFonts,onFontsReady,bundledFontFamilies} from './project-fonts';
 setImageUpdateHandler(renderStage);
 onFontsReady(()=>{setKnownFonts([...new Set([...baseFonts(),...bundledFontFamilies()])]);repaint()});
@@ -167,7 +167,7 @@ function activeInspectorInput(inp){
  if(d.editOwner===undefined)return true; // Programmatic/legacy inputs.
  return d.editOwner===(S.selected||'')&&d.editMode===S.mode&&Number(d.editCard)===S.cardIndex;
 }
-$('#inspector').addEventListener('input',event=>{const inp=event.target;if(!activeInspectorInput(inp))return;if(inp.dataset.cardvalue){const c=card();if(c){c.values??={};c.values[inp.dataset.cardvalue]=inp.value;renderStage();updateDimensionReadouts()}return}if(inp.dataset.prop){handleProp(inp);renderStage();updateDimensionReadouts();$('#projectTitle').textContent=S.projectName}});
+$('#inspector').addEventListener('input',event=>{const inp=event.target;if(!activeInspectorInput(inp))return;noteLiveEdit();if(inp.dataset.cardvalue){const c=card();if(c){c.values??={};c.values[inp.dataset.cardvalue]=inp.value;renderStage();updateDimensionReadouts()}return}if(inp.dataset.prop){handleProp(inp);renderStage();updateDimensionReadouts();$('#projectTitle').textContent=S.projectName}});
 $('#inspector').addEventListener('focusout',()=>{checkpoint();refreshHistoryButtons()});
  $('#inspector').addEventListener('change',event=>{const inp=event.target;if(!activeInspectorInput(inp))return;if(inp.dataset.cardvalue){checkpoint();refreshHistoryButtons();renderLeft();return}if(inp.dataset.prop){handleProp(inp);repaint()}});
 function listenClick(e){const menu=$('#fileMenu');const actionEl=e.target.closest('[data-action]');if(actionEl){menu.open=false;e.stopPropagation();mutateAction(actionEl.dataset.action,actionEl);return}if(menu.open&&!e.target.closest('#fileMenu'))menu.open=false;const listRow=e.target.closest('[data-layer]');if(listRow){S.selected=listRow.dataset.layer;repaint();return}const cardRow=e.target.closest('[data-cardindex]');if(cardRow){chooseCard(Number(cardRow.dataset.cardindex));return}}
