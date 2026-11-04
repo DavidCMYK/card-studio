@@ -14,6 +14,6 @@ export function guideOverlay(template:CardTemplate,mode:'template'|'cards',zoom:
  <div class="guide-dim" style="${rect(safe.x+safe.w,safe.y,canvas.width-safe.x-safe.w,safe.h)}"></div>
  <div class="guide-dim" style="${rect(0,safe.y+safe.h,canvas.width,canvas.height-safe.y-safe.h)}"></div>`:'';
  return `<div class="card-guide-overlay" aria-hidden="true">${shaded}
- ${settings.bleedMode==='bleed'?`<div class="guide-trim" style="${trimStyle}"><span>TRIM</span></div>`:''}
+ ${settings.bleedMode==='bleed'&&Object.values(settings.bleed).some(value=>value>0)?`<div class="guide-trim" style="${trimStyle}"><span>TRIM</span></div>`:''}
  <div class="guide-safe" style="${safeStyle}"><span>SAFE</span></div></div>`;
 }
