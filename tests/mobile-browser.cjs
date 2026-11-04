@@ -6,7 +6,7 @@ const path=require('node:path');
 const {execFileSync}=require('node:child_process');
 const {chromium,devices}=require('playwright');
 const root=path.resolve(__dirname,'../public');
-const mime={'.html':'text/html','.css':'text/css','.js':'text/javascript','.svg':'image/svg+xml','.json':'application/json','.png':'image/png'};
+const mime={'.html':'text/html','.css':'text/css','.js':'text/javascript','.svg':'image/svg+xml','.json':'application/json','.webmanifest':'application/manifest+json','.png':'image/png'};
 const server=http.createServer((req,res)=>{
  const pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname);
  const file=path.resolve(root,'.'+(pathname==='/'?'/index.html':pathname));
@@ -271,7 +271,31 @@ const server=http.createServer((req,res)=>{
   assert.equal(await rp.locator('.sidebar-cards .card-row').count(),240);
   assert.equal(await rp.locator('#stage .element').count(),defaultCount+2,'loaded and recovered edits remain');
   await recovery.close();
+
+  // Installed PWA must still run, edit and recover a project with the network off.
+  const offline=await browser.newContext({viewport:{width:900,height:1100},hasTouch:true,isMobile:true,acceptDownloads:true,serviceWorkers:'allow'});
+  const op=await offline.newPage();op.on('pageerror',e=>errors.push('offline: '+e.message));
+  await op.goto(url);
+  await op.evaluate(()=>navigator.serviceWorker.ready);
+  await op.reload();
+  await op.waitForFunction(()=>Boolean(navigator.serviceWorker.controller),null,{timeout:15000});
+  const manifest=await op.evaluate(async()=>await (await fetch('./manifest.webmanifest')).json());
+  assert.equal(manifest.display,'standalone');
+  await offline.setOffline(true);
+  await op.reload({waitUntil:'domcontentloaded',timeout:15000});
+  await op.locator('#stage .element').first().waitFor({timeout:8000});
+  assert.equal(await op.locator('#mobileShell').isVisible(),true,'installed offline phone/tablet UI');
+  await op.locator('.m-dock [data-mobile="add"]').click();
+  await op.locator('.m-actions [data-action="add-shape"]').click();
+  await op.waitForFunction(()=>document.getElementById('recoveryStatus')?.textContent==='Backed up locally',null,{timeout:12000});
+  await op.reload({waitUntil:'domcontentloaded',timeout:15000});
+  await op.locator('#recoveryDialog').waitFor({state:'visible',timeout:8000});
+  await op.locator('#recoveryRestore').click();
+  await op.locator('#recoveryDialog').waitFor({state:'detached',timeout:8000});
+  assert.equal(await op.locator('#stage .element').count(),7,'offline recovery keeps edited document');
+  await offline.setOffline(false);
+  await offline.close();
   assert.deepEqual(errors,[],'no browser exceptions');
-  console.log('Browser checks passed: desktop/mobile editing, local autosave, restore, discard, manual save and 240-card recovery');
+  console.log('Browser checks passed: editing, PNG parity, tablet rotation, recovery, 240 cards, and offline PWA');
  }finally{await browser.close();shutdown()}
 })().catch(e=>{console.error(e);if(server.listening)server.close();process.exitCode=1});
