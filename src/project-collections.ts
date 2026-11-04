@@ -3,6 +3,20 @@ import type {CardSet,CardTemplate,CardSide,StagedCard} from './types';
 import {S,uid,templateById,cardSetFor,assignedTemplate,selectProjectTemplate,syncEditorTemplate} from './model';
 import {trimDimensionsMm} from './card-guides';
 
+export function uniqueTemplateName(name:string,excludeId?:string):string{
+ const base=name.trim()||'New template';
+ let chosen=base,n=2;
+ while(S.templates?.some(t=>t.id!==excludeId&&t.name.toLowerCase()===chosen.toLowerCase()))
+  chosen=base+' '+n++;
+ return chosen;
+}
+export function uniqueCardSetName(name:string,excludeId?:string):string{
+ const base=name.trim()||'New card set';
+ let chosen=base,n=2;
+ while(S.cardSets?.some(s=>s.id!==excludeId&&s.name.toLowerCase()===chosen.toLowerCase()))
+  chosen=base+' '+n++;
+ return chosen;
+}
 export function cloneTemplate(source:CardTemplate,name:string):CardTemplate{
  const copy=structuredClone(source);
  const mapping=new Map<string,string>();
@@ -12,8 +26,8 @@ export function cloneTemplate(source:CardTemplate,name:string):CardTemplate{
  return copy;
 }
 export function createTemplate(source?:CardTemplate):CardTemplate{
- const template=source?cloneTemplate(source,source.name+' copy'):{
-  ...structuredClone(S.template),id:uid(),name:'New template',elements:[]
+ const template=source?cloneTemplate(source,uniqueTemplateName(source.name+' copy')):{
+  ...structuredClone(S.template),id:uid(),name:uniqueTemplateName('New template'),elements:[]
  };
  S.templates!.push(template);
  selectProjectTemplate(template.id!);
@@ -31,7 +45,7 @@ export function deleteTemplate(id:string):void{
 export function newCardSet(name:string,frontTemplateId?:string):CardSet{
  const id=frontTemplateId||S.selectedTemplateId||S.templates![0].id!;
  if(!templateById(id))throw Error('Select a valid front template');
- const set:CardSet={id:uid(),name:name.trim()||'New card set',frontTemplateId:id};
+ const set:CardSet={id:uid(),name:uniqueCardSetName(name),frontTemplateId:id};
  S.cardSets!.push(set);
  return set;
 }
