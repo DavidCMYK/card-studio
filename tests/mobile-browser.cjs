@@ -164,6 +164,62 @@ const server=http.createServer((req,res)=>{
   assert.equal(trimmedBytes.subarray(1,4).toString(),'PNG','trimmed output is a PNG');
   assert.equal(trimmedBytes.readUInt32BE(16),Math.round(63*300/25.4),'trimmed image has finished-card width in export pixels');
   await guideContext.close();
+  // Multiple shared templates, set assignments, portable template files and backs.
+  const multiContext=await browser.newContext({viewport:{width:1440,height:900},acceptDownloads:true});
+  const multi=await multiContext.newPage();
+  multi.on('pageerror',e=>errors.push('multi-template: '+e.message));
+  await multi.addInitScript(()=>{
+   Object.defineProperty(window,'showSaveFilePicker',{configurable:true,value:async()=>({
+    name:'saved.template.json',createWritable:async()=>({
+     write:async(data)=>{window.__latestSaved=String(data)},close:async()=>{}
+    })
+   })});
+  });
+  await multi.goto(url);
+  await multi.locator('.sidebar-templates [data-action="duplicate-template"]').first().click();
+  assert.equal(await multi.locator('.sidebar-templates [data-template-id]').count(),5,
+   'duplicate creates one additional shared template and its management controls');
+  const templateIds=await multi.locator('.sidebar-templates .asset-title [data-template-id]').evaluateAll(els=>els.map(e=>e.dataset.templateId));
+  assert.equal(templateIds.length,2,'two project templates are available');
+  multi.once('dialog',d=>d.accept('Second set'));
+  await multi.locator('.sidebar-cardsets [data-action="new-card-set"]').click();
+  assert.equal(await multi.locator('.sidebar-cardsets [data-set-side="front"]').count(),2,'new card set is listed');
+  await multi.locator('.sidebar-cardsets [data-set-side="front"]').nth(1).selectOption(templateIds[1]);
+  await multi.locator('.sidebar-cardsets [data-set-side="back"]').nth(0).selectOption(templateIds[1]);
+  await multi.locator('.sidebar-cardsets [data-set-side="back"]').nth(1).selectOption(templateIds[0]);
+  assert.equal(await multi.locator('.sidebar-cards [data-cardindex]').count(),2,'each set contains a card');
+  await multi.locator('.sidebar-cards [data-cardindex="0"]').click();
+  await multi.locator('#cardSideSelector').selectOption('back');
+  assert.equal(await multi.locator('#stage .element').count(),6,'assigned back template renders in editor');
+  await multi.locator('.sidebar-templates .asset-title [data-template-id]').first().click();
+  assert.equal(await multi.locator('#btnTemplate').getAttribute('aria-pressed'),'true','shared template is editable');
+  await multi.locator('#fileMenu summary').click();
+  await multi.locator('#fileMenu [data-action="save-project"]').click();
+  const projectJson=JSON.parse(await multi.evaluate(()=>window.__latestSaved));
+  assert.equal(projectJson.templates.length,2,'project contains all shared templates');
+  assert.equal(projectJson.cardSets.length,2,'project contains both card sets');
+  assert.equal(projectJson.cards.length,2,'project contains both cards');
+  assert.equal(projectJson.cardSets[0].backTemplateId,templateIds[1]);
+  assert.equal(projectJson.cardSets[1].frontTemplateId,templateIds[1]);
+  assert.equal(projectJson.cardSets[1].backTemplateId,templateIds[0]);
+  await multi.locator('#fileMenu summary').click();
+  await multi.locator('#fileMenu [data-action="save-template-as"]').click();
+  const savedTemplateJson=JSON.parse(await multi.evaluate(()=>window.__latestSaved));
+  assert.equal(savedTemplateJson.type,'cardstudio-template','save template exports only one reusable template');
+  await multi.locator('#openTemplateFile').setInputFiles({
+   name:'imported.template.json',mimeType:'application/json',
+   buffer:Buffer.from(JSON.stringify(savedTemplateJson))
+  });
+  assert.equal(await multi.locator('.sidebar-templates .asset-title [data-template-id]').count(),3,'loading a template adds instead of replacing');
+  assert.equal(await multi.locator('.sidebar-cards [data-cardindex]').count(),2,'loading a template keeps card data');
+  const allTemplatesWait=multi.waitForEvent('download',{timeout:45000});
+  await multi.locator('#fileMenu summary').click();
+  await multi.locator('#fileMenu [data-action="save-all-templates"]').click();
+  const allTemplatesDownload=await allTemplatesWait;
+  assert.match(allTemplatesDownload.suggestedFilename(),/_templates\.zip$/);
+  const allZip=await require('../vendor/jszip.min.js').loadAsync(fs.readFileSync(await allTemplatesDownload.path()));
+  assert.equal(Object.keys(allZip.files).filter(n=>n.endsWith('.template.json')).length,3,'save all exports each template separately');
+  await multiContext.close();
   // Print-sheet workflow: quantities, preview, shared backs, duplex PDF.
   await dp.locator('.top [data-action="print-sheets"]').click();
   assert.equal(await dp.locator('#printModal').isVisible(),true,'print dialog opens');
