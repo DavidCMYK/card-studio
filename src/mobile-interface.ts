@@ -100,7 +100,7 @@ function start(){
   const target=e.target as HTMLElement,control=target.closest('[data-mobile]') as HTMLElement|null;
   if(control){
    const command=control.dataset.mobile||'';
-   if(command==='nudge-step'){nudgeStep=nudgeStep===1?10:1;showPanel('nudge');}
+   if(command==='nudge-step'){nudgeStep=nudgeStep===1?10:1;control.textContent='Step: '+nudgeStep+' px';}
    else if(['nudge-up','nudge-down','nudge-left','nudge-right'].includes(command)){
     const raw=S.selected?templateEl(S.selected):null;
     if(raw&&!effective(raw).locked){
