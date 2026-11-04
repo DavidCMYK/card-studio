@@ -120,9 +120,10 @@ export function openNewProjectDialog(onCreate:(project:StudioProject)=>void){
    const input=element(name);
    if(!input)continue;
    if(input.type==='number'){
-    input.step=draft.unit==='px'?'1':'any';
+    const numericInput=input as HTMLInputElement;
+    numericInput.step=draft.unit==='px'?'1':'any';
     if(['width','height','cutWidth','cutHeight','safeWidth','safeHeight'].includes(name))
-     input.min=draft.unit==='px'?'1':'0.01';
+     numericInput.min=draft.unit==='px'?'1':'0.01';
    }
    if(input!==active)input.value=val;
   }
