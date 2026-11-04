@@ -45,5 +45,3 @@ export function imgBox(e,img){
  if(e.imageFit!=='stretch'){w=iw*ratio*zoom;h=ih*ratio*zoom}
  return {x:(e.w-w)/2+(Number(e.imgOffsetX)||0),y:(e.h-h)/2+(Number(e.imgOffsetY)||0),w,h};
 }
-}
-
