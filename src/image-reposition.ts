@@ -1,19 +1,24 @@
 /** Temporary editing mode; never saved in project JSON or undo history. */
-import {S,templateEl} from './model';
+import {S,templateEl,effective} from './model';
 import type {CardElement,StudioProject} from './types';
 import {imgBox,imageScreenOffset,imageOffsetPatch,screenToImageDelta} from './image-sets';
 export {screenToImageDelta} from './image-sets';
 type Session={id:string;project:StudioProject;mode:'template'|'cards';cardIndex:number};
 let session:Session|null=null;
+export function canRepositionImage(e:CardElement):boolean{
+ return e.kind==='image'&&e.imageFit!=='contain'&&e.imageFit!=='stretch';
+}
 export function enterImageReposition(id:string):boolean{
- if(S.selected!==id||templateEl(id)?.kind!=='image')return false;
+ const raw=templateEl(id);
+ if(S.selected!==id||!raw||!canRepositionImage(effective(raw)))return false;
  session={id,project:S,mode:S.mode,cardIndex:S.cardIndex};return true;
 }
 export function stopImageReposition():void{session=null}
 export function repositionImageId():string|null{
  if(!session)return null;
  if(session.project!==S||session.id!==S.selected||session.mode!==S.mode||
-  session.cardIndex!==S.cardIndex||templateEl(session.id)?.kind!=='image'){
+  session.cardIndex!==S.cardIndex||!templateEl(session.id)||
+  !canRepositionImage(effective(templateEl(session.id)!))){
   session=null;return null;
  }
  return session.id;
