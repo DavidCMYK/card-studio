@@ -17,7 +17,7 @@ let resetFileHandles=()=>{};
 let lastError:unknown=null;
 function status(message:string,error=false){
  for(const id of ['recoveryStatus','mobileRecoveryStatus']){
-  const node=document.getElementById(id);
+  const node=typeof document!=='undefined'&&document.getElementById?document.getElementById(id):null;
   if(node){
    node.textContent=message;
    node.title=error?'Local recovery unavailable; save a project JSON manually.':'Local recovery only; save a project JSON for a permanent copy.';

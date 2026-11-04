@@ -12,6 +12,9 @@ const dataToKey=new Map<string,string>(),keyToData=new Map<string,string>();
 let nextKey=0;
 let current:RecordState|null=null;
 let documentRevision=0;
+const listeners=new Set<()=>void>();
+export function subscribeHistory(listener:()=>void):()=>void{listeners.add(listener);return ()=>listeners.delete(listener)}
+function notifyChanged(){for(const listener of listeners)listener()}
 export const historyRevision=()=>documentRevision;
 const past:RecordState[]=[],future:RecordState[]=[];
 
@@ -61,7 +64,7 @@ export function checkpoint():boolean {
  if(next.fingerprint===current.fingerprint){current=next;return false}
  past.push(current);
  if(past.length>MAX_STEPS)past.shift();
- current=next;future.length=0;documentRevision++;return true;
+ current=next;future.length=0;documentRevision++;notifyChanged();return true;
 }
 export function undo():boolean {
  // A still-focused input/unfinished drag may have changed state without a repaint.
@@ -69,12 +72,12 @@ export function undo():boolean {
  if(!past.length)return false;
  future.push(take());
  const previous=past.pop()!;
- restore(previous);current=take();documentRevision++;return true;
+ restore(previous);current=take();documentRevision++;notifyChanged();return true;
 }
 export function redo():boolean {
  checkpoint();
  if(!future.length)return false;
  past.push(take());if(past.length>MAX_STEPS)past.shift();
  const next=future.pop()!;
- restore(next);current=take();documentRevision++;return true;
+ restore(next);current=take();documentRevision++;notifyChanged();return true;
 }

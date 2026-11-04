@@ -5,6 +5,7 @@
     <span id="projectTitle" class="project-title">Untitled project</span>
     <nav class="mode-switch" aria-label="Editing mode"><button id="btnTemplate" class="active" data-action="mode-template" aria-pressed="true">Template</button><button id="btnCards" data-action="mode-cards" aria-pressed="false">Cards</button></nav>
     <details id="fileMenu" class="file-menu"><summary>File</summary><div class="file-menu-panel" role="group" aria-label="File commands">
+      <button data-action="show-recovery">Local recovery…</button>
       <button data-action="new-project">New project</button>
       <button data-action="open-project">Open project…</button>
       <button data-action="load-template">Open template…</button>
@@ -32,7 +33,7 @@
       </div>
       <div id="cardControl" class="card-control" style="display:none"></div>
       <div id="canvasOuter" class="canvas-outer"><div id="stageWrap" class="stage-wrap"><div id="stage" class="stage"></div></div></div>
-      <div class="status"><span id="statusLeft">Ready</span><span id="statusRight">Drag to move · resize from any edge · scroll to navigate · Shift+wheel horizontally · arrows to nudge</span></div>
+      <div class="status"><span id="statusLeft">Ready</span><span id="recoveryStatus" aria-live="polite">Local recovery</span><span id="statusRight">Drag to move · resize from any edge · scroll to navigate · Shift+wheel horizontally · arrows to nudge</span></div>
     </section>
     <aside class="side side-right"><div class="side-head"><h2 id="rightTitle">Properties</h2></div><div id="inspector" class="inspect"></div></aside>
   </div>

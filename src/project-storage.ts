@@ -3,7 +3,8 @@ import { $, jsonDownload, toast } from './dom';
 import { imageCache } from './image-sets';
 import { repaint } from './interface';
 import {activateProjectFonts,unbundledFontFamilies} from './project-fonts';
-import {resetHistory} from './history';
+import {resetHistory,historyRevision} from './history';
+import {recordProjectSaved,recordProjectReplaced} from './recovery';
 
 // File handles are deliberately kept out of saved project JSON. They are only
 // valid for the browser session and must be granted by the user via a picker.
@@ -27,6 +28,7 @@ async function saveDocument(type: 'project'|'template', saveAs = false): Promise
  const handle=isProject?projectFileHandle:templateFileHandle;
  const name=isProject?projectName():templateName();
  const data=isProject?projectContents():templateContents();
+ const revisionWhenSaving=historyRevision();
  const picker=(window as any).showSaveFilePicker;
  if (typeof picker!=='function' && (!handle || saveAs)) {
   // Downloads cannot replace an existing local file. Do not claim otherwise.
@@ -41,6 +43,7 @@ async function saveDocument(type: 'project'|'template', saveAs = false): Promise
   try { await writable.write(JSON.stringify(data,null,2)); await writable.close(); }
   catch(err) { try { await writable.abort?.(); } catch {} throw err; }
   if(isProject)projectFileHandle=destination;else templateFileHandle=destination;
+  if(isProject)await recordProjectSaved(revisionWhenSaving);
   toast(`${isProject?'Project':'Template'} saved to ${destination.name}`);
   return true;
  } catch(error) {
@@ -115,7 +118,7 @@ export async function openJSON(file: {text: () => Promise<string>}, onlyTemplate
    imageCache.clear();projectFileHandle=handle;templateFileHandle=null;
    toast('Project loaded');
   }
-  resetHistory();
+  resetHistory();recordProjectReplaced();
   await activateProjectFonts();
   repaint();
   const missing=unbundledFontFamilies().filter(f=>!['arial','georgia','times new roman','courier new','verdana','tahoma','trebuchet ms'].includes(f.toLowerCase()));

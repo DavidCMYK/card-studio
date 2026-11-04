@@ -12,6 +12,7 @@ import { layoutTextBox } from './text-layout';
 import { resizedRect, locksImageCornerAspect } from './resize';
 import { elementGeometry } from './anchor-layout';
 import {checkpoint,undo,redo,resetHistory} from './history';
+import {showRecovery,recordProjectReplaced} from './recovery';
 import {importFontFiles,embedInstalledUsedFonts,activateProjectFonts,onFontsReady,bundledFontFamilies} from './project-fonts';
 setImageUpdateHandler(renderStage);
 onFontsReady(()=>{setKnownFonts([...new Set([...baseFonts(),...bundledFontFamilies()])]);repaint()});
@@ -81,11 +82,12 @@ function changeZoom(delta: number) {
 }
 
 function newCard(copy=null){const c=copy?{id:uid(),name:copy.name+' copy',values:{...copy.values},overrides:structuredClone(copy.overrides||{}),extraElements:structuredClone(copy.extraElements||[])}:{id:uid(),name:'Card '+String(S.cards.length+1).padStart(3,'0'),values:{},overrides:{},extraElements:[]};S.cards.push(c);S.mode='cards';S.cardIndex=S.cards.length-1;S.selected=null;repaint();return c}
-function mutateAction(action,el: any = null){switch(action){case 'new-project':if(confirm('Start a new project? Unsaved changes will be lost.')){replaceState(initial());resetFileHandles();imageCache.clear();resetHistory();void activateProjectFonts();repaint()}break;
+function mutateAction(action,el: any = null){switch(action){case 'new-project':if(confirm('Start a new project? Unsaved changes will be lost.')){replaceState(initial());resetFileHandles();imageCache.clear();resetHistory();recordProjectReplaced();void activateProjectFonts();repaint()}break;
 case 'undo':if(undo()){imageCache.clear();void activateProjectFonts();repaint()}break;
  case 'redo':if(redo()){imageCache.clear();void activateProjectFonts();repaint()}break;
  case 'embed-fonts':$('#fontFiles').click();break;
  case 'embed-used-fonts':void embedInstalledUsedFonts().then(({added,missing})=>{repaint();toast(added?`Embedded ${added} font file(s)${missing.length?' · missing '+missing.join(', '):''}`:'No installed project fonts were embedded')}).catch(err=>alert((err as Error).message));break;
+ case 'show-recovery':void showRecovery();break;
  case 'open-project':void openFromDisk('project');break;case 'save-project':void saveProject();break;case 'save-project-as':void saveProjectAs();break;case 'save-template':void saveTemplate();break;case 'save-template-as':void saveTemplateAs();break;case 'load-template':void openFromDisk('template');break;
 case 'mode-template':case 'card-setup':S.mode='template';S.selected=null;repaint();break;case 'mode-cards':S.mode='cards';S.selected=null;repaint();break;
 case 'add-text':case 'add-image':case 'add-shape':addElement(action.slice(4));break;
