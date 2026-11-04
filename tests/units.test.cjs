@@ -53,7 +53,7 @@ test('inspector always shows selected units AND export pixels', () => {
   global.document={querySelector(){return inspector;}};
   const s=model.initial();model.replaceState(s);
   renderInspector();
-  assert.match(inspector.innerHTML,/Width \(mm\)/);
+  assert.match(inspector.innerHTML,/Canvas width \(mm\)/);
   assert.match(inspector.innerHTML,/744 × 1,039 px at 300 DPI/);
   s.selected=s.template.elements[0].id;
   renderInspector();
