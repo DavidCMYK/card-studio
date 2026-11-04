@@ -114,10 +114,14 @@
 
 /* Non-interactive guides: canvas edge is bleed edge (or trim if no bleed). */
 .card-guide-overlay{position:absolute;inset:0;z-index:20;pointer-events:none;overflow:hidden}
-.card-guide-overlay .guide-trim,.card-guide-overlay .guide-safe{position:absolute;border:2px dashed;pointer-events:none}
+.card-guide-overlay .guide-trim,.card-guide-overlay .guide-safe,.card-guide-overlay .guide-canvas{position:absolute;box-sizing:border-box;border:2px dashed;pointer-events:none}
+.card-guide-overlay .guide-canvas{border-color:#8d6fb8;box-shadow:inset 0 0 0 1px #fff9}
 .card-guide-overlay .guide-trim{border-color:#e34d55;box-shadow:inset 0 0 0 1px #fff9}
 .card-guide-overlay .guide-safe{border-color:#28a57e;box-shadow:inset 0 0 0 1px #fff9}
 .card-guide-overlay .guide-trim>span,.card-guide-overlay .guide-safe>span{position:absolute;top:0;left:0;font:700 9px Arial,sans-serif;color:white;padding:1px 3px;white-space:nowrap}
 .card-guide-overlay .guide-trim>span{background:#bf2832}
 .card-guide-overlay .guide-safe>span{background:#178463}
 .card-guide-overlay .guide-dim{position:absolute;background:#12243d33;pointer-events:none}
+
+/* Rounded unsafe-region overlay follows the safe-zone curve, not its bounding box. */
+.card-guide-overlay .guide-dim-rounded{position:absolute;box-sizing:border-box;pointer-events:none;box-shadow:0 0 0 20000px #12243d33}
