@@ -4,6 +4,7 @@ import { renderStage } from './preview';
 import { repaint, renderInspector, renderLeft, renderCardControl, chooseCard, patchElement, addElement, updateDimensionReadouts, setKnownFonts, baseFonts, refreshHistoryButtons, selectInspectorTab, filterCardData, showDiscoveredFonts, toggleFontBrowser, closeFontBrowser, filterFontBrowser } from './interface';
 import { imageCache, cacheImage, getImageData, setImageUpdateHandler, imageScreenOffset, imageOffsetPatch } from './image-sets';
 import { exportPNG, exportAll } from './png-export';
+import {guidesFor,changeBleedMode,setGuideDistance,distanceMm,validateGuides} from './card-guides';
 import { openPrintStudio } from './print-studio';
 import { exportXLSX, readSheet } from './spreadsheet';
 import { saveProject, saveProjectAs, saveTemplate, saveTemplateAs, openFromDisk, openJSON, resetFileHandles } from './project-storage';
@@ -113,6 +114,7 @@ case 'prev-card':chooseCard(S.cardIndex-1);break;case 'next-card':chooseCard(S.c
 case 'export-sheet':exportXLSX().catch(err=>alert(err.message));break;case 'import-sheet':$('#openSheetFile').click();break;
 case 'export-current':exportPNG();break;case 'export-all':exportAll();break;
 case 'print-sheets':openPrintStudio();break;
+case 'toggle-guides':{const g=guidesFor(S.template);if(S.mode==='template')g.showTemplate=!g.showTemplate;else g.showCards=!g.showCards;S.template.guides=g;repaint();break;}
 case 'reposition-image':{
  const raw=templateEl(S.selected);if(raw?.kind==='image'&&enterImageReposition(raw.id))repaint();
  break;
@@ -154,6 +156,33 @@ async function scanFonts(){
  }
 }
 function handleProp(input){const key=input.dataset.prop;if(!key)return;let v=input.type==='checkbox'?input.checked:input.value;
+ if(key.startsWith('guide.')){
+  const g=guidesFor(S.template),parts=key.split('.');
+  try{
+   if(parts[1]==='bleedMode'){
+    if(v!=='trim'&&v!=='bleed')return;
+    changeBleedMode(S.template,S.cards,v,g.modeChange!=='reinterpret');
+   }else if(parts[1]==='unit'){
+    if(['mm','in','px'].includes(v))S.template.guides={...g,unit:v};
+   }else if(parts[1]==='modeChange'){
+    S.template.guides={...g,modeChange:v==='reinterpret'?'reinterpret':'preserve'};
+   }else if(parts[1]==='bleedLinked'||parts[1]==='safeLinked'){
+    const kind=parts[1].startsWith('bleed')?'bleed':'safe';
+    S.template.guides={...g,[parts[1]]:Boolean(v)};
+    if(v)setGuideDistance(S.template,S.cards,kind,'top',g[kind].top);
+   }else if(parts[1]==='bleed'||parts[1]==='safe'){
+    const edge=parts[2];
+    if(!['top','right','bottom','left'].includes(edge))return;
+    const value=Number(v);
+    if(!Number.isFinite(value)||value<0)return;
+    setGuideDistance(S.template,S.cards,parts[1],edge,distanceMm(value,g.unit,S.template.dpi));
+   }else if(['showTemplate','showCards','dimUnsafe'].includes(parts[1])){
+    S.template.guides={...g,[parts[1]]:Boolean(v)};
+   }
+  }catch(err){toast((err as Error).message)}
+  return;
+ }
+
  if(key.startsWith('template.')){
   const p=key.split('.')[1],template=S.template;
   if(p==='unit'){
@@ -335,6 +364,7 @@ if((e.ctrlKey||e.metaKey)&&!e.altKey&&!e.shiftKey&&S.mode==='template'){
    e.preventDefault();mutateAction(action);return;
  }
 }
+if(!e.ctrlKey&&!e.altKey&&!e.metaKey&&e.key.toLowerCase()==='g'){e.preventDefault();mutateAction('toggle-guides');return;}
 if(e.ctrlKey||e.altKey||e.metaKey)return;if(!S.selected)return;if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();mutateAction('delete-element');return}const delta={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];if(delta){const el=effective(templateEl(S.selected)),rect=elementGeometry(templateEl(S.selected));if(el.locked&&repositionImageId()!==S.selected)return;e.preventDefault();const step=e.shiftKey?10:1;
  const raw=templateEl(S.selected),src=raw?getImageData(raw,S.cardIndex,S.mode):null,cached=src?cacheImage(src):null;
  const patch=repositionImageId()===S.selected?imageDragPatch({...el,...rect},delta[0]*step,delta[1]*step,cached?.loaded?cached.im:null):{x:rect.x+delta[0]*step,y:rect.y+delta[1]*step};
