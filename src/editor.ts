@@ -176,7 +176,7 @@ function handleProp(input){const key=input.dataset.prop;if(!key)return;let v=inp
     if(!['top','right','bottom','left'].includes(edge))return;
     const value=Number(v);
     if(!Number.isFinite(value)||value<0)return;
-    setGuideDistance(S.template,S.cards,parts[1],edge,distanceMm(value,g.unit,S.template.dpi));
+    setGuideDistance(S.template,S.cards,parts[1] as 'bleed'|'safe',edge as 'top'|'right'|'bottom'|'left',distanceMm(value,g.unit,S.template.dpi));
    }else if(['showTemplate','showCards','dimUnsafe'].includes(parts[1])){
     S.template.guides={...g,[parts[1]]:Boolean(v)};
    }
