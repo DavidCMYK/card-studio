@@ -21,7 +21,9 @@ export const getImageRef=(el,ci=S.cardIndex,mode=S.mode)=>{
   const preferredSet=S.sets.find(set=>set.id===el.autoSet||set.name===el.autoSet);
   const preferred=preferredSet?.images.find(im=>im.name.toLowerCase()===val)
    ||preferredSet?.images.find(im=>im.name.toLowerCase().replace(/\.[^.]+$/,'')===val);
-  const found=all.find(x=>`${x.set.name}/${x.im.name}`.toLowerCase()===val)?.im
+  const preferredQualified=preferredSet?.images.find(im=>`${preferredSet.name}/${im.name}`.toLowerCase()===val);
+  const found=preferredQualified
+   ||all.find(x=>`${x.set.name}/${x.im.name}`.toLowerCase()===val)?.im
    ||preferred
    ||all.find(x=>x.im.name.toLowerCase()===val)?.im
    ||all.find(x=>x.im.name.toLowerCase().replace(/\.[^.]+$/,'')===val)?.im;
