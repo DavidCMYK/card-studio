@@ -314,13 +314,20 @@ const server=http.createServer((req,res)=>{
   await touch.detach();
   assert.notEqual(await page.locator('#stage .element.text-isolated').evaluate(el=>el.style.left),mobileTextBefore,
    'mobile isolated text can be moved');
+  await page.evaluate(()=>{
+   window.__textDoneClicks=[];
+   document.addEventListener('click',event=>{
+    window.__textDoneClicks.push({tag:event.target?.tagName,action:event.target?.closest?.('[data-action]')?.dataset.action});
+   },true);
+  });
   const textDoneAction=await page.locator('#imageRepositionBar button').getAttribute('data-action');
   assert.equal(textDoneAction,'finish-text-isolation','mobile toolbar must use text-specific Done action');
   await page.locator('#imageRepositionBar button').tap();
   const textAfterDone=await page.evaluate(()=>({
    isolated:document.querySelectorAll('#stage .text-isolated').length,
    action:document.querySelector('#imageRepositionBar button')?.dataset.action,
-   barHidden:document.querySelector('#imageRepositionBar')?.hidden
+   barHidden:document.querySelector('#imageRepositionBar')?.hidden,
+   clicks:window.__textDoneClicks
   }));
   assert.equal(textAfterDone.isolated,0,'Done exits independent text editing on mobile: '+JSON.stringify(textAfterDone));
   await page.locator('.m-mode [data-action="mode-cards"]').click();
