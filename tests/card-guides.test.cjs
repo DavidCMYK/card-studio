@@ -99,3 +99,55 @@ test('unlinked asymmetric margins remain nonnegative and target dimensions match
  g.setSafeZoneDimension(t,'width',62);near(g.safeDimensionsMm(t).width,62);
  assert.ok(t.guides.safe.left>=0&&t.guides.safe.right>=0);
 });
+test('cut and safe guides have independent radii; canvas edge is never a rounded guide',()=>{
+ const {t,cards}=doc(),before=structuredClone({t,cards});
+ assert.deepEqual(g.guidesFor(t).radii,{cut:0,safe:0});
+ g.setGuideCornerRadius(t,'cut',3);
+ g.setGuideCornerRadius(t,'safe',2);
+ assert.deepEqual(g.guideRects(t).radii,{cut:3,safe:2});
+ assert.equal(t.width,before.t.width);assert.equal(t.height,before.t.height);
+ assert.deepEqual(art(t,cards),art(before.t,before.cards));
+ assert.equal('canvas' in g.guidesFor(t).radii,false);
+ assert.throws(()=>g.setGuideCornerRadius(t,'canvas',4),/Unknown corner-radius guide/);
+});
+
+test('radii are physical millimetres, independent of selected units and DPI',()=>{
+ const {t}=doc();
+ g.setGuideCornerRadius(t,'cut',6.35);
+ g.setGuideCornerRadius(t,'safe',2.54);
+ g.setGuideUnit(t,'in');
+ near(g.distanceInUnit(g.guidesFor(t).radii.cut,'in',300),.25);
+ g.setGuideUnit(t,'px');
+ near(g.distanceInUnit(g.guidesFor(t).radii.safe,'px',300),30);
+ assert.deepEqual(g.guideRects(t).radii,{cut:6.35,safe:2.54});
+});
+
+test('radius edits reject negatives, oversized and invalid values without modifying geometry',()=>{
+ const {t,cards}=doc(),before=structuredClone({t,cards});
+ for(const radius of [-1,Infinity,NaN,32]){
+  assert.throws(()=>g.setGuideCornerRadius(t,'cut',radius),/radius/i);
+ }
+ assert.throws(()=>g.setGuideCornerRadius(t,'safe',28),/radius/i);
+ assert.deepEqual({t,cards},before);
+});
+
+test('cut and safe radii clamp to smaller limits when corresponding guide shrinks',()=>{
+ const {t,cards}=doc();
+ g.setGuideCornerRadius(t,'cut',25);
+ g.setGuideCornerRadius(t,'safe',20);
+ g.setSafeZoneDimension(t,'width',30);
+ near(g.guidesFor(t).radii.cut,25);
+ near(g.guidesFor(t).radii.safe,15);
+ g.setCutDimension(t,'width',20);
+ near(g.guidesFor(t).radii.cut,10);
+ assert.deepEqual(g.trimDimensionsMm(t),{width:20,height:88});
+ assert.equal(cards[0].extraElements[0].x,4);
+});
+
+test('legacy canvas corner radius is ignored and removed when guide metadata is edited',()=>{
+ const {t}=doc();
+ t.guides.radii={canvas:12,cut:2,safe:1};
+ assert.deepEqual(g.guidesFor(t).radii,{cut:2,safe:1});
+ g.setGuideCornerRadius(t,'safe',3);
+ assert.deepEqual(t.guides.radii,{cut:2,safe:3});
+});
