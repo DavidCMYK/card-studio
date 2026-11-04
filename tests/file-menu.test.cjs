@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const model = require('../.build/model.js');
 const storage = require('../.build/project-storage.js');
+const collection = require('../.build/project-collections.js');
 
 function makeHandle(name, content = '') {
  let value = content, writes = 0;
@@ -37,7 +38,7 @@ function fakeDOM() {
 test('File menu exposes project and template Save / Save As',()=>{
  const html = fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
  assert.match(html,/<details id="fileMenu"/);
- for (const name of ['new-project','open-project','load-template','save-project','save-project-as','save-template','save-template-as'])
+ for (const name of ['new-project','open-project','load-template','save-project','save-project-as','save-template','save-template-as','save-all-templates'])
   assert.match(html,new RegExp(`data-action="${name}"`));
 });
 
@@ -111,6 +112,44 @@ test('Save overwrites opened/saved handle, Save As switches target, projects rem
  assert.equal(await storage.saveTemplate(),true);
  assert.equal(fresh.writes,1);
  assert.equal(loaded.writes,1);
+});
+
+test('Save All preserves saved template files and adds new ones to the selected folder',async()=>{
+ fakeDOM();
+ model.replaceState(model.initial());
+ storage.resetFileHandles();
+ const existing=makeHandle('first.template.json');
+ const newlyCreated=makeHandle('second.template.json');
+ let savePickers=0,folderPickers=0,openedNames=[];
+ global.window={
+  showSaveFilePicker:async()=>{savePickers++;return existing;},
+  showDirectoryPicker:async()=>{
+   folderPickers++;
+   return {getFileHandle:async(name,{create})=>{
+    openedNames.push(name);
+    assert.equal(create,true);
+    return newlyCreated;
+   }};
+  }
+ };
+ assert.equal(await storage.saveTemplate(),true);
+ const first=model.S.template;
+ const second=collection.createTemplate(first);
+ second.name='Second layout';
+ await storage.saveAllTemplates();
+ assert.equal(existing.writes,2,'Save All updates the first template directly');
+ assert.equal(newlyCreated.writes,1,'Only the new template needs a folder destination');
+ assert.equal(folderPickers,1);
+ assert.deepEqual(openedNames,['Second layout.template.json']);
+ assert.equal(JSON.parse(existing.content).template.id,first.id);
+ assert.equal(JSON.parse(newlyCreated.content).template.id,second.id);
+ second.name='Edited second layout';
+ await storage.saveAllTemplates();
+ assert.equal(existing.writes,3,'Both existing files update on repeated Save All');
+ assert.equal(newlyCreated.writes,2);
+ assert.equal(folderPickers,1,'Known files do not require selecting another folder');
+ assert.equal(savePickers,1);
+ storage.resetFileHandles();
 });
 
 test('Unsupported native file API downloads, without pretending it overwrote',async()=>{
