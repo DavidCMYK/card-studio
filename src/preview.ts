@@ -11,7 +11,7 @@ import { previewShadow, previewTextContent, hasShadow, makeElementAlpha, depthMe
 const gradientCSS=e=>e.fillMode==='solid'?e.fill1:e.fillMode==='gradient'?`linear-gradient(${e.gradientAngle}deg,${e.fill1},${e.fill2})`:'transparent';
 export function renderStage(){const st=$('#stage'),{w,h}=sizePx(),z=S.zoom;
  const guideButton=document.querySelector('[data-action="toggle-guides"]');
- if(guideButton){const g=guidesFor(S.template);guideButton.classList.toggle('selected',S.mode==='template'?g.showTemplate:g.showCards);}st.style.width=(w*z)+'px';st.style.height=(h*z)+'px';st.style.background=S.template.background;
+ if(guideButton?.classList?.toggle){const g=guidesFor(S.template);guideButton.classList.toggle('selected',S.mode==='template'?g.showTemplate:g.showCards);}st.style.width=(w*z)+'px';st.style.height=(h*z)+'px';st.style.background=S.template.background;
  const activeImage=repositionImageId(),activeText=isolatedTextId();
  const bar=document.querySelector('#imageRepositionBar') as HTMLElement|null;
  if(bar){
