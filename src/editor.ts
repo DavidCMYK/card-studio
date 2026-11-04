@@ -147,7 +147,12 @@ case 'manage-rename':case 'manage-remove':imageManagerAction(action,Number(el.da
 case 'remove-set':{const id=el.dataset.set,set=S.sets.find(x=>x.id===id);if(set&&confirm(`Remove image set "${set.name}" and its ${set.images.length} images?`)){S.sets=S.sets.filter(x=>x.id!==id);imageCache.clear();repaint()}break}
 case 'add-card':newCard();break;case 'duplicate-card':newCard(S.cards[Number(el.dataset.cardindex)]);break;
 case 'delete-card':if(S.cards.length<=1){toast('At least one card must remain');return}if(confirm('Delete the selected card?')){S.cards.splice(S.cardIndex,1);chooseCard(Math.min(S.cardIndex,S.cards.length-1))}break;
-case 'reset-card':if(card()&&confirm('Reset all element positions and styles for this card?')){card().overrides={};if(S.side==='back')card().backExtraElements=[];else card().extraElements=[];repaint()}break;
+case 'reset-card':if(card()&&confirm('Reset layout edits for the '+(S.side==='back'?'back':'front')+' of this card?')){
+ const activeIds=new Set(S.template.elements.map(e=>e.id));
+ for(const id of Object.keys(card().overrides||{}))if(activeIds.has(id))delete card().overrides[id];
+ if(S.side==='back')card().backExtraElements=[];else card().extraElements=[];
+ repaint();
+}break;
 case 'reset-element':if(card()){if(isExtra(S.selected)){if(S.side==='back')card().backExtraElements=cardExtras(card()).filter(e=>e.id!==S.selected);else card().extraElements=cardExtras(card()).filter(e=>e.id!==S.selected);S.selected=null}else delete card().overrides[S.selected];repaint()}break;
 case 'prev-card':chooseCard(S.cardIndex-1);break;case 'next-card':chooseCard(S.cardIndex+1);break;
 case 'export-sheet':exportXLSX().catch(err=>alert(err.message));break;case 'import-sheet':$('#openSheetFile').click();break;
