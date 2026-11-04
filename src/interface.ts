@@ -51,6 +51,14 @@ function selectionField(label,key,items,value){return `<div class="field"><label
 function checkbox(label,key,value){return `<label class="toggle-line"><input ${editorScope()} type="checkbox" data-prop="${key}" ${value?'checked':''}>${escapeHTML(label)}</label>`}
 // All pixel labels are export-image pixels at the selected resolution.
 const sizeReadout=()=>{const {w,h}=templateExportSize();return `${w.toLocaleString('en-US')} × ${h.toLocaleString('en-US')} px at ${S.template.dpi} DPI`};
+function guideReadout():string {
+ const r=guideRects(S.template);
+ const f=unitFactor(S.template.unit,S.template.dpi);
+ const w=Number((r.trim.w*96/25.4/f).toFixed(5));
+ const h=Number((r.trim.h*96/25.4/f).toFixed(5));
+ return 'Finished card: '+w+' × '+h+' '+S.template.unit+
+  (r.settings.bleedMode==='bleed'?' (with inset trim line)':' (canvas edge is trim)');
+}
 const elementReadout=()=>{
  const raw=templateEl(S.selected);
  if(!raw)return '';
@@ -61,6 +69,7 @@ const elementReadout=()=>{
 export function updateDimensionReadouts(){
  const templateNode=document.querySelector('#templatePixelReadout');
  if(templateNode)templateNode.textContent=sizeReadout();
+ const guideNode=document.querySelector('#guideReadout');if(guideNode)guideNode.textContent=guideReadout();
  const elementNode=document.querySelector('#elementPixelReadout');
  if(elementNode)elementNode.textContent=elementReadout();
 }
