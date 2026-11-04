@@ -1,3 +1,4 @@
+import {guidesFor} from './card-guides';
 import { S, sizePx, layerEls, effective, actualValue, escapeHTML, templateExportSize, visibleOnCard, opacityFor } from './model';
 import {guideOverlay} from './guide-overlay';
 import { $ } from './dom';
@@ -8,7 +9,9 @@ import {repositionImageId} from './image-reposition';
 import {isolatedTextId} from './text-isolation';
 import { previewShadow, previewTextContent, hasShadow, makeElementAlpha, depthMergedShadowPasses, ElementAlpha, ShadowGraphic } from './shadow';
 const gradientCSS=e=>e.fillMode==='solid'?e.fill1:e.fillMode==='gradient'?`linear-gradient(${e.gradientAngle}deg,${e.fill1},${e.fill2})`:'transparent';
-export function renderStage(){const st=$('#stage'),{w,h}=sizePx(),z=S.zoom;st.style.width=(w*z)+'px';st.style.height=(h*z)+'px';st.style.background=S.template.background;
+export function renderStage(){const st=$('#stage'),{w,h}=sizePx(),z=S.zoom;
+ const guideButton=document.querySelector('[data-action="toggle-guides"]');
+ if(guideButton){const g=guidesFor(S.template);guideButton.classList.toggle('selected',S.mode==='template'?g.showTemplate:g.showCards);}st.style.width=(w*z)+'px';st.style.height=(h*z)+'px';st.style.background=S.template.background;
  const activeImage=repositionImageId(),activeText=isolatedTextId();
  const bar=document.querySelector('#imageRepositionBar') as HTMLElement|null;
  if(bar){
