@@ -17,7 +17,7 @@ export function guideSettingsHtml(t:CardTemplate,
  return '<div class="small" style="padding:0 0 8px">Canvas edge = artwork edge. A trim guide is only needed when the canvas includes bleed.</div>'+
  selectionField('Canvas dimensions represent','guide.bleedMode',[
   ['trim','Finished card size (canvas excludes bleed)'],['bleed','Full artwork size (canvas includes bleed)']],g.bleedMode)+
- '<div class="small" style="padding:0 0 9px">Changing canvas mode or guide distances never moves or resizes artwork. Edit Canvas width/height in Dimensions above if needed. Finished size is shown below.</div>'+
+ '<div class="small" style="padding:0 0 9px">These settings never resize your canvas or move any artwork. In bleed mode, finished cut size = canvas minus bleed. To keep the same finished size, change Canvas width/height yourself in Dimensions above.</div>'+
  selectionField('Guide distance units','guide.unit',[
   ['mm','Millimetres (mm)'],['in','Inches (in)'],['px','Pixels (at template DPI)']],u)+
  sideInputs('bleed')+
