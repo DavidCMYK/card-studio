@@ -1,5 +1,6 @@
-import { S, initial, replaceState, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, px, unitFactor, sizePx, clamp, uid } from './model';
+import { S, initial, replaceState, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, px, unitFactor, sizePx, clamp, uid, templateById,selectProjectTemplate,syncEditorTemplate,setCardSide,cardSetFor } from './model';
 import {openNewProjectDialog} from './new-project';
+import {createTemplate,deleteTemplate,newCardSet,deleteCardSet,assignSetTemplate,moveCardToSet} from './project-collections';
 import { $ , toast } from './dom';
 import { renderStage } from './preview';
 import { repaint, renderInspector, renderLeft, renderCardControl, chooseCard, patchElement, addElement, updateDimensionReadouts, setKnownFonts, baseFonts, refreshHistoryButtons, selectInspectorTab, filterCardData, showDiscoveredFonts, toggleFontBrowser, closeFontBrowser, filterFontBrowser } from './interface';
@@ -86,15 +87,52 @@ function changeZoom(delta: number) {
  outer.scrollTop+=after.top+focalY*next-cy;
 }
 
-function newCard(copy=null){const c=copy?{id:uid(),name:copy.name+' copy',values:{...copy.values},overrides:structuredClone(copy.overrides||{}),extraElements:structuredClone(copy.extraElements||[])}:{id:uid(),name:'Card '+String(S.cards.length+1).padStart(3,'0'),values:{},overrides:{},extraElements:[]};S.cards.push(c);S.mode='cards';S.cardIndex=S.cards.length-1;S.selected=null;repaint();return c}
+function newCard(copy=null,setId?:string){
+ const fallback=setId||copy?.setId||card()?.setId||S.cardSets?.[0]?.id;
+ const c=copy?{...structuredClone(copy),id:uid(),name:copy.name+' copy',setId:fallback}:
+  {id:uid(),setId:fallback,name:'Card '+String(S.cards.length+1).padStart(3,'0'),values:{},overrides:{},extraElements:[]};
+ S.cards.push(c);S.mode='cards';S.cardIndex=S.cards.length-1;S.side='front';syncEditorTemplate();repaint();return c;
+}
 function mutateAction(action,el: any = null){switch(action){case 'new-project':openNewProjectDialog(project=>{replaceState(project);resetFileHandles();imageCache.clear();resetHistory();recordProjectReplaced();void activateProjectFonts();repaint()});break;
 case 'undo':if(undo()){imageCache.clear();void activateProjectFonts();repaint()}break;
  case 'redo':if(redo()){imageCache.clear();void activateProjectFonts();repaint()}break;
  case 'embed-fonts':$('#fontFiles').click();break;
  case 'embed-used-fonts':void embedInstalledUsedFonts().then(({added,missing})=>{repaint();toast(added?`Embedded ${added} font file(s)${missing.length?' · missing '+missing.join(', '):''}`:'No installed project fonts were embedded')}).catch(err=>alert((err as Error).message));break;
+ case 'new-template':createTemplate();repaint();break;
+ case 'duplicate-template':{
+  const src=templateById(el?.dataset.templateId||S.selectedTemplateId);
+  if(src){createTemplate(src);repaint()}break;
+ }
+ case 'rename-template':{
+  const t=templateById(el?.dataset.templateId||S.selectedTemplateId);
+  if(!t)break;const name=prompt('Template name',t.name);
+  if(name?.trim()){t.name=name.trim();repaint()}break;
+ }
+ case 'delete-template':{
+  const t=templateById(el?.dataset.templateId||S.selectedTemplateId);
+  if(!t)break;
+  if(confirm('Delete template "'+t.name+'"? This cannot delete a template assigned to a card set.')){
+   try{deleteTemplate(t.id!);repaint()}catch(error){alert((error as Error).message)}
+  }break;
+ }
+ case 'new-card-set':{
+  const name=prompt('New card set name','New set');
+  if(!name?.trim())break;
+  const set=newCardSet(name);newCard(null,set.id);break;
+ }
+ case 'rename-card-set':{
+  const set=S.cardSets?.find(x=>x.id===el?.dataset.setId);if(!set)break;
+  const name=prompt('Card set name',set.name);
+  if(name?.trim()){set.name=name.trim();repaint()}break;
+ }
+ case 'delete-card-set':{
+  try{deleteCardSet(el?.dataset.setId||'');repaint()}catch(error){alert((error as Error).message)}
+  break;
+ }
+ case 'add-card-to-set':newCard(null,el?.dataset.setId);break;
  case 'show-recovery':void showRecovery();break;
  case 'open-project':void openFromDisk('project');break;case 'save-project':void saveProject();break;case 'save-project-as':void saveProjectAs();break;case 'save-template':void saveTemplate();break;case 'save-template-as':void saveTemplateAs();break;case 'load-template':void openFromDisk('template');break;
-case 'mode-template':case 'card-setup':S.mode='template';S.selected=null;repaint();break;case 'mode-cards':S.mode='cards';S.selected=null;repaint();break;
+case 'mode-template':case 'card-setup':S.mode='template';syncEditorTemplate();repaint();break;case 'mode-cards':S.mode='cards';syncEditorTemplate();repaint();break;
 case 'add-text':case 'add-image':case 'add-shape':addElement(action.slice(4));break;
 case 'copy-element':copyElement();break;case 'cut-element':copyElement(true);break;case 'paste-element':pasteElement();break;
 case 'delete-element':if(!S.selected)return;if(S.mode==='cards'){if(isExtra(S.selected)){card().extraElements=card().extraElements.filter(x=>x.id!==S.selected)}else patchElement(S.selected,{hidden:true});S.selected=null;repaint();toast('Removed from this card only')}else if(confirm('Delete this element from the template and all cards?')){S.template.elements=S.template.elements.filter(x=>x.id!==S.selected);S.selected=null;repaint()}break;
@@ -214,6 +252,7 @@ function handleProp(input){const key=input.dataset.prop;if(!key)return;let v=inp
  }
  if(key==='projectName'){S.projectName=String(v);return}
  if(key==='card.name'){if(card())card().name=String(v)||'Untitled card';return}
+ if(key==='card.setId'){if(card())moveCardToSet(card(),String(v));return}
  if(key==='name'){const e=templateEl(S.selected);if(e)e.name=uniqName(v,e.id);return}
  if(['shadowOffsetX','shadowOffsetY','shadowSpread'].includes(key)){v=Math.round(Number(v))*96/S.template.dpi;if(key==='shadowSpread')v=Math.max(0,v)}
  else if(['x','y','w','h','gutterLeft','gutterRight','gutterTop','gutterBottom'].includes(key)){v=px(S.template.unit==='px'?Math.round(Number(v)):Number(v),S.template.unit,S.template.dpi);if(key==='w'||key==='h')v=Math.max(S.template.unit==='px'?px(1,'px',S.template.dpi):1,v);if(key.startsWith('gutter'))v=Math.max(0,v)}
@@ -280,9 +319,18 @@ $('#inspector').addEventListener('keydown',event=>{
  selectInspectorTab(tabs[next] as any);
  event.preventDefault();
 });
-function listenClick(e){const menu=$('#fileMenu');const actionEl=e.target.closest('[data-action]');if(actionEl){menu.open=false;e.stopPropagation();mutateAction(actionEl.dataset.action,actionEl);return}if(menu.open&&!e.target.closest('#fileMenu'))menu.open=false;const listRow=e.target.closest('[data-layer]');if(listRow){S.selected=listRow.dataset.layer;repaint();return}const cardRow=e.target.closest('[data-cardindex]');if(cardRow){chooseCard(Number(cardRow.dataset.cardindex));return}}
+function listenClick(e){const menu=$('#fileMenu');const actionEl=e.target.closest('[data-action]');if(actionEl){menu.open=false;e.stopPropagation();mutateAction(actionEl.dataset.action,actionEl);return}if(menu.open&&!e.target.closest('#fileMenu'))menu.open=false;const listRow=e.target.closest('[data-layer]');if(listRow){S.selected=listRow.dataset.layer;repaint();return}const cardRow=e.target.closest('[data-cardindex]');if(cardRow){chooseCard(Number(cardRow.dataset.cardindex));return}const templateRow=e.target.closest('[data-template-id]');if(templateRow){if(selectProjectTemplate(templateRow.dataset.templateId)){repaint()}return}}
 document.addEventListener('click',listenClick);
-$('#cardControl').addEventListener('change',e=>{if(e.target.id==='cardSelector')chooseCard(Number(e.target.value))});
+$('#cardControl').addEventListener('change',e=>{
+ if(e.target.id==='cardSelector')chooseCard(Number(e.target.value));
+ if(e.target.id==='cardSideSelector'){if(setCardSide(e.target.value)){repaint()}else toast('Assign a back template to this set first')}
+});
+document.addEventListener('change',e=>{
+ const target=e.target as HTMLSelectElement;
+ if(!target.dataset?.setSide)return;
+ try{assignSetTemplate(target.dataset.setId!,target.dataset.setSide as 'front'|'back',target.value);repaint()}
+ catch(error){alert((error as Error).message);repaint()}
+});
 $('#openProjectFile').addEventListener('change',async e=>{if(e.target.files[0])await openJSON(e.target.files[0]);e.target.value=''});
 $('#openTemplateFile').addEventListener('change',async e=>{if(e.target.files[0])await openJSON(e.target.files[0],true);e.target.value=''});
 $('#openSheetFile').addEventListener('change',async e=>{if(e.target.files[0])await readSheet(e.target.files[0]);e.target.value=''});
