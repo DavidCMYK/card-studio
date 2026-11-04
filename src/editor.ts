@@ -188,8 +188,8 @@ function handleProp(input){const key=input.dataset.prop;if(!key)return;let v=inp
   const p=key.split('.')[1],template=S.template;
   if(p==='unit'){
     const oldFactor=unitFactor(template.unit,template.dpi),newFactor=unitFactor(v,template.dpi);
-    template.width=Number((template.width*oldFactor/newFactor).toFixed(6));
-    template.height=Number((template.height*oldFactor/newFactor).toFixed(6));
+    template.width=Number((template.width*oldFactor/newFactor).toFixed(12));
+    template.height=Number((template.height*oldFactor/newFactor).toFixed(12));
   }else if(p==='dpi'){
     const newDpi=Number(v);
     if(!Number.isFinite(newDpi)||newDpi<=0)return;
