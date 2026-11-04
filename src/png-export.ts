@@ -13,13 +13,14 @@ export async function exportTrimmedPNG(){
   const ci=S.cardIndex,source=await canvasCard(ci,S.mode==='cards'?'cards':'template');
   const r=guideRects(S.template);
   const sx=source.width/r.canvas.width,sy=source.height/r.canvas.height;
-  const left=Math.round(r.trim.x*sx),top=Math.round(r.trim.y*sy);
-  const right=Math.round((r.trim.x+r.trim.w)*sx),bottom=Math.round((r.trim.y+r.trim.h)*sy);
+  // Source boundaries may be fractional pixels. Sample them precisely, but
+  // round the final physical trim size only once to prevent one-pixel drift.
   const cvs=document.createElement('canvas');
-  cvs.width=Math.max(1,right-left);cvs.height=Math.max(1,bottom-top);
+  cvs.width=Math.max(1,Math.round(r.trim.w*S.template.dpi/25.4));
+  cvs.height=Math.max(1,Math.round(r.trim.h*S.template.dpi/25.4));
   const ctx=cvs.getContext('2d');
   if(!ctx)throw Error('Could not draw trimmed PNG');
-  ctx.drawImage(source,left,top,cvs.width,cvs.height,0,0,cvs.width,cvs.height);
+  ctx.drawImage(source,r.trim.x*sx,r.trim.y*sy,r.trim.w*sx,r.trim.h*sy,0,0,cvs.width,cvs.height);
   const blob=await toBlob(cvs);
   if(!blob)throw Error('Could not create trimmed PNG');
   download(blob,safeFile(S.mode==='cards'?card().name:S.template.name)+'_trim.png');
