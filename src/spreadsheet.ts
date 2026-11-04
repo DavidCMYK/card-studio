@@ -1,9 +1,9 @@
-import { S, uid, escapeXML, textKinds, safeFile } from './model';
+import { S, uid, escapeXML, textKinds, safeFile, isDataExported } from './model';
 import { download, toast } from './dom';
 import { repaint } from './interface';
 export const columnName=n=>{let s='';for(n++;n;n=Math.floor((n-1)/26))s=String.fromCharCode(65+(n-1)%26)+s;return s};
 export const columnIndex=s=>[...s].reduce((n,c)=>n*26+c.toUpperCase().charCodeAt(0)-64,0)-1;
-export function sheetTable(){const elems=S.template.elements.filter(e=>textKinds.includes(e.kind));const heads=['Card Name',...elems.map(e=>e.name)];const rows=S.cards.map((c,i)=>[c.name,...elems.map(e=>String(c.values?.[e.id]??(e.kind==='text'?e.text:'')))]);return{heads,rows}}
+export function sheetTable(){const elems=S.template.elements.filter(e=>textKinds.includes(e.kind)&&isDataExported(e));const heads=['Card Name',...elems.map(e=>e.name)];const rows=S.cards.map((c,i)=>[c.name,...elems.map(e=>String(c.values?.[e.id]??(e.kind==='text'?e.text:'')))]);return{heads,rows}}
 export async function exportXLSX(){const {heads,rows}=sheetTable(),values=[heads,...(rows.length?rows:Array.from({length:12},(_,i)=>['Card '+String(i+1).padStart(3,'0'),...heads.slice(1).map(()=>'')]))];
  const body=values.map((r,i)=>`<row r="${i+1}">${r.map((v,j)=>`<c r="${columnName(j)}${i+1}" t="inlineStr"><is><t xml:space="preserve">${escapeXML(v)}</t></is></c>`).join('')}</row>`).join('');
  const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:${columnName(heads.length-1)}${values.length}"/><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols>${heads.map((_,i)=>`<col min="${i+1}" max="${i+1}" width="${i===0?21:27}" customWidth="1"/>`).join('')}</cols><sheetData>${body}</sheetData></worksheet>`;

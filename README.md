@@ -70,7 +70,7 @@ Existing version 1 `.cardstudio.json` project files and `.template.json` files r
 
 ## Notes
 
-This is an initial editor. Check the export output and dimensions before production printing. Fonts that are not installed on the computer may be substituted. The bundled JSZip library retains its original license notice.
+This is an initial editor. Check the export output and dimensions before production printing. For exact fonts across devices, use File → Embed font files… or Embed installed project fonts… before saving. Only embed fonts whose licences permit embedding. Older files with font names alone use substitute fonts on phones. The bundled JSZip library retains its original license notice.
 
 ### Save and Save As
 
@@ -81,3 +81,41 @@ In **File**, choose **Save template** to write back to the template that was ope
 ## Hosting on Cloudflare
 
 Connect this GitHub repository to Cloudflare. Use `npm run build:pages` as the build command and `public` as the output directory. This command runs the tests and compiles the browser bundle before copying the static website assets. No server or database is needed.
+
+
+## Mobile development and test Worker
+
+Mobile development is isolated on [`feature/mobile-studio`](https://github.com/DavidCMYK/card-studio/tree/feature/mobile-studio). The permanent live Worker configuration stays in `wrangler.jsonc`; the independent test Worker uses `wrangler.test.jsonc`. See [`docs/mobile-staging.md`](docs/mobile-staging.md) for Cloudflare Git-branch setup and deployment safeguards.
+
+
+## Undo/redo and portable fonts (mobile development)
+
+Both desktop and mobile use the same document history: Undo (Ctrl/Cmd+Z) and Redo (Ctrl/Cmd+Shift+Z or Ctrl+Y). Each completed drag or inspector edit is one step. History retains up to 60 steps, resets when opening or creating a different project, and is not saved to JSON. Native text-input undo is retained while the input is focused.
+
+To fix missing fonts in an existing desktop project, open it on desktop and use File → Embed installed project fonts… (on supported Chrome/Edge with permission), or File → Embed font files… to select licensed TTF, OTF, WOFF or WOFF2 files. The font family name entered must match the text element. Save the project and open the new JSON on your phone. Embedded fonts are used for previews and PNG exports. They are never silently copied from your computer. JSON sizes can increase with bundled font files.
+
+The mobile Cards panel shows lazy-rendered artwork thumbnails; they omit expensive shadow compositing, while PNG exports retain the full renderer.
+
+For precise placement on a phone or tablet, select an element and tap Move to use the arrow-pad. Switch between 1 and 10 design-pixel increments; each tap can be undone independently.
+
+
+## Local autosave and crash recovery (test branch)
+
+- Every completed edit is backed up automatically to **IndexedDB in this browser**, usually after 1.6 seconds without another edit. Inspector fields also update their recovery copy while you type, and hiding/closing the tab triggers a best-effort final write.
+- On the next visit, Card Studio **asks** whether to restore the latest local copy, download it as project JSON, or discard it. It never loads recovery data over your work without your permission.
+- A confirmed native **Save project** clears the current tab's recovery copy. A download-only fallback does **not** claim to overwrite a file and therefore keeps the local recovery.
+- Use **File → Local recovery…** to reopen the recovery prompt.
+- Restored projects have **no write permission to any previous local file**. Use Save project / Save as to create a permanent JSON copy.
+- The browser currently retains **one latest recovery copy per site**; edits to another document in the same browser may replace it. Save valuable projects as JSON before switching. Recovery stays on that **device, browser profile and site address**; it does not sync between desktop and phone.
+- Private browsing, disabled site storage, full device storage, or clearing site data can prevent or erase local recovery. It is a safety net, not a replacement for saved project files. A tab closed instantly after editing may lose the last few changes if its final IndexedDB write does not complete.
+
+The browser regression suite covers recover/discard after reload, explicit Save, a 240-card deck with embedded artwork, desktop/mobile PNG export equality, and tablet orientation changes.
+
+
+## Installable offline web app (test branch)
+
+The test deployment is also a Progressive Web App (PWA). Once it has loaded online, a service worker caches the application shell (HTML, CSS, JavaScript and icons), making the **editor available without internet access**. It does **not** upload your project files or use cloud storage. Embedded artwork/font data and browser recovery remain available offline in their normal storage.
+
+On Android Chrome, open the test site online, then use the browser menu's **Install app** or **Add to Home screen** option. On desktop Chrome/Edge, look for the browser's Install app control. Installation support and menu wording vary by browser. Launch it once while online to finish caching; afterward, editing and local recovery work offline.
+
+PWA storage is tied to the exact site origin. Installing the *test* address does not migrate local drafts to a future live domain; save JSON files to move projects between devices or environments. An installed PWA is still a web application; Android/iOS native wrappers remain separate future work.

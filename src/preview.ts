@@ -3,14 +3,35 @@ import { $ } from './dom';
 import { getImageData, cacheImage, imgBox } from './image-sets';
 import { layoutTextBox } from './text-layout';
 import { elementGeometry } from './anchor-layout';
+import {repositionImageId} from './image-reposition';
+import {isolatedTextId} from './text-isolation';
 import { previewShadow, previewTextContent, hasShadow, makeElementAlpha, depthMergedShadowPasses, ElementAlpha, ShadowGraphic } from './shadow';
 const gradientCSS=e=>e.fillMode==='solid'?e.fill1:e.fillMode==='gradient'?`linear-gradient(${e.gradientAngle}deg,${e.fill1},${e.fill2})`:'transparent';
 export function renderStage(){const st=$('#stage'),{w,h}=sizePx(),z=S.zoom;st.style.width=(w*z)+'px';st.style.height=(h*z)+'px';st.style.background=S.template.background;
+ const activeImage=repositionImageId(),activeText=isolatedTextId();
+ const bar=document.querySelector('#imageRepositionBar') as HTMLElement|null;
+ if(bar){
+  bar.hidden=!activeImage&&!activeText;
+  const title=bar.querySelector?.('strong'),button=bar.querySelector?.('button');
+  if(title)title.textContent=activeText?'Edit text independently':'Reposition image';
+  if(button)button.dataset.action=activeText?'finish-text-isolation':'finish-reposition-image';
+  if(activeText){
+   const hint=bar.querySelector?.('#imageRepositionHint');
+   if(hint)hint.textContent='Move or resize text · Linked shapes and images stay in place';
+  }
+ }
  const mergeMode=S.template.shadowOverlapMode==='merge';
  const visibleElements:{html:string;shadow:ShadowGraphic|null;alpha:ElementAlpha|null;x:number;y:number}[]=[];
  for(const raw of layerEls()){
   const e=effective(raw);if(S.mode==='template'?e.hidden:!visibleOnCard(raw,S.cardIndex,'cards'))continue;
-  const selected=S.selected===raw.id,src=getImageData(raw,S.cardIndex,S.mode);const geom=elementGeometry(raw,S.cardIndex,S.mode);let content='';
+  const selected=S.selected===raw.id,repositioning=activeImage===raw.id,independent=activeText===raw.id,src=getImageData(raw,S.cardIndex,S.mode);const geom=elementGeometry(raw,S.cardIndex,S.mode);let content='',ghost='';
+  if(repositioning){
+   const hint=document.querySelector('#imageRepositionHint');
+   if(hint)hint.textContent=e.imageFit==='free'?'Drag to move · Wheel or pinch to resize':
+    e.imageFit==='width'?'Drag vertically · Width remains fitted':
+    e.imageFit==='height'?'Drag horizontally · Height remains fitted':
+    'Drag along cropped axes only · Scale stays automatic';
+  }
   const value=e.kind==='text'?actualValue(raw):'';
   if(e.kind==='text'){
    const layout=layoutTextBox(e,actualValue(raw));
@@ -20,7 +41,9 @@ export function renderStage(){const st=$('#stage'),{w,h}=sizePx(),z=S.zoom;st.st
    const im=cacheImage(src);if(src&&im?.loaded){const box=imgBox({...e,...geom},im.im);
    const angle=Number(e.imgRotation)||0,sx=e.imgFlipX===true?-1:1,sy=e.imgFlipY===true?-1:1;
    const transform=angle||sx<0||sy<0?`transform-origin:${(geom.w/2-box.x)*z}px ${(geom.h/2-box.y)*z}px;transform:rotate(${angle}deg) scale(${sx},${sy});`:'';
-   content=`<div class="image-content"><img alt="" draggable="false" src="${src}" style="left:${box.x*z}px;top:${box.y*z}px;width:${box.w*z}px;height:${box.h*z}px;${transform}"></div>`}
+   const imageHTML=`<img alt="" draggable="false" src="${src}" style="left:${box.x*z}px;top:${box.y*z}px;width:${box.w*z}px;height:${box.h*z}px;${transform}">`;
+   content=`<div class="image-content">${imageHTML}</div>`;
+   if(repositioning)ghost=`<div class="image-reposition-ghost">${imageHTML}</div>`;}
    else content=`<div class="missing">${src?'Loading image…':`IMAGE FRAME<br>${escapeHTML(raw.name)}`}</div>`;
   }
   const border=e.borderWidth>0?`${e.borderWidth*z}px solid ${e.borderColor}`:'none';
@@ -38,12 +61,12 @@ export function renderStage(){const st=$('#stage'),{w,h}=sizePx(),z=S.zoom;st.st
   const shadow=previewShadow(painted,value,image,z);
   const alpha=mergeMode?(shadow?{pixels:shadow.pixels,pad:shadow.pad,ratio:shadow.ratio}:makeElementAlpha(painted,value,image,z)):null;
   const shadowLayer=!mergeMode&&shadow?`<img class="shadow-layer" alt="" draggable="false" src="${shadow.src}" style="left:${-shadow.pad*z}px;top:${-shadow.pad*z}px;width:${shadow.width*z}px;height:${shadow.height*z}px">`:'';
-  const handles=!e.locked?['nw','n','ne','e','se','s','sw','w'].map(h=>`<span class="resize-handle resize-${h}" data-handle="${h}"></span>`).join(''):'';
-  const label=selected?`<span class="selection-label">${escapeHTML(raw.name)}</span>${handles}`:'';
+  const handles=!e.locked&&!repositioning?['nw','n','ne','e','se','s','sw','w'].map(h=>`<span class="resize-handle resize-${h}" data-handle="${h}"></span>`).join(''):'';
+  const label=selected?`<span class="selection-label">${repositioning?'Reposition image · drag to pan':independent?'Text only · '+escapeHTML(raw.name):escapeHTML(raw.name)}</span>${handles}`:'';
   visibleElements.push({
    shadow:mergeMode&&shadow?{canvas:shadow.canvas,pixels:shadow.pixels,pad:shadow.pad,ratio:shadow.ratio}:null,
    alpha,x:geom.x,y:geom.y,
-   html:`<div class="element ${selected?'selected':''} ${e.locked?'locked':''}" data-id="${raw.id}" style="${base}">${shadowLayer}${fill}${content}${borderLayer}${label}</div>`
+   html:`<div class="element ${selected?'selected':''} ${repositioning?'repositioning':''} ${independent?'text-isolated':''} ${e.locked?'locked':''}" data-id="${raw.id}" style="${base}">${shadowLayer}${ghost}${fill}${content}${borderLayer}${label}</div>`
   });
  }
  let html='';

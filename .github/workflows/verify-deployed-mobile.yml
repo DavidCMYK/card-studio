@@ -1,0 +1,37 @@
+name: Verify deployed mobile Pages site
+
+on:
+  push:
+    branches: [feature/mobile-studio]
+  workflow_dispatch:
+
+jobs:
+  check-public-staging:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install test browser
+        run: |
+          npm install --no-save --no-audit --no-fund playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Check Pages deployment assets and branch marker
+        env:
+          CARD_STUDIO_URL: https://card-studio-mobile-test.pages.dev/
+          EXPECTED_SHA: ${{ github.sha }}
+        run: node tests/check-staging.cjs
+      - name: Test mobile and desktop workflows on deployed site
+        env:
+          CARD_STUDIO_URL: https://card-studio-mobile-test.pages.dev/
+        run: node tests/mobile-browser.cjs
+      - name: Upload deployed-site screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: card-studio-live-staging-screenshots
+          path: test-results/*.png
+          retention-days: 7
+          if-no-files-found: ignore

@@ -1,13 +1,17 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Card Studio — Game Card Layout Editor</title><link rel="stylesheet" href="./styles.css"></head><body>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Card Studio — Game Card Layout Editor</title><meta name="theme-color" content="#14253b"><link rel="manifest" href="./manifest.webmanifest"><link rel="stylesheet" href="./styles.css"><link rel="stylesheet" href="./mobile.css"></head><body>
 <div class="app">
   <header class="top">
     <div class="logo"><span class="logo-mark">▣</span><span>Card Studio</span></div><div class="top-sep"></div>
     <span id="projectTitle" class="project-title">Untitled project</span>
     <nav class="mode-switch" aria-label="Editing mode"><button id="btnTemplate" class="active" data-action="mode-template" aria-pressed="true">Template</button><button id="btnCards" data-action="mode-cards" aria-pressed="false">Cards</button></nav>
     <details id="fileMenu" class="file-menu"><summary>File</summary><div class="file-menu-panel" role="group" aria-label="File commands">
+      <button data-action="show-recovery">Local recovery…</button>
       <button data-action="new-project">New project</button>
       <button data-action="open-project">Open project…</button>
       <button data-action="load-template">Open template…</button>
+      <div class="file-menu-rule"></div>
+      <button data-action="embed-fonts">Embed font files…</button>
+      <button data-action="embed-used-fonts">Embed installed project fonts…</button>
       <div class="file-menu-rule"></div>
       <button data-action="save-project">Save project</button>
       <button data-action="save-project-as">Save project as…</button>
@@ -24,18 +28,19 @@
     </aside>
     <section class="viewport">
       <div class="work-tools">
-        <div class="tool-group"><button class="tool-btn" data-action="card-setup" title="Edit template dimensions and export settings">Card setup</button><button class="tool-btn" data-action="add-text">＋ Text</button><button class="tool-btn" data-action="add-image">＋ Image</button><button class="tool-btn" data-action="add-shape">＋ Shape</button><button class="tool-btn" data-action="copy-element" title="Copy selected template element (Ctrl+C)">Copy</button><button class="tool-btn" data-action="cut-element" title="Cut selected template element (Ctrl+X)">Cut</button><button class="tool-btn" data-action="paste-element" title="Paste template element (Ctrl+V)">Paste</button><button class="tool-btn red" data-action="delete-element" title="Delete selected element">Delete</button></div>
+        <div class="tool-group"><button class="tool-btn" data-action="undo" title="Undo (Ctrl+Z)" disabled>↶ Undo</button><button class="tool-btn" data-action="redo" title="Redo (Ctrl+Y / Ctrl+Shift+Z)" disabled>↷ Redo</button><button class="tool-btn" data-action="card-setup" title="Edit template dimensions and export settings">Card setup</button><button class="tool-btn" data-action="add-text">＋ Text</button><button class="tool-btn" data-action="add-image">＋ Image</button><button class="tool-btn" data-action="add-shape">＋ Shape</button><button class="tool-btn" data-action="copy-element" title="Copy selected template element (Ctrl+C)">Copy</button><button class="tool-btn" data-action="cut-element" title="Cut selected template element (Ctrl+X)">Cut</button><button class="tool-btn" data-action="paste-element" title="Paste template element (Ctrl+V)">Paste</button><button class="tool-btn red" data-action="delete-element" title="Delete selected element">Delete</button></div>
         <div class="tool-group"><button class="tool-btn" data-action="layer-down" title="Send backward">↓ Layer</button><button class="tool-btn" data-action="layer-up" title="Bring forward">↑ Layer</button><button class="tool-btn" data-action="zoom-out">−</button><span id="zoomLabel" class="hint" style="min-width:38px;text-align:center">150%</span><button class="tool-btn" data-action="zoom-in">＋</button></div>
       </div>
       <div id="cardControl" class="card-control" style="display:none"></div>
+      <div id="imageRepositionBar" class="image-reposition-bar" hidden><strong>Reposition image</strong><span id="imageRepositionHint">Drag to reposition artwork</span><button data-action="finish-reposition-image">Done</button></div>
       <div id="canvasOuter" class="canvas-outer"><div id="stageWrap" class="stage-wrap"><div id="stage" class="stage"></div></div></div>
-      <div class="status"><span id="statusLeft">Ready</span><span id="statusRight">Drag to move · resize from any edge · scroll to navigate · Shift+wheel horizontally · arrows to nudge</span></div>
+      <div class="status"><span id="statusLeft">Ready</span><span id="recoveryStatus" aria-live="polite">Local recovery</span><span id="statusRight">Drag to move · resize from any edge · scroll to navigate · Shift+wheel horizontally · arrows to nudge</span></div>
     </section>
     <aside class="side side-right"><div class="side-head"><h2 id="rightTitle">Properties</h2></div><div id="inspector" class="inspect"></div></aside>
   </div>
 </div>
 <div id="toast" class="toast"></div><div id="dialogHolder"></div>
-<input type="file" id="openProjectFile" accept=".json,.cardstudio" hidden><input type="file" id="openTemplateFile" accept=".json" hidden><input type="file" id="openSheetFile" accept=".xlsx,.csv,text/csv" hidden><input type="file" id="assetFiles" accept="image/*" multiple hidden>
+<input type="file" id="fontFiles" accept=".ttf,.otf,.woff,.woff2" multiple hidden><input type="file" id="openProjectFile" accept=".json,.cardstudio" hidden><input type="file" id="openTemplateFile" accept=".json" hidden><input type="file" id="openSheetFile" accept=".xlsx,.csv,text/csv" hidden><input type="file" id="assetFiles" accept="image/*" multiple hidden>
 <script src="./vendor/jszip.min.js"></script>
 <script src="./dist/app.js" defer></script>
 </body></html>

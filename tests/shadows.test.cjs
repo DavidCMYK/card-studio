@@ -2,7 +2,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const model=require('../.build/model.js');
 const {spreadAlpha,shadePixels,hasShadow,makeShadow}=require('../.build/shadow.js');
-const {renderInspector}=require('../.build/interface.js');
+const {renderInspector,selectInspectorTab}=require('../.build/interface.js');
 
 function mask(w,h,points){const alpha=new Uint8ClampedArray(w*h);for(const [x,y,a] of points)alpha[y*w+x]=a;return alpha;}
 function at(a,w,x,y){return a[y*w+x];}
@@ -52,6 +52,7 @@ test('shadow inspector supports all properties for text, shapes and images',()=>
  global.document={querySelector(id){if(!nodes.has(id))nodes.set(id,{innerHTML:'',textContent:''});return nodes.get(id)},createElement(){return {getContext(){return {measureText(t){return {width:String(t).length*9}}}}}}};
  try{
   const s=model.initial();model.replaceState(s);
+  selectInspectorTab('style');
   for(const kind of ['text','image','shape']){
    const e=model.makeElement(kind,{shadowEnabled:true,shadowOpacity:35,shadowOffsetX:-5,shadowOffsetY:7,shadowSpread:10,shadowColor:'#123456'});
    s.template.elements=[e];s.selected=e.id;renderInspector();

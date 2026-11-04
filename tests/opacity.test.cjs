@@ -2,7 +2,7 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const model=require('../.build/model.js');
 const {renderStage}=require('../.build/preview.js');
-const {renderInspector,patchElement}=require('../.build/interface.js');
+const {renderInspector,patchElement,selectInspectorTab}=require('../.build/interface.js');
 const {canvasCard}=require('../.build/png-renderer.js');
 const {imageCache}=require('../.build/image-sets.js');
 const {migrateComponentOpacities}=require('../.build/project-storage.js');
@@ -25,6 +25,7 @@ function setup(){
 }
 test('component opacity inputs are independently available for each relevant element',()=>{
   const {node}=setup(),s=model.initial();model.replaceState(s);
+  selectInspectorTab('style');
   for(const kind of ['text','image','shape']){
     const e=model.makeElement(kind);s.template.elements=[e];s.selected=e.id;renderInspector();
     const html=node('#inspector').innerHTML;

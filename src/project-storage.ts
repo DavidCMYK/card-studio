@@ -2,6 +2,9 @@ import { S, initial, replaceState, safeFile } from './model';
 import { $, jsonDownload, toast } from './dom';
 import { imageCache } from './image-sets';
 import { repaint } from './interface';
+import {activateProjectFonts,unbundledFontFamilies} from './project-fonts';
+import {resetHistory,historyRevision} from './history';
+import {recordProjectSaved,recordProjectReplaced} from './recovery';
 
 // File handles are deliberately kept out of saved project JSON. They are only
 // valid for the browser session and must be granted by the user via a picker.
@@ -13,7 +16,7 @@ export function resetFileHandles() { projectFileHandle = null; templateFileHandl
 const projectName = () => safeFile(S.projectName) + '.cardstudio.json';
 const templateName = () => safeFile(S.template.name) + '.template.json';
 const projectContents = () => ({...S, type:'cardstudio-project', version:2});
-const templateContents = () => ({type:'cardstudio-template', version:2, template:S.template});
+const templateContents = () => ({type:'cardstudio-template', version:2, template:S.template,fonts:S.fonts||[]});
 const filePicker = (type: 'project'|'template', name: string) => ({
  suggestedName: name,
  types:[{description: type==='project'?'Card Studio project':'Card Studio template',accept:{'application/json':['.json']}}]
@@ -25,6 +28,7 @@ async function saveDocument(type: 'project'|'template', saveAs = false): Promise
  const handle=isProject?projectFileHandle:templateFileHandle;
  const name=isProject?projectName():templateName();
  const data=isProject?projectContents():templateContents();
+ const revisionWhenSaving=historyRevision();
  const picker=(window as any).showSaveFilePicker;
  if (typeof picker!=='function' && (!handle || saveAs)) {
   // Downloads cannot replace an existing local file. Do not claim otherwise.
@@ -39,6 +43,7 @@ async function saveDocument(type: 'project'|'template', saveAs = false): Promise
   try { await writable.write(JSON.stringify(data,null,2)); await writable.close(); }
   catch(err) { try { await writable.abort?.(); } catch {} throw err; }
   if(isProject)projectFileHandle=destination;else templateFileHandle=destination;
+  if(isProject)await recordProjectSaved(revisionWhenSaving);
   toast(`${isProject?'Project':'Template'} saved to ${destination.name}`);
   return true;
  } catch(error) {
@@ -102,17 +107,24 @@ export async function openJSON(file: {text: () => Promise<string>}, onlyTemplate
   if(!obj.template?.elements||!Array.isArray(obj.template.elements))throw Error('Not a Card Studio project or template');
   if(onlyTemplate && obj.type==='cardstudio-project')throw Error('This is a project file, not a template. Use Open project instead.');
   if(onlyTemplate||obj.type==='cardstudio-template'){
-   S.template=obj.template;S.selected=null;
+   S.template=obj.template;S.fonts=Array.isArray(obj.fonts)?obj.fonts:[];S.selected=null;
    for(const e of S.template.elements)if(e.kind==='image'&&!S.sets.some(x=>x.id===e.autoSet))e.autoSet='';
    for(const c of S.cards){c.overrides={};c.values={};c.extraElements=[]}
    templateFileHandle=handle;
    toast('Template loaded. Existing staged cards reset.');
   }else{
    if(!Array.isArray(obj.cards)||!Array.isArray(obj.sets))throw Error('Project does not contain cards and image sets');
-   replaceState({...initial(),...obj,mode:'template',selected:null,cardIndex:0});
+   replaceState({...initial(),...obj,fonts:Array.isArray(obj.fonts)?obj.fonts:[],mode:'template',selected:null,cardIndex:0});
    imageCache.clear();projectFileHandle=handle;templateFileHandle=null;
    toast('Project loaded');
   }
-  repaint();return true;
+  resetHistory();recordProjectReplaced();
+  await activateProjectFonts();
+  repaint();
+  // Even familiar system fonts (Georgia, Arial, etc.) are not guaranteed to
+  // render identically on Android, iOS and desktop. Only packaged fonts travel.
+  const missing=unbundledFontFamilies();
+  if(missing.length)toast('Project uses fonts not included in the file: '+missing.slice(0,3).join(', ')+(missing.length>3?'…':''));
+  return true;
  }catch(err){alert('Could not open file: '+(err as Error).message);return false;}
 }

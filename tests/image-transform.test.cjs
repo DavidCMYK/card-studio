@@ -2,7 +2,7 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const model=require('../.build/model.js');
 const {renderStage}=require('../.build/preview.js');
-const {renderInspector,patchElement}=require('../.build/interface.js');
+const {renderInspector,patchElement,selectInspectorTab}=require('../.build/interface.js');
 const {canvasCard}=require('../.build/png-renderer.js');
 const {imageCache}=require('../.build/image-sets.js');
 
@@ -36,7 +36,7 @@ const by=(events,name)=>events.filter(x=>x[0]===name);
 test('new image transform controls are offered with neutral defaults and saved in model',()=>{
  const t=scenario();try{
   assert.equal(t.frame.imgFlipX,false);assert.equal(t.frame.imgFlipY,false);assert.equal(t.frame.imgRotation,0);
-  renderInspector();const html=t.get('#inspector').innerHTML;
+  selectInspectorTab('content');renderInspector();const html=t.get('#inspector').innerHTML;
   for(const key of ['imgFlipX','imgFlipY','imgRotation'])assert.match(html,new RegExp(`data-prop="${key}"`));
   assert.match(html,/image-rotate-left/);assert.match(html,/image-rotate-right/);
   assert.equal(JSON.parse(JSON.stringify(t.state)).template.elements[0].imgRotation,0);
