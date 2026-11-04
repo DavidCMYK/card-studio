@@ -101,3 +101,7 @@
 :root[data-layout="mobile"] .recovery-actions{display:grid;grid-template-columns:1fr}
 :root[data-layout="mobile"] .recovery-actions button{width:100%;min-height:48px}
 :root[data-layout="mobile"] .m-autosave-status{color:#a4bddb;font-size:12px;padding:8px 10px;display:block}
+
+:root[data-layout="mobile"] .image-reposition-bar{gap:8px;padding:7px 12px;font-size:12px;min-height:46px}
+:root[data-layout="mobile"] .image-reposition-bar span{display:none}
+:root[data-layout="mobile"] .image-reposition-bar button{margin-left:auto;min-height:38px;min-width:78px}

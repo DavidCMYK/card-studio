@@ -62,3 +62,15 @@
 .recovery-actions button{border-radius:8px;padding:12px 15px;min-height:45px;font-size:13px;font-weight:700;border:1px solid #cedbe9;background:#f4f7fc;color:#254e80}
 .recovery-actions button.accent{background:#3374dc;border-color:#3374dc;color:white}
 .recovery-actions button:disabled{opacity:.45}
+
+/* Temporary image-content editing, without changing the frame or final PNG. */
+.image-reposition-bar{display:flex;align-items:center;gap:12px;padding:8px 17px;background:#eaf2ff;border-bottom:1px solid #b7d3fa;color:#1a497e;font-size:12px;min-height:43px}
+.image-reposition-bar[hidden]{display:none!important}
+.image-reposition-bar strong{white-space:nowrap}
+.image-reposition-bar span{flex:1}
+.image-reposition-bar button{background:#276aca;border:1px solid #276aca;border-radius:7px;color:white;font-size:12px;font-weight:700;padding:6px 15px}
+.element.repositioning,.element.repositioning.locked{cursor:grab;outline:2px dashed #2469dd;outline-offset:2px}
+.element.repositioning:active{cursor:grabbing}
+.element.repositioning .selection-label{background:#1955ac}
+.element .image-reposition-ghost{position:absolute;inset:0;overflow:visible;pointer-events:none;opacity:.28;clip-path:polygon(evenodd,-10000px -10000px,10000px -10000px,10000px 10000px,-10000px 10000px,-10000px -10000px,0 0,100% 0,100% 100%,0 100%,0 0)}
+.element .image-reposition-ghost img{position:absolute;max-width:none;display:block;pointer-events:none}

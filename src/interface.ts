@@ -6,6 +6,7 @@ import { elementGeometry, offsetsForRect, anchorEdges } from './anchor-layout';
 import {checkpoint,historyState} from './history';
 import {bundledFontFamilies} from './project-fonts';
 import {renderCardThumbnails} from './card-thumbnails';
+import {repositionImageId} from './image-reposition';
 export function renderCardControl(){const cc=$('#cardControl');cc.style.display=S.mode==='cards'?'flex':'none';if(S.mode!=='cards')return;cc.innerHTML=`<span style="font-weight:700;color:#62778f">CARD</span><button data-action="prev-card" title="Previous card">‹</button><select id="cardSelector">${S.cards.map((c,i)=>`<option value="${i}" ${i===S.cardIndex?'selected':''}>${escapeHTML(c.name)}</option>`).join('')}</select><button data-action="next-card" title="Next card">›</button><span style="color:#8a98a9;margin-left:auto">${S.cardIndex+1} / ${S.cards.length}</span>`}
 export function renderLeft(){
  const v=$('#leftBody');
@@ -123,7 +124,8 @@ export function renderInspector(){const box=$('#inspector');if(!S.selected&&S.mo
  if(raw.kind==='image'){
  html+=`<div class="section-title">Image options</div>`;
  html+=selectionField('Fit inside frame','imageFit', [['cover','Cover frame (crop)'],['contain','Fit whole image'],['width','Fit to frame width'],['height','Fit to frame height'],['stretch','Stretch to frame'],['free','Free / original size']],e.imageFit);
- html+=`<div class="fields-two">${field('Free resize scale','imgScale',e.imgScale,'number','min="0.01" step="0.1"')}${field('Offset X (px)','imgOffsetX',e.imgOffsetX,'number','step="1"')}${field('Offset Y (px)','imgOffsetY',e.imgOffsetY,'number','step="1"')}</div>`;
+ html+=`<div class="fields-two">${field('Image zoom (×)','imgZoom',e.imgZoom??1,'number','min="0.05" max="20" step="0.1"')}${field('Free resize scale','imgScale',e.imgScale,'number','min="0.01" step="0.1"')}${field('Offset X (px)','imgOffsetX',e.imgOffsetX,'number','step="1"')}${field('Offset Y (px)','imgOffsetY',e.imgOffsetY,'number','step="1"')}</div>`;
+ html+=`<div class="inspector-action"><button class="secondary" data-action="${repositionImageId()===raw.id?'finish-reposition-image':'reposition-image'}">${repositionImageId()===raw.id?'Done repositioning':'Reposition image'}</button></div><div class="small" style="padding:0 0 12px">Double-click (double-tap on mobile) to reposition. Drag the image without moving its frame; wheel or pinch to zoom. Click Done or press Escape to finish.</div>`;
  html+=`<div class="section-title">Image transform</div>`+
   checkbox('Flip horizontally','imgFlipX',e.imgFlipX===true)+
   checkbox('Flip vertically','imgFlipY',e.imgFlipY===true)+
