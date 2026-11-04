@@ -4,6 +4,7 @@ import {renderStage} from './preview';
 import {repaint,patchElement} from './interface';
 import {effective} from './model';
 import {elementGeometry} from './anchor-layout';
+import {repositionImageId,imageDragPatch} from './image-reposition';
 import {chooseEditorLayout,fitCardZoom,EditorLayout} from './mobile-mode';
 import {installMobileGestures} from './mobile-touch';
 import {renderQuickEditor,performQuickAction} from './mobile-quick';
@@ -36,7 +37,8 @@ function refresh(){
  const selectedName=document.getElementById('mobileSelectionName');if(selectedName)selectedName.textContent=selected?selected.name:'Card data';
  const quickButton=document.getElementById('mobileQuickButton');
  if(quickButton)quickButton.textContent=selected?.kind==='text'?'Edit text':selected?.kind==='image'?'Choose artwork':selected?'Edit style':'Edit card data';
- const scope=document.getElementById('mobileSelectionScope');if(scope)scope.textContent=S.mode==='template'?'Changes every card':'Changes only this card';
+ const scope=document.getElementById('mobileSelectionScope');if(scope)scope.textContent=repositionImageId()?'Repositioning artwork':S.mode==='template'?'Changes every card':'Changes only this card';
+ const nudge=document.getElementById('mobileNudgeButton');if(nudge)nudge.textContent=repositionImageId()?'Nudge image':'Move';
  document.querySelectorAll('.m-mode [data-action]').forEach(node=>{
   const button=node as HTMLElement,active=button.dataset.action==='mode-'+S.mode;
   button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));
@@ -106,11 +108,11 @@ function start(){
    if(command==='nudge-step'){nudgeStep=nudgeStep===1?10:1;control.textContent='Step: '+nudgeStep+' px';}
    else if(['nudge-up','nudge-down','nudge-left','nudge-right'].includes(command)){
     const raw=S.selected?templateEl(S.selected):null;
-    if(raw&&!effective(raw).locked){
+    if(raw&&(!effective(raw).locked||repositionImageId()===raw.id)){
      const rect=elementGeometry(raw);
      const dx=command==='nudge-left'?-nudgeStep:command==='nudge-right'?nudgeStep:0;
      const dy=command==='nudge-up'?-nudgeStep:command==='nudge-down'?nudgeStep:0;
-     patchElement(raw.id,{x:rect.x+dx,y:rect.y+dy});repaint();
+     patchElement(raw.id,repositionImageId()===raw.id?imageDragPatch(effective(raw),dx,dy):{x:rect.x+dx,y:rect.y+dy});repaint();
     }
    }
    else if(['apply-text','assign-image','clear-image'].includes(command)){if(performQuickAction(command,control))closePanel()}
@@ -119,7 +121,7 @@ function start(){
    else if(command==='fit'){fitCanvas();closePanel()}
    else showPanel(command as Panel);
   }
-  if(mobile()&&(target.closest('.m-actions [data-action]')||target.closest('.side-left [data-action]')||target.closest('[data-layer]')||target.closest('.sidebar-cards [data-cardindex]')))closePanel();
+  if(mobile()&&(target.closest('.m-actions [data-action]')||target.closest('.side-left [data-action]')||target.closest('.side-right [data-action="reposition-image"]')||target.closest('[data-layer]')||target.closest('.sidebar-cards [data-cardindex]')))closePanel();
   requestAnimationFrame(refresh);
  },true);
  document.addEventListener('keydown',(e:KeyboardEvent)=>{if(e.key==='Escape'&&panel!=='none')closePanel()});
