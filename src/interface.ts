@@ -7,6 +7,7 @@ import {checkpoint,historyState} from './history';
 import {bundledFontFamilies} from './project-fonts';
 import {renderCardThumbnails} from './card-thumbnails';
 import {repositionImageId,canRepositionImage} from './image-reposition';
+import {isolatedTextId} from './text-isolation';
 import {imageFitAxes,imageScreenOffset,imageCache,getImageData} from './image-sets';
 export function renderCardControl(){const cc=$('#cardControl');cc.style.display=S.mode==='cards'?'flex':'none';if(S.mode!=='cards')return;cc.innerHTML=`<span style="font-weight:700;color:#62778f">CARD</span><button data-action="prev-card" title="Previous card">‹</button><select id="cardSelector">${S.cards.map((c,i)=>`<option value="${i}" ${i===S.cardIndex?'selected':''}>${escapeHTML(c.name)}</option>`).join('')}</select><button data-action="next-card" title="Next card">›</button><span style="color:#8a98a9;margin-left:auto">${S.cardIndex+1} / ${S.cards.length}</span>`}
 export function renderLeft(){
@@ -223,6 +224,8 @@ export function renderInspector(){
  panes.layout+=`<div class="section-title">Position and size (${unit})</div><div class="fields-two">${field('X ('+unit+')','x',fmt(geometry.x/f),'number','step="any"')}${field('Y ('+unit+')','y',fmt(geometry.y/f),'number','step="any"')}${field('Width ('+unit+')','w',fmt(geometry.w/f),'number','min="0.01" step="any"')}${field('Height ('+unit+')','h',fmt(geometry.h/f),'number','min="0.01" step="any"')}</div><div class="small" style="padding:4px 0 12px" id="elementPixelReadout">${elementReadout()}</div>`;
  panes.layout+=checkbox('Lock position','locked',e.locked);
  if(raw.kind==='text'){
+  const isolated=isolatedTextId()===raw.id;
+  panes.layout+=`<div class="inspector-action"><button class="secondary" data-action="${isolated?'finish-text-isolation':'isolate-text'}" ${e.locked?'disabled title="Unlock the text box to move it"':''}>${isolated?'Done independent editing':'Move/resize text independently'}</button></div><div class="small" style="padding:0 0 12px">Double-click (double-tap on mobile) to edit this text box without moving or resizing objects anchored to it. Their links stay intact.</div>`;
   panes.layout+=fold('text-autosize','Automatic text box sizing',
    checkbox('Auto width (expand horizontally)','autoWidth',e.autoWidth===true)+
    checkbox('Auto height (expand vertically)','autoHeight',e.autoHeight===true)+
