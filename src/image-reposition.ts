@@ -10,8 +10,11 @@ export function enterImageReposition(id:string):boolean{
 }
 export function stopImageReposition():void{session=null}
 export function repositionImageId():string|null{
- if(!session||session.project!==S||session.id!==S.selected||session.mode!==S.mode||
-  session.cardIndex!==S.cardIndex||templateEl(session.id)?.kind!=='image')return null;
+ if(!session)return null;
+ if(session.project!==S||session.id!==S.selected||session.mode!==S.mode||
+  session.cardIndex!==S.cardIndex||templateEl(session.id)?.kind!=='image'){
+  session=null;return null;
+ }
  return session.id;
 }
 /** Pointer motion in card coordinates -> stored, pre-rotation/flip image offsets. */
