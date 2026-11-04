@@ -47,6 +47,23 @@ const server=http.createServer((req,res)=>{
   assert.equal(await dp.locator('#stage .element').count(),desktopElements,'desktop undo');
   await dp.locator('.work-tools [data-action="redo"]').click();
   assert.equal(await dp.locator('#stage .element').count(),desktopElements+1,'desktop redo');
+  // Confirm installed-font access is requested in the click's transient
+  // activation, before any confirmation dialog can consume it.
+  await dp.evaluate(()=>{
+   window.__fontActivationCheck={active:false,order:[]};
+   window.queryLocalFonts=()=>{
+    window.__fontActivationCheck.active=navigator.userActivation.isActive;
+    window.__fontActivationCheck.order.push('query');
+    return Promise.resolve([]);
+   };
+   window.confirm=()=>{window.__fontActivationCheck.order.push('confirm');return false};
+  });
+  await dp.locator('#fileMenu summary').click();
+  await dp.locator('#fileMenu [data-action="embed-used-fonts"]').click();
+  await dp.waitForFunction(()=>window.__fontActivationCheck.order.length===2);
+  const activation=await dp.evaluate(()=>window.__fontActivationCheck);
+  assert.equal(activation.active,true,'font access requested during a user click');
+  assert.deepEqual(activation.order,['query','confirm'],'permission request precedes licensing confirmation');
   // Embed a real test-runner font, save a JSON project, and reopen it on mobile.
   let portableProject=null;
   let fontPath='';
