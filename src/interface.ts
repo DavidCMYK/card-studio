@@ -238,7 +238,7 @@ export function renderInspector(){
  }
  panes.style+=`<div class="fields-two">${field('Border thickness (px)','borderWidth',e.borderWidth,'number','min="0" step="0.5"')}${field('Border colour','borderColor',e.borderColor,'color')}</div>`;
  if(e.shape!=='ellipse')panes.style+=field('Corner radius (px)','radius',e.radius,'number','min="0" step="1"');
- const opacityField=(label:string,key:string)=>field(label,key,Math.round(opacityFor(e,key)*100),'number','min="0" max="100" step="1"');
+ const opacityField=(label:string,key:'fillOpacity'|'borderOpacity'|'textOpacity')=>field(label,key,Math.round(opacityFor(e,key)*100),'number','min="0" max="100" step="1"');
  panes.style+=`<div class="section-title">Opacity</div>`+
   opacityField(raw.kind==='image'?'Image opacity (%)':'Background opacity (%)','fillOpacity')+
   opacityField('Border opacity (%)','borderOpacity')+
