@@ -104,7 +104,32 @@ const server=http.createServer((req,res)=>{
    await page.locator('.m-actions [data-action="export-current"]').click();
    const mobileExport=await mobileDownloadPromise;
    const mobilePng=fs.readFileSync(await mobileExport.path());
-   assert.ok(desktopPng.equals(mobilePng),'desktop and mobile export identical print-resolution PNG');
+   if(!desktopPng.equals(mobilePng)){
+    fs.writeFileSync('test-results/desktop-export.png',desktopPng);
+    fs.writeFileSync('test-results/mobile-export.png',mobilePng);
+    const result=await page.evaluate(async(pairs)=>{
+     async function rgba(b64){
+      const bytes=Uint8Array.from(atob(b64),ch=>ch.charCodeAt(0));
+      const bitmap=await createImageBitmap(new Blob([bytes],{type:'image/png'}));
+      const canvas=document.createElement('canvas');canvas.width=bitmap.width;canvas.height=bitmap.height;
+      const ctx=canvas.getContext('2d',{willReadFrequently:true});
+      ctx.drawImage(bitmap,0,0);
+      return {pixels:ctx.getImageData(0,0,canvas.width,canvas.height).data,w:canvas.width,h:canvas.height};
+     }
+     const a=await rgba(pairs[0]),b=await rgba(pairs[1]);
+     if(a.w!==b.w||a.h!==b.h)return {sizeMismatch:true,a:[a.w,a.h],b:[b.w,b.h]};
+     let different=0,first=null;
+     for(let i=0;i<a.pixels.length;i+=4){
+      if(a.pixels[i]!==b.pixels[i]||a.pixels[i+1]!==b.pixels[i+1]||a.pixels[i+2]!==b.pixels[i+2]||a.pixels[i+3]!==b.pixels[i+3]){
+       different++;
+       if(!first)first={x:(i/4)%a.w,y:Math.floor((i/4)/a.w),a:[...a.pixels.slice(i,i+4)],b:[...b.pixels.slice(i,i+4)]};
+      }
+     }
+     return {sizeMismatch:false,different,first,w:a.w,h:a.h};
+    },[desktopPng.toString('base64'),mobilePng.toString('base64')]);
+    console.log('PNG desktop/mobile comparison:',JSON.stringify({desktopBytes:desktopPng.length,mobileBytes:mobilePng.length,...result}));
+    assert.equal(result.different,0,'desktop/mobile exported pixels identical');
+   }
   }
   assert.equal(await page.locator('.top').isVisible(),false,'desktop controls hidden on phone');
   await page.locator('.m-mode [data-action="mode-cards"]').click();
