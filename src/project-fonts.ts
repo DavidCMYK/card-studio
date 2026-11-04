@@ -11,9 +11,11 @@ let onReady=()=>{};
 export const onFontsReady=(handler:()=>void)=>{onReady=handler};
 export const usedFontFamilies=():string[]=>{
  const names=new Set<string>();
- for(const e of S.template.elements)if(e.kind==='text'&&e.font)names.add(e.font.trim());
+ for(const template of S.templates||[S.template])
+  for(const e of template.elements)if(e.kind==='text'&&e.font)names.add(e.font.trim());
  for(const c of S.cards){
-  for(const e of c.extraElements||[])if(e.kind==='text'&&e.font)names.add(e.font.trim());
+  for(const e of [...(c.extraElements||[]),...(c.backExtraElements||[])])
+   if(e.kind==='text'&&e.font)names.add(e.font.trim());
   for(const entry of Object.values(c.overrides||{}))if(entry.font)names.add(String(entry.font).trim());
  }
  return [...names].filter(Boolean);
