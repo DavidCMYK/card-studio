@@ -15,8 +15,17 @@ export const getImageRef=(el,ci=S.cardIndex,mode=S.mode)=>{
   if(String(manual).toLowerCase()==='none')return null;
   const val=String(manual).replace(/\\/g,'/').toLowerCase();
   const all=S.sets.flatMap(set=>set.images.map(im=>({set,im})));
-  const found=all.find(x=>`${x.set.name}/${x.im.name}`.toLowerCase()===val)||all.find(x=>x.im.name.toLowerCase()===val)||all.find(x=>x.im.name.toLowerCase().replace(/\.[^.]+$/,'')===val);
-  return found?.im||null;
+  // In multi-template projects, different artwork sets may contain identical
+  // filenames. A field attached to one image set should prefer that set rather
+  // than silently displaying an image belonging to another template.
+  const preferredSet=S.sets.find(set=>set.id===el.autoSet||set.name===el.autoSet);
+  const preferred=preferredSet?.images.find(im=>im.name.toLowerCase()===val)
+   ||preferredSet?.images.find(im=>im.name.toLowerCase().replace(/\.[^.]+$/,'')===val);
+  const found=all.find(x=>`${x.set.name}/${x.im.name}`.toLowerCase()===val)?.im
+   ||preferred
+   ||all.find(x=>x.im.name.toLowerCase()===val)?.im
+   ||all.find(x=>x.im.name.toLowerCase().replace(/\.[^.]+$/,'')===val)?.im;
+  return found||null;
  }
  if(!el.autoSet)return null;
  const set=S.sets.find(x=>x.id===el.autoSet||x.name===el.autoSet);if(!set?.images.length)return null;
