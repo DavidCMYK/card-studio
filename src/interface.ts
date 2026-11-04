@@ -1,5 +1,5 @@
 import { S, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, clamp, px, fmt, sizePx, makeElement, textKinds, escapeHTML, unitFactor, exportPixels, templateExportSize, isExported, isDataExported, visibleOnCard, opacityFor } from './model';
-import {guideRects} from './card-guides';
+import {guideRects,displayedDistance} from './card-guides';
 import {guideSettingsHtml} from './guide-ui';
 import { $ } from './dom';
 import { renderStage } from './preview';
@@ -53,12 +53,11 @@ function checkbox(label,key,value){return `<label class="toggle-line"><input ${e
 // All pixel labels are export-image pixels at the selected resolution.
 const sizeReadout=()=>{const {w,h}=templateExportSize();return `${w.toLocaleString('en-US')} × ${h.toLocaleString('en-US')} px at ${S.template.dpi} DPI`};
 function guideReadout():string {
- const r=guideRects(S.template);
- const f=unitFactor(S.template.unit,S.template.dpi);
- const w=Number((r.trim.w*96/25.4/f).toFixed(5));
- const h=Number((r.trim.h*96/25.4/f).toFixed(5));
- return 'Finished card: '+w+' × '+h+' '+S.template.unit+
-  (r.settings.bleedMode==='bleed'?' (with inset trim line)':' (canvas edge is trim)');
+ const {canvas,trim,safe}=guideRects(S.template),u=S.template.unit,dpi=S.template.dpi;
+ const show=(w:number,h:number)=>displayedDistance(w,u,dpi)+' × '+displayedDistance(h,u,dpi);
+ return 'Canvas: '+show(canvas.width,canvas.height)+' '+u+
+   ' · Cut: '+show(trim.w,trim.h)+' '+u+
+   ' · Safe zone: '+show(safe.w,safe.h)+' '+u;
 }
 const elementReadout=()=>{
  const raw=templateEl(S.selected);
@@ -71,6 +70,22 @@ export function updateDimensionReadouts(){
  const templateNode=document.querySelector('#templatePixelReadout');
  if(templateNode)templateNode.textContent=sizeReadout();
  const guideNode=document.querySelector('#guideReadout');if(guideNode)guideNode.textContent=guideReadout();
+ // Live updates must keep all dependent fields in sync while another is edited.
+ // Never overwrite the focused input or interfere with its cursor.
+ if(!S.selected&&S.mode==='template'){
+  const {trim,safe}=guideRects(S.template),unit=S.template.unit,dpi=S.template.dpi;
+  const values:Record<string,number|string>={
+   'template.width':S.template.width,'template.height':S.template.height,
+   'guide.cut.width':displayedDistance(trim.w,unit,dpi),
+   'guide.cut.height':displayedDistance(trim.h,unit,dpi),
+   'guide.safeZone.width':displayedDistance(safe.w,unit,dpi),
+   'guide.safeZone.height':displayedDistance(safe.h,unit,dpi)
+  };
+  for(const [key,value] of Object.entries(values)){
+   const node=document.querySelector<HTMLInputElement>('[data-prop="'+key+'"]');
+   if(node&&node!==document.activeElement&&node.type==='number')node.value=String(value);
+  }
+ }
  const elementNode=document.querySelector('#elementPixelReadout');
  if(elementNode)elementNode.textContent=elementReadout();
 }
@@ -214,9 +229,17 @@ export function renderInspector(){
   const out=inspectorHeader(S.template.name,'Card dimensions and project settings')+
    fold('setup-dimensions','Dimensions',
     field('Template name','template.name',S.template.name)+
-    `<div class="fields-two">${field('Canvas width ('+S.template.unit+')','template.width',S.template.width,'number','min="0.01" step="any"')}${field('Canvas height ('+S.template.unit+')','template.height',S.template.height,'number','min="0.01" step="any"')}</div>`+
     selectionField('Units','template.unit',[['mm','Millimetres (mm)'],['in','Inches (in)'],['px','Pixels (px)']],S.template.unit)+
-    `<div class="small" style="padding:4px 0 12px" id="templatePixelReadout">${sizeReadout()}</div><div class="small">${guideReadout()}</div>`,true)+
+    `<div class="section-title">Finished cut size</div>
+    <div class="fields-two">${field('Cut width ('+S.template.unit+')','guide.cut.width',displayedDistance(guideRects(S.template).trim.w,S.template.unit,S.template.dpi),'number','min="0.01" step="any"')}${field('Cut height ('+S.template.unit+')','guide.cut.height',displayedDistance(guideRects(S.template).trim.h,S.template.unit,S.template.dpi),'number','min="0.01" step="any"')}</div>
+    <div class="small">Changing the cut size also changes the canvas; existing bleed measurements remain fixed.</div>
+    <div class="section-title">Canvas size (including any bleed)</div>
+    <div class="fields-two">${field('Canvas width ('+S.template.unit+')','template.width',S.template.width,'number','min="0.01" step="any"')}${field('Canvas height ('+S.template.unit+')','template.height',S.template.height,'number','min="0.01" step="any"')}</div>
+    <div class="small">Changing canvas size adjusts bleed instead. Canvas cannot be smaller than cut size.</div>
+    <div class="section-title">Safe-zone size</div>
+    <div class="fields-two">${field('Safe width ('+S.template.unit+')','guide.safeZone.width',displayedDistance(guideRects(S.template).safe.w,S.template.unit,S.template.dpi),'number','min="0.01" step="any"')}${field('Safe height ('+S.template.unit+')','guide.safeZone.height',displayedDistance(guideRects(S.template).safe.h,S.template.unit,S.template.dpi),'number','min="0.01" step="any"')}</div>
+    <div class="small">Changing safe-zone size adjusts the safety buffers. Safe zone cannot exceed cut size.</div>
+    <div class="small" style="padding:4px 0 12px" id="templatePixelReadout">${sizeReadout()}</div><div class="small">${guideReadout()}</div>`,true)+
    fold('setup-guides','Trim and safe area guides',guideSettingsHtml(S.template,field,selectionField,checkbox,guideReadout()))+
 
    fold('setup-background','Background',field('Background colour','template.background',S.template.background,'color'),true)+
