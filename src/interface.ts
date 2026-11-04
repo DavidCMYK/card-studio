@@ -50,7 +50,7 @@ function editorScope(){return `data-edit-owner="${escapeHTML(S.selected||'')}" d
 function isPixelLengthField(key:string):boolean{
  if(['borderWidth','radius','letterSpacing','shadowOffsetX','shadowOffsetY','shadowSpread','imgOffsetX','imgOffsetY'].includes(key))return true;
  if(['template.width','template.height','guide.cut.width','guide.cut.height','guide.safeZone.width','guide.safeZone.height','x','y','w','h','gutterLeft','gutterRight','gutterTop','gutterBottom'].includes(key))return S.template.unit==='px';
- return /^guide\\.(bleed|safe|radius)\\./.test(key)&&guidesFor(S.template).unit==='px';
+ return /^guide\.(bleed|safe|radius)\./.test(key)&&guidesFor(S.template).unit==='px';
 }
 function field(label,key,value,type='text',extra=''){
  const pixel=type==='number'&&isPixelLengthField(key);
