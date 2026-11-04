@@ -152,6 +152,43 @@ test('Save All preserves saved template files and adds new ones to the selected 
  storage.resetFileHandles();
 });
 
+test('whole-project save and open retain shared front/back template assignments and card data',async()=>{
+ fakeDOM();
+ model.replaceState(model.initial());
+ storage.resetFileHandles();
+ const project=model.S,front=project.templates[0],back=collection.createTemplate(front);
+ back.name='Shared backs';
+ const alternate=collection.createTemplate(front);
+ alternate.name='Alternate fronts';
+ collection.assignSetTemplate(project.cardSets[0].id,'back',back.id);
+ const other=collection.newCardSet('Alternate set',alternate.id);
+ collection.assignSetTemplate(other.id,'back',back.id);
+ const field=front.elements.find(e=>e.kind==='text');
+ project.cards[0].values[field.id]='Retained card title';
+ project.cards[0].overrides[field.id]={fontSize:27};
+ project.cards.push({id:'other-card',name:'Other card',setId:other.id,values:{},overrides:{},extraElements:[]});
+ const saved=makeHandle('saved-deck.cardstudio.json');
+ global.window={showSaveFilePicker:async()=>saved};
+ assert.equal(await storage.saveProject(),true);
+ const json=JSON.parse(saved.content);
+ assert.equal(json.templates.length,3);
+ assert.equal(json.cardSets.length,2);
+ model.replaceState(model.initial());
+ assert.equal(await storage.openJSON({text:async()=>saved.content}),true);
+ const loaded=model.S;
+ assert.equal(loaded.cardSets[0].backTemplateId,back.id);
+ assert.equal(loaded.cardSets[1].frontTemplateId,alternate.id);
+ assert.equal(loaded.cardSets[1].backTemplateId,back.id);
+ assert.equal(model.assignedTemplate(0,'front').id,front.id);
+ assert.equal(model.assignedTemplate(0,'back').id,back.id);
+ assert.equal(model.assignedTemplate(1,'front').id,alternate.id);
+ assert.equal(model.assignedTemplate(1,'back').id,back.id);
+ assert.equal(loaded.cards[0].values[field.id],'Retained card title');
+ assert.equal(loaded.cards[0].overrides[field.id].fontSize,27);
+ assert.strictEqual(loaded.template,loaded.templates.find(t=>t.id===loaded.selectedTemplateId));
+ storage.resetFileHandles();
+});
+
 test('Unsupported native file API downloads, without pretending it overwrote',async()=>{
  const realTimeout=global.setTimeout;
  global.setTimeout=(...args)=>{const timer=realTimeout(...args);timer.unref?.();return timer;};
