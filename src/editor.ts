@@ -166,9 +166,9 @@ function handleProp(input){const key=input.dataset.prop;if(!key)return;let v=inp
    }else if(parts[1]==='unit'){
     if(['mm','in','px'].includes(v))setGuideUnit(S.template,v);
    }else if(parts[1]==='cut'&&(parts[2]==='width'||parts[2]==='height')){
-    setCutDimension(S.template,parts[2],Number(v));
+    setCutDimension(S.template,parts[2] as 'width'|'height',Number(v));
    }else if(parts[1]==='safeZone'&&(parts[2]==='width'||parts[2]==='height')){
-    setSafeZoneDimension(S.template,parts[2],Number(v));
+    setSafeZoneDimension(S.template,parts[2] as 'width'|'height',Number(v));
    }else if(parts[1]==='bleedLinked'||parts[1]==='safeLinked'){
     setGuideLinked(S.template,parts[1].startsWith('bleed')?'bleed':'safe',Boolean(v));
    }else if(parts[1]==='bleed'||parts[1]==='safe'){
@@ -201,7 +201,7 @@ function handleProp(input){const key=input.dataset.prop;if(!key)return;let v=inp
     }
     v=newDpi;
   }else if(['width','height'].includes(p)){
-    try{setCanvasDimension(template,p,Number(v))}
+    try{setCanvasDimension(template,p as 'width'|'height',Number(v))}
     catch(err){toast((err as Error).message)}
     return;
   }
