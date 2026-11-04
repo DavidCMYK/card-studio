@@ -32,5 +32,11 @@ export function buildPrintPdf(pages:PdfJpegPage[]):Blob {
   str('xref\n0 '+count+'\n0000000000 65535 f \n');
   for(let id=1;id<count;id++)str(String(offsets[id]).padStart(10,'0')+' 00000 n \n');
   str('trailer\n<< /Size '+count+' /Root 1 0 R >>\nstartxref\n'+startXref+'\n%%EOF\n');
-  return new Blob(data,{type:'application/pdf'});
+  // Collect all parts into an ArrayBuffer with a concrete, non-shared type.
+  // TypeScript 5.9's BlobPart excludes Uint8Array<ArrayBufferLike>.
+  const buffer=new ArrayBuffer(position);
+  const bytes=new Uint8Array(buffer);
+  let cursor=0;
+  for(const chunk of data){bytes.set(chunk,cursor);cursor+=chunk.byteLength;}
+  return new Blob([buffer],{type:'application/pdf'});
 }
