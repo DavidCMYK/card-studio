@@ -89,12 +89,20 @@ test('Save overwrites opened/saved handle, Save As switches target, projects rem
  const loaded=makeHandle('loaded.template.json',JSON.stringify({type:'cardstudio-template',version:2,template:{...originalState.template,name:'Loaded template'}}));
  window.showOpenFilePicker=async()=>[loaded];
  await storage.openFromDisk('template');
- assert.equal(originalState.template.name,'Loaded template');
- originalState.template.name='Modified loaded template';
+ assert.equal(model.S.templates.length,2,'Import adds an independent template');
+ assert.equal(originalState.template.name,'After Save As','Original template remains unchanged');
+ assert.equal(model.S.template.name,'Loaded template','Imported template is selected');
+ model.S.template.name='Modified loaded template';
  assert.equal(await storage.saveTemplate(),true);
  assert.equal(loaded.writes,1);
  assert.equal(JSON.parse(loaded.content).template.name,'Modified loaded template');
- assert.equal(two.writes,2);
+ assert.equal(two.writes,2,'Import does not overwrite another template file');
+ model.selectProjectTemplate(originalState.template.id);
+ originalState.template.name='Modified first template';
+ assert.equal(await storage.saveTemplate(),true);
+ assert.equal(two.writes,3,'Returning to the first template reuses its own Save As handle');
+ assert.equal(JSON.parse(two.content).template.name,'Modified first template');
+ model.selectProjectTemplate(model.S.templates[1].id);
 
  // Resetting for New clears file handle associations.
  storage.resetFileHandles();
