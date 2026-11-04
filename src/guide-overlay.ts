@@ -3,7 +3,7 @@ import {guideRects} from './card-guides';
 const d=96/25.4;
 /** Editor-only overlay. Never participates in PNG or print rendering. */
 export function guideOverlay(template:CardTemplate,mode:'template'|'cards',zoom:number):string {
- const {canvas,trim,safe,bleed,settings,radii}=guideRects(template);
+ const {trim,safe,bleed,settings,radii}=guideRects(template);
  if(!(mode==='template'?settings.showTemplate:settings.showCards))return '';
  if(trim.w<=0||trim.h<=0||safe.w<=0||safe.h<=0)return '';
  const rect=(x:number,y:number,w:number,h:number)=>`left:${x*d*zoom}px;top:${y*d*zoom}px;width:${w*d*zoom}px;height:${h*d*zoom}px;`;
