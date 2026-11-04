@@ -49,22 +49,40 @@ const server=http.createServer((req,res)=>{
   await gp.locator('#inspector [data-prop="guide.bleedMode"]').selectOption('bleed');
   assert.deepEqual(await gp.locator('#stage .element').evaluateAll(els=>
    els.map(el=>({id:el.dataset.id,left:el.style.left,top:el.style.top,width:el.style.width,height:el.style.height}))),
-   guideElementGeometry,'changing bleed mode never repositions existing elements');
-  assert.equal(Number(await gp.locator('[data-prop="template.width"]').inputValue()),63,'switching to bleed leaves existing canvas unchanged');
-  assert.equal(await gp.locator('#stage .guide-trim').count(),1,'inset red trim line displayed');
-  assert.equal(await gp.locator('[data-prop="guide.modeChange"]').count(),0,'no implicit artwork conversion setting remains');
+   guideElementGeometry,'changing bleed mode never alters saved element positions or sizes');
+  assert.equal(Number(await gp.locator('[data-prop="template.width"]').inputValue()),69,'mode switch adds configured bleed to canvas');
+  assert.equal(Number(await gp.locator('[data-prop="guide.cut.width"]').inputValue()),63,'mode switch preserves cut width');
+  assert.equal(await gp.locator('#stage .guide-trim').count(),1,'trim guide visible inside canvas');
   assert.equal(await gp.locator('#stage .guide-safe').count(),1,'safe line displayed');
+
   await gp.locator('#inspector [data-prop="guide.unit"]').selectOption('px');
-  assert.ok(Math.abs(Number(await gp.locator('[data-prop="guide.bleed.top"]').inputValue())-35.433071)<.01,'DPI-aware millimetre to pixel conversion');
+  assert.ok(Math.abs(Number(await gp.locator('[data-prop="guide.bleed.top"]').inputValue())-35.433071)<.01,'millimetre to pixel conversion at 300 DPI');
   await gp.locator('[data-prop="guide.bleed.top"]').fill('59.055118');
   await gp.locator('[data-prop="guide.bleed.top"]').press('Tab');
-  assert.equal(Number(await gp.locator('[data-prop="template.width"]').inputValue()),63,'editing bleed does not resize canvas');
+  assert.ok(Math.abs(Number(await gp.locator('[data-prop="template.width"]').inputValue())-73)<.001,'bleed input expands canvas');
+  assert.equal(Number(await gp.locator('[data-prop="guide.cut.width"]').inputValue()),63,'bleed keeps cut locked');
+  await gp.locator('[data-prop="guide.cut.width"]').fill('66');
+  await gp.locator('[data-prop="guide.cut.width"]').press('Tab');
+  assert.ok(Math.abs(Number(await gp.locator('[data-prop="template.width"]').inputValue())-76)<.001,'cut input expands canvas');
+  assert.equal(Number(await gp.locator('[data-prop="guide.cut.width"]').inputValue()),66,'cut edits the finished size');
+  await gp.locator('[data-prop="template.width"]').fill('80');
+  await gp.locator('[data-prop="template.width"]').press('Tab');
+  assert.equal(Number(await gp.locator('[data-prop="guide.cut.width"]').inputValue()),66,'canvas input holds cut fixed');
+  assert.ok(Math.abs(Number(await gp.locator('[data-prop="guide.bleed.left"]').inputValue())-7*300/25.4)<.01,'canvas changes bleed distance');
+  await gp.locator('[data-prop="guide.safeZone.width"]').fill('61');
+  await gp.locator('[data-prop="guide.safeZone.width"]').press('Tab');
+  assert.equal(Number(await gp.locator('[data-prop="guide.cut.width"]').inputValue()),66,'safe-zone edit holds cut fixed');
+  assert.equal(Number(await gp.locator('[data-prop="guide.safeZone.width"]').inputValue()),61,'safe-zone dimension editable');
+  assert.equal(Number(await gp.locator('[data-prop="template.width"]').inputValue()),80,'safe zone cannot resize canvas');
+  await gp.locator('[data-prop="guide.safeZone.width"]').fill('67');
+  await gp.locator('[data-prop="guide.safeZone.width"]').press('Tab');
+  assert.equal(Number(await gp.locator('[data-prop="guide.safeZone.width"]').inputValue()),61,'safe zone above cut is rejected');
   assert.deepEqual(await gp.locator('#stage .element').evaluateAll(els=>
    els.map(el=>({id:el.dataset.id,left:el.style.left,top:el.style.top,width:el.style.width,height:el.style.height}))),
-   guideElementGeometry,'editing bleed does not move any artwork');
-
+   guideElementGeometry,'editing canvas, cut, bleed and safe zone never changes artwork geometry');
   await gp.locator('#inspector [data-prop="guide.bleedMode"]').selectOption('trim');
-  assert.equal(Number(await gp.locator('[data-prop="template.width"]').inputValue()),63,'reverting bleed interpretation leaves canvas unchanged');
+  assert.equal(Number(await gp.locator('[data-prop="template.width"]').inputValue()),66,'removing bleed shrinks canvas to cut');
+  assert.equal(Number(await gp.locator('[data-prop="guide.cut.width"]').inputValue()),66,'cut retained when disabling bleed');
   assert.equal(await gp.locator('#stage .guide-trim').count(),0,'trim guide absent when canvas edge is trim');
   await gp.evaluate(()=>document.activeElement?.blur());
   await gp.keyboard.press('g');
