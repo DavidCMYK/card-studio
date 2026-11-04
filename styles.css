@@ -106,3 +106,8 @@
 .font-browser-list button{min-height:33px;text-align:left;padding:7px 9px;border:0;background:transparent;border-radius:4px;color:#243e5b;font-size:12px;overflow-wrap:anywhere}
 .font-browser-list button:hover,.font-browser-list button:focus-visible{background:#e5f0ff;color:#174e9d}
 .font-browser-list button[hidden]{display:none}
+
+/* Independent text-box editing: linked elements remain fixed, anchors stay connected. */
+.element.text-isolated.selected{outline:2px dashed #7853ae;outline-offset:2px;cursor:move}
+.element.text-isolated .selection-label{background:#674299}
+.element.text-isolated .resize-handle{border-color:#7853ae}
