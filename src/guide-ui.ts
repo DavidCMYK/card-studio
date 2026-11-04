@@ -24,6 +24,11 @@ export function guideSettingsHtml(t:CardTemplate,
  '<div class="small" style="padding:0 0 9px">'+(g.bleedMode==='bleed'?'Bleed changes the canvas (cut size is locked) and is included in PDF artwork.':'Changing bleed automatically switches to canvas-includes-bleed mode.')+'</div>'+
  sideInputs('safe')+
  '<div class="small" style="padding:0 0 8px">Safety buffer is measured inward from the cut line. Change either the buffers here or Safe-zone width/height in Dimensions; neither changes the finished cut size.</div>'+
+ '<div class="section-title">Corner rounding</div>'+
+ field('Canvas edge radius ('+u+')','guide.radius.canvas',displayedDistance(g.radii!.canvas,u,dpi),'number','min="0" step="any"')+
+ field('Cut line radius ('+u+')','guide.radius.cut',displayedDistance(g.radii!.cut,u,dpi),'number','min="0" step="any"')+
+ field('Safe-zone radius ('+u+')','guide.radius.safe',displayedDistance(g.radii!.safe,u,dpi),'number','min="0" step="any"')+
+ '<div class="small" style="padding:0 0 9px">Independent radii for each boundary, measured in the guide units selected above. When there is no bleed, the canvas edge is the cut line, so its corner rounding uses the cut-line radius. Guides do not crop exported artwork.</div>'+
  checkbox('Show guides in Template mode','guide.showTemplate',g.showTemplate)+
  checkbox('Show guides in Cards mode','guide.showCards',g.showCards)+
  checkbox('Dim outside the safe area','guide.dimUnsafe',g.dimUnsafe)+
