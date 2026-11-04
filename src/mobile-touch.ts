@@ -7,6 +7,7 @@ import {checkpoint} from './history';
 import {elementGeometry} from './anchor-layout';
 import {getImageData,cacheImage,imageScreenOffset,imageOffsetPatch} from './image-sets';
 import {enterImageReposition,stopImageReposition,repositionImageId,imageDragPatch,imageScalePatch} from './image-reposition';
+import {enterTextIsolation,stopTextIsolation,isolatedTextId,patchTextIndependently} from './text-isolation';
 import {resizedRect,locksImageCornerAspect,ResizeHandle} from './resize';
 type P={x:number;y:number};
 type Drag={id:string;kind:'frame'|'image';handle:ResizeHandle|null;start:P;x:number;y:number;w:number;h:number;locked:boolean;lockAspect:boolean;moved:boolean;startElement:CardElement};
@@ -55,6 +56,7 @@ export function installMobileGestures(refresh:()=>void,manualZoom:()=>void){
   touchCandidate=raw?{id:raw.id,point:p(e)}:null;
   if(raw){
    if(repositionImageId()&&repositionImageId()!==raw.id)stopImageReposition();
+   if(isolatedTextId()&&isolatedTextId()!==raw.id)stopTextIsolation();
    const wasSelected=S.selected===raw.id;
    const g=elementGeometry(raw),el=effective(raw);
    const isImage=repositionImageId()===raw.id&&raw.kind==='image';
@@ -67,7 +69,7 @@ export function installMobileGestures(refresh:()=>void,manualZoom:()=>void){
    if(!wasSelected)drag=null;
    repaintSelection();
   }else{
-   if(S.selected!==null||repositionImageId()){stopImageReposition();S.selected=null;repaintSelection()}
+   if(S.selected!==null||repositionImageId()||isolatedTextId()){stopImageReposition();stopTextIsolation();S.selected=null;repaintSelection()}
    drag=null;pan={start:p(e),left:outer.scrollLeft,top:outer.scrollTop};
   }
  },{capture:true});
@@ -105,7 +107,7 @@ export function installMobileGestures(refresh:()=>void,manualZoom:()=>void){
    if(drag.handle.includes('w')||drag.handle.includes('e'))Object.assign(patch,{x:r.x,w:r.w,autoWidth:false});
    if(drag.handle.includes('n')||drag.handle.includes('s'))Object.assign(patch,{y:r.y,h:r.h,autoHeight:false});
   }else{const {w,h}=sizePx();patch={x:Math.round(clamp(drag.x+dx,-drag.w+4,w-4)),y:Math.round(clamp(drag.y+dy,-drag.h+4,h-4))}}
-  patchElement(drag.id,patch);renderStage();
+  if(isolatedTextId()===drag.id)patchTextIndependently(drag.id,patch,patchElement);else patchElement(drag.id,patch);renderStage();
  },{capture:true});
  const end=(e:PointerEvent)=>{
   if(e.pointerType!=='touch'||!points.has(e.pointerId))return;
@@ -116,7 +118,7 @@ export function installMobileGestures(refresh:()=>void,manualZoom:()=>void){
     const now=Date.now();
     if(lastTap?.id===candidate.id&&now-lastTap.time<380&&dist(lastTap.point,candidate.point)<25){
      const raw=templateEl(candidate.id);
-     if(raw?.kind==='image'&&S.selected===raw.id&&enterImageReposition(raw.id))repaintSelection();
+     if(S.selected===raw?.id&&((raw.kind==='image'&&enterImageReposition(raw.id))||(raw.kind==='text'&&enterTextIsolation(raw.id))))repaintSelection();
      lastTap=null;
     }else lastTap={id:candidate.id,point:candidate.point,time:now};
    }else if(changed)lastTap=null;
