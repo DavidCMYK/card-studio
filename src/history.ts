@@ -11,6 +11,8 @@ const MAX_STEPS=60;
 const dataToKey=new Map<string,string>(),keyToData=new Map<string,string>();
 let nextKey=0;
 let current:RecordState|null=null;
+let documentRevision=0;
+export const historyRevision=()=>documentRevision;
 const past:RecordState[]=[],future:RecordState[]=[];
 
 function intern(data:string):string {
@@ -50,7 +52,7 @@ export function historyState(){return {canUndo:past.length>0,canRedo:future.leng
 export function resetHistory(){
  past.length=0;future.length=0;
  dataToKey.clear();keyToData.clear();nextKey=0;
- current=take();
+ current=take();documentRevision++;
 }
 /** Commit one gesture/field edit, even if it generated many live preview updates. */
 export function checkpoint():boolean {
@@ -59,7 +61,7 @@ export function checkpoint():boolean {
  if(next.fingerprint===current.fingerprint){current=next;return false}
  past.push(current);
  if(past.length>MAX_STEPS)past.shift();
- current=next;future.length=0;return true;
+ current=next;future.length=0;documentRevision++;return true;
 }
 export function undo():boolean {
  // A still-focused input/unfinished drag may have changed state without a repaint.
@@ -67,11 +69,11 @@ export function undo():boolean {
  if(!past.length)return false;
  future.push(take());
  const previous=past.pop()!;
- restore(previous);current=take();return true;
+ restore(previous);current=take();documentRevision++;return true;
 }
 export function redo():boolean {
  if(!future.length)return false;
  past.push(take());if(past.length>MAX_STEPS)past.shift();
  const next=future.pop()!;
- restore(next);current=take();return true;
+ restore(next);current=take();documentRevision++;return true;
 }
