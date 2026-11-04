@@ -28,8 +28,22 @@ export const getImageRef=(el,ci=S.cardIndex,mode=S.mode)=>{
 export const getImageData=(e,ci,mode)=>getImageRef(e,ci,mode)?.data||null;
 export function cacheImage(src){if(!src)return null;if(imageCache.has(src))return imageCache.get(src);const im=new Image();const item={im,loaded:false,error:false};imageCache.set(src,item);im.onload=()=>{item.loaded=true;onImageLoaded()};im.onerror=()=>{item.error=true};im.src=src;return item}
 export async function loadedImage(src){const o=cacheImage(src);if(!o)return null;if(o.loaded)return o.im;if(o.error)return null;return await new Promise(resolve=>{const im=o.im;im.addEventListener('load',()=>resolve(im),{once:true});im.addEventListener('error',()=>resolve(null),{once:true})})}
-export function imgBox(e,img){let w=e.w,h=e.h,x=0,y=0;const iw=img?.naturalWidth||e.w,ih=img?.naturalHeight||e.h;let ratio=1;
- switch(e.imageFit){case 'contain':ratio=Math.min(e.w/iw,e.h/ih);break;case 'width':ratio=e.w/iw;break;case 'height':ratio=e.h/ih;break;case 'cover':ratio=Math.max(e.w/iw,e.h/ih);break;case 'stretch':return{x:e.imgOffsetX||0,y:e.imgOffsetY||0,w:e.w,h:e.h};case 'free':ratio=e.imgScale||1;break;default:ratio=Math.max(e.w/iw,e.h/ih)}
- w=iw*ratio;h=ih*ratio;x=(e.w-w)/2+(Number(e.imgOffsetX)||0);y=(e.h-h)/2+(Number(e.imgOffsetY)||0);return{x,y,w,h};
+export function imgBox(e,img){
+ const iw=img?.naturalWidth||e.w,ih=img?.naturalHeight||e.h;
+ // Legacy projects use zoom=1; scale/offset remain independent of frame dimensions.
+ const zoom=Math.max(.01,Number(e.imgZoom)||1);
+ let ratio=1,w=e.w,h=e.h;
+ switch(e.imageFit){
+  case 'contain':ratio=Math.min(e.w/iw,e.h/ih);break;
+  case 'width':ratio=e.w/iw;break;
+  case 'height':ratio=e.h/ih;break;
+  case 'cover':ratio=Math.max(e.w/iw,e.h/ih);break;
+  case 'stretch':w=e.w*zoom;h=e.h*zoom;break;
+  case 'free':ratio=e.imgScale||1;break;
+  default:ratio=Math.max(e.w/iw,e.h/ih);
+ }
+ if(e.imageFit!=='stretch'){w=iw*ratio*zoom;h=ih*ratio*zoom}
+ return {x:(e.w-w)/2+(Number(e.imgOffsetX)||0),y:(e.h-h)/2+(Number(e.imgOffsetY)||0),w,h};
+}
 }
 
