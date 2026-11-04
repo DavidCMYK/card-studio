@@ -188,8 +188,8 @@ const server=http.createServer((req,res)=>{
   await multi.locator('.sidebar-cardsets [data-set-side="front"]').nth(1).selectOption(templateIds[1]);
   await multi.locator('.sidebar-cardsets [data-set-side="back"]').nth(0).selectOption(templateIds[1]);
   await multi.locator('.sidebar-cardsets [data-set-side="back"]').nth(1).selectOption(templateIds[0]);
-  assert.equal(await multi.locator('.sidebar-cards [data-cardindex]').count(),2,'each set contains a card');
-  await multi.locator('.sidebar-cards [data-cardindex="0"]').click();
+  assert.equal(await multi.locator('.sidebar-cards .card-row[data-cardindex]').count(),2,'each set contains a card');
+  await multi.locator('.sidebar-cards .card-row[data-cardindex="0"]').click();
   await multi.locator('#cardSideSelector').selectOption('back');
   assert.equal(await multi.locator('#stage .element').count(),6,'assigned back template renders in editor');
   await multi.locator('.sidebar-templates .asset-title [data-template-id]').first().click();
@@ -212,7 +212,7 @@ const server=http.createServer((req,res)=>{
    buffer:Buffer.from(JSON.stringify(savedTemplateJson))
   });
   assert.equal(await multi.locator('.sidebar-templates .asset-title [data-template-id]').count(),3,'loading a template adds instead of replacing');
-  assert.equal(await multi.locator('.sidebar-cards [data-cardindex]').count(),2,'loading a template keeps card data');
+  assert.equal(await multi.locator('.sidebar-cards .card-row[data-cardindex]').count(),2,'loading a template keeps card data');
   const allTemplatesWait=multi.waitForEvent('download',{timeout:45000});
   await multi.locator('#fileMenu summary').click();
   await multi.locator('#fileMenu [data-action="save-all-templates"]').click();
