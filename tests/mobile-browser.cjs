@@ -16,8 +16,10 @@ const server=http.createServer((req,res)=>{
  });
 });
 (async()=>{
- await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
- const url='http://127.0.0.1:'+server.address().port+'/';
+ const live=process.env.CARD_STUDIO_URL;
+ if(!live)await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ const url=live||'http://127.0.0.1:'+server.address().port+'/';
+ const shutdown=()=>{if(server.listening)server.close()};
  const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
  try{
   fs.mkdirSync(path.resolve(__dirname,'../test-results'),{recursive:true});
@@ -59,5 +61,5 @@ const server=http.createServer((req,res)=>{
   assert.deepEqual(errors,[],'no browser exceptions');
   await phone.close();
   console.log('Browser checks passed: desktop, phone navigation, card creation, properties and fit');
- }finally{await browser.close();server.close()}
-})().catch(e=>{console.error(e);server.close();process.exitCode=1});
+ }finally{await browser.close();shutdown()}
+})().catch(e=>{console.error(e);if(server.listening)server.close();process.exitCode=1});
