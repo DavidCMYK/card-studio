@@ -6,6 +6,7 @@ import {effective} from './model';
 import {elementGeometry} from './anchor-layout';
 import {getImageData,cacheImage} from './image-sets';
 import {repositionImageId,imageDragPatch} from './image-reposition';
+import {isolatedTextId,patchTextIndependently} from './text-isolation';
 import {chooseEditorLayout,fitCardZoom,EditorLayout} from './mobile-mode';
 import {installMobileGestures} from './mobile-touch';
 import {renderQuickEditor,performQuickAction} from './mobile-quick';
@@ -38,8 +39,8 @@ function refresh(){
  const selectedName=document.getElementById('mobileSelectionName');if(selectedName)selectedName.textContent=selected?selected.name:'Card data';
  const quickButton=document.getElementById('mobileQuickButton');
  if(quickButton)quickButton.textContent=selected?.kind==='text'?'Edit text':selected?.kind==='image'?'Choose artwork':selected?'Edit style':'Edit card data';
- const scope=document.getElementById('mobileSelectionScope');if(scope)scope.textContent=repositionImageId()?'Repositioning artwork':S.mode==='template'?'Changes every card':'Changes only this card';
- const nudge=document.getElementById('mobileNudgeButton');if(nudge)nudge.textContent=repositionImageId()?'Nudge image':'Move';
+ const scope=document.getElementById('mobileSelectionScope');if(scope)scope.textContent=repositionImageId()?'Repositioning artwork':isolatedTextId()?'Editing text without moving linked objects':S.mode==='template'?'Changes every card':'Changes only this card';
+ const nudge=document.getElementById('mobileNudgeButton');if(nudge)nudge.textContent=repositionImageId()?'Nudge image':isolatedTextId()?'Nudge text':'Move';
  document.querySelectorAll('.m-mode [data-action]').forEach(node=>{
   const button=node as HTMLElement,active=button.dataset.action==='mode-'+S.mode;
   button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));
@@ -55,7 +56,7 @@ function showPanel(next:Panel){
  const list=document.getElementById('mobileActionList');
  if(list&&next==='quick'&&!renderQuickEditor(list)){showPanel('properties');return}
  if(list&&next==='nudge'){
-  list.innerHTML='<div class="m-nudge-grid"><span></span><button data-mobile="nudge-up" aria-label="Move up">↑</button><span></span><button data-mobile="nudge-left" aria-label="Move left">←</button><button data-mobile="nudge-step">Step: '+nudgeStep+' px</button><button data-mobile="nudge-right" aria-label="Move right">→</button><span></span><button data-mobile="nudge-down" aria-label="Move down">↓</button><span></span></div><p class="m-quick-hint">'+(repositionImageId()?'Moves the artwork within the frame, respecting its fit mode.':'Moves the selected element in design pixels.')+' In Cards mode, only this card changes. Each tap can be undone.</p>';
+  list.innerHTML='<div class="m-nudge-grid"><span></span><button data-mobile="nudge-up" aria-label="Move up">↑</button><span></span><button data-mobile="nudge-left" aria-label="Move left">←</button><button data-mobile="nudge-step">Step: '+nudgeStep+' px</button><button data-mobile="nudge-right" aria-label="Move right">→</button><span></span><button data-mobile="nudge-down" aria-label="Move down">↓</button><span></span></div><p class="m-quick-hint">'+(repositionImageId()?'Moves the artwork within the frame, respecting its fit mode.':isolatedTextId()?'Moves the text box without changing the positions or sizes of linked elements.':'Moves the selected element in design pixels.')+' In Cards mode, only this card changes. Each tap can be undone.</p>';
  }
  if(list&&menus[next]){
   list.replaceChildren();
@@ -114,7 +115,8 @@ function start(){
      const dx=command==='nudge-left'?-nudgeStep:command==='nudge-right'?nudgeStep:0;
      const dy=command==='nudge-up'?-nudgeStep:command==='nudge-down'?nudgeStep:0;
      const src=getImageData(raw,S.cardIndex,S.mode),cached=src?cacheImage(src):null;
-     patchElement(raw.id,repositionImageId()===raw.id?imageDragPatch({...effective(raw),...rect},dx,dy,cached?.loaded?cached.im:null):{x:rect.x+dx,y:rect.y+dy});repaint();
+     const patch=repositionImageId()===raw.id?imageDragPatch({...effective(raw),...rect},dx,dy,cached?.loaded?cached.im:null):{x:rect.x+dx,y:rect.y+dy};
+     if(isolatedTextId()===raw.id)patchTextIndependently(raw.id,patch,patchElement);else patchElement(raw.id,patch);repaint();
     }
    }
    else if(['apply-text','assign-image','clear-image'].includes(command)){if(performQuickAction(command,control))closePanel()}
@@ -123,7 +125,7 @@ function start(){
    else if(command==='fit'){fitCanvas();closePanel()}
    else showPanel(command as Panel);
   }
-  if(mobile()&&(target.closest('.m-actions [data-action]')||target.closest('.side-left [data-action]')||target.closest('.side-right [data-action="reposition-image"]')||target.closest('[data-layer]')||target.closest('.sidebar-cards [data-cardindex]')))closePanel();
+  if(mobile()&&(target.closest('.m-actions [data-action]')||target.closest('.side-left [data-action]')||target.closest('.side-right [data-action="reposition-image"],.side-right [data-action="isolate-text"]')||target.closest('[data-layer]')||target.closest('.sidebar-cards [data-cardindex]')))closePanel();
   requestAnimationFrame(refresh);
  },true);
  document.addEventListener('keydown',(e:KeyboardEvent)=>{if(e.key==='Escape'&&panel!=='none')closePanel()});
