@@ -82,9 +82,10 @@ function inspectorHeader(title:string,subtitle:string,tabs=false){
 }
 function fieldIdentifier(node:HTMLElement|null){
  if(!node?.dataset)return null;
- for(const key of ['prop','cardvalue','cardFilter','inspectorTab']){
+ for(const key of ['prop','cardvalue','cardFilter','inspectorTab','action']){
   if(node.dataset[key]!==undefined)return {key,value:node.dataset[key]};
  }
+ if(node.tagName==='SUMMARY'&&node.parentElement?.dataset.inspectorFold)return {key:'fold',value:node.parentElement.dataset.inspectorFold};
  return null;
 }
 function writeInspector(box:HTMLElement,html:string){
@@ -101,7 +102,8 @@ function writeInspector(box:HTMLElement,html:string){
  const outerScroll=right?.scrollTop||0;
  box.innerHTML=html;
  if(identity){
-  const next=Array.from(box.querySelectorAll?.<HTMLElement>('[data-prop],[data-cardvalue],[data-card-filter],[data-inspector-tab]')||[])
+  const next=identity.key==='fold'?box.querySelector?.<HTMLElement>(`details[data-inspector-fold="${identity.value}"] > summary`):
+   Array.from(box.querySelectorAll?.<HTMLElement>('[data-prop],[data-cardvalue],[data-card-filter],[data-inspector-tab],[data-action]')||[])
    .find(node=>node.dataset[identity.key]===identity.value);
   if(next){
    next.focus?.({preventScroll:true});
