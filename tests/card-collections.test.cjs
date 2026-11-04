@@ -4,6 +4,7 @@ const model=require('../.build/model.js');
 const collection=require('../.build/project-collections.js');
 const guides=require('../.build/card-guides.js');
 const {canvasCard}=require('../.build/png-renderer.js');
+const {getImageData}=require('../.build/image-sets.js');
 
 function reset(){
  const state=model.initial();
@@ -129,4 +130,24 @@ test('removing a back assignment leaves the set and front template unchanged',()
  assert.equal(s.cardSets[0].frontTemplateId,front.id);
  assert.equal(s.cardSets[0].backTemplateId,undefined);
  assert.equal(model.assignedTemplate(0,'back'),undefined);
+});
+
+test('identical filenames in image sets resolve to the image attached to each template',()=>{
+ const s=reset(),front=s.templates[0];
+ const other=collection.createTemplate(front);
+ const set=collection.newCardSet('Other cards',other.id);
+ const firstImages={id:'images-one',name:'First artwork',images:[{name:'portrait.png',data:'data:image/png;base64,Zmlyc3Q='}]};
+ const secondImages={id:'images-two',name:'Second artwork',images:[{name:'portrait.png',data:'data:image/png;base64,c2Vjb25k'}]};
+ s.sets=[firstImages,secondImages];
+ const frontImage=front.elements.find(e=>e.kind==='image');
+ const otherImage=other.elements.find(e=>e.kind==='image');
+ frontImage.autoSet=firstImages.id;
+ otherImage.autoSet=secondImages.id;
+ s.cards[0].values[frontImage.id]='portrait.png';
+ s.cards.push({id:'card-second',name:'Other',setId:set.id,values:{[otherImage.id]:'portrait.png'},overrides:{},extraElements:[]});
+ assert.equal(getImageData(frontImage,0,'cards'),firstImages.images[0].data);
+ assert.equal(getImageData(otherImage,1,'cards'),secondImages.images[0].data);
+ // An explicitly qualified set/image entry may still select another set.
+ s.cards[1].values[otherImage.id]='First artwork/portrait.png';
+ assert.equal(getImageData(otherImage,1,'cards'),firstImages.images[0].data);
 });
