@@ -1,4 +1,5 @@
 import { S, safeFile, escapeHTML } from './model';
+import {trimDimensionsMm,guidesFor,guideRects} from './card-guides';
 import { download } from './dom';
 import { canvasCard } from './png-renderer';
 import { checkpoint } from './history';
@@ -14,8 +15,9 @@ function options():PrintOptions {
 }
 function selected(){return expandPrintCards(S.cards);}
 function layout():SheetLayout {
- const dims=cardDimensionsMm(S.template);
- return sheetLayout(options(),dims.width,dims.height);
+ const dims=trimDimensionsMm(S.template),g=guidesFor(S.template);
+ const bleed=g.bleedMode==='bleed'?Math.max(...Object.values(g.bleed)):options().bleed;
+ return sheetLayout({...options(),bleed},dims.width,dims.height);
 }
 function mm(value:number){return String(Math.round(value*10)/10);}
 function fmtCount(n:number){return n.toLocaleString('en-US');}
@@ -68,10 +70,10 @@ function html():string {
  <div id="prCustomDimensions" style="${o.paper==='custom'?'':'display:none'}"><label><span>Custom width (mm)</span><input type="number" name="customWidth" min="50" max="1000" step="0.1" value="${o.customWidth}"></label><label><span>Custom height (mm)</span><input type="number" name="customHeight" min="50" max="1000" step="0.1" value="${o.customHeight}"></label></div>
  <label><span>Paper margins (mm)</span><input type="number" name="margin" min="0" max="50" step="0.5" value="${o.margin}"></label>
  <label><span>Gap between cards (mm)</span><input type="number" name="gap" min="0" max="30" step="0.5" value="${o.gap}"></label>
- <label><span>Edge-extension bleed (mm)</span><input type="number" name="bleed" min="0" max="10" step="0.5" value="${o.bleed}"></label>
+ <label><span>Edge-extension bleed (mm)</span><input type="number" name="bleed" min="0" max="10" step="0.5" value="${o.bleed}" ${guidesFor(S.template).bleedMode==='bleed'?'disabled title="Bleed already included in template canvas"':''}></label>
  <label><span>Cut/crop marks</span><input type="checkbox" name="cropMarks" ${checked(o.cropMarks)}></label>
  <label><span>Print resolution</span><select name="dpi"><option value="150" ${o.dpi===150?'selected':''}>150 DPI (draft)</option><option value="300" ${o.dpi===300?'selected':''}>300 DPI</option></select></label>
- <p class="pr-small">Bleed extends the outermost pixels of the card artwork; it cannot replace artwork designed with real bleed. Print PDF files at <b>100% / actual size</b>, not “fit to page”.</p>
+ <p class="pr-small">${guidesFor(S.template).bleedMode==='bleed'?'The template canvas already contains genuine bleed. Crop marks follow the inset trim line.':'Optional edge extension repeats the outer pixels; it is not genuine artwork bleed.'} Print at <b>100% / actual size</b>.</p>
  <hr class="pr-rule">
  <h3>Card backs</h3>
  <label><span>Duplex</span><select name="duplex"><option value="none" ${o.duplex==='none'?'selected':''}>Fronts only</option><option value="long" ${o.duplex==='long'?'selected':''}>Fronts + backs (flip long edge)</option><option value="short" ${o.duplex==='short'?'selected':''}>Fronts + backs (flip short edge)</option></select></label>
@@ -99,6 +101,8 @@ function showSummary() {
   info.textContent=fmtCount(entries.length)+' copies · '+l.columns+' × '+l.rows+' cards/page · '+sheets+' sheet(s) · '+pages+' PDF page(s). Cards: '+mm(l.cardWidth)+' × '+mm(l.cardHeight)+' mm.';
  }catch(err){info.textContent=(err as Error).message;}
  (modal.querySelector('#prCustomDimensions') as HTMLElement).style.display=options().paper==='custom'?'':'none';
+ const extension=modal.querySelector<HTMLInputElement>('[name="bleed"]');
+ if(extension)extension.disabled=guidesFor(S.template).bleedMode==='bleed';
  const status=modal.querySelector('#prSharedStatus');if(status)status.textContent=options().sharedBack?'Shared back loaded':'No shared back';
 }
 function changed(){noteLiveEdit();checkpoint();showSummary();}
@@ -183,8 +187,17 @@ async function renderSheet(sheetIndex:number,side:'front'|'back',dpi:number,entr
    if(!url)throw Error('Missing back for card: '+card.name);
    art=await loadBack(url);
   }
-  drawCard(ctx,art,x,y,w,h,options().bleed*scale);
-  if(options().cropMarks)cutMarks(ctx,x,y,w,h,options().bleed*scale,scale);
+  const guides=guideRects(S.template);
+  if(guides.settings.bleedMode==='bleed'){
+   const b=guides.bleed,fullW=w+(b.left+b.right)*scale,fullH=h+(b.top+b.bottom)*scale;
+   ctx.save();ctx.translate(x-b.left*scale,y-b.top*scale);
+   cover(ctx,art,fullW,fullH);
+   ctx.restore();
+  }else drawCard(ctx,art,x,y,w,h,options().bleed*scale);
+  if(options().cropMarks){
+   const cropBleed=guides.settings.bleedMode==='bleed'?Math.max(...Object.values(guides.bleed)):options().bleed;
+   cutMarks(ctx,x,y,w,h,cropBleed*scale,scale);
+  }
  }
  return canvas;
 }
@@ -237,7 +250,7 @@ async function runPrint(previewSide?:'front'|'back'){
    status.textContent='PDF downloaded ('+pages.length+' pages)';
   }
  }catch(err){status.textContent=(err as Error).message;alert('Print sheets: '+(err as Error).message);}
- finally{busy=false;buttons.forEach(b=>b.disabled=false);inputs.forEach(i=>i.disabled=false);}
+ finally{busy=false;buttons.forEach(b=>b.disabled=false);inputs.forEach(i=>i.disabled=false);showSummary();}
 }
 export function openPrintStudio(){
  imageMemo.clear();
