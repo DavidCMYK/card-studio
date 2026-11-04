@@ -169,10 +169,10 @@ function handleProp(input){const key=input.dataset.prop;if(!key)return;let v=inp
     setCutDimension(S.template,parts[2] as 'width'|'height',Number(v));
    }else if(parts[1]==='safeZone'&&(parts[2]==='width'||parts[2]==='height')){
     setSafeZoneDimension(S.template,parts[2] as 'width'|'height',Number(v));
-   }else if(parts[1]==='radius'&&['canvas','cut','safe'].includes(parts[2])){
+   }else if(parts[1]==='radius'&&['cut','safe'].includes(parts[2])){
     const value=Number(v);
     if(v===''||!Number.isFinite(value)||value<0)return;
-    setGuideCornerRadius(S.template,parts[2] as 'canvas'|'cut'|'safe',distanceMm(value,g.unit,S.template.dpi));
+    setGuideCornerRadius(S.template,parts[2] as 'cut'|'safe',distanceMm(value,g.unit,S.template.dpi));
    }else if(parts[1]==='bleedLinked'||parts[1]==='safeLinked'){
     setGuideLinked(S.template,parts[1].startsWith('bleed')?'bleed':'safe',Boolean(v));
    }else if(parts[1]==='bleed'||parts[1]==='safe'){
