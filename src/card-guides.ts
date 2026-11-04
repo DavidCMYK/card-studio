@@ -100,6 +100,7 @@ export function setCanvasDimension(t:CardTemplate,axis:Axis,value:number):void{
  positive(value,'Canvas size');
  const targetMm=distanceMm(value,t.unit,t.dpi);
  const cut=trimDimensionsMm(t),canvas=canvasDimensionsMm(t),g=guidesFor(t);
+ if(Math.abs(targetMm-canvas[axis])<1e-8)return;
  const needed=targetMm-cut[axis];
  if(needed < -1e-8)throw Error('Canvas size cannot be smaller than the finished cut size');
  const active=g.bleedMode==='bleed'?g.bleed:{top:0,right:0,bottom:0,left:0};
