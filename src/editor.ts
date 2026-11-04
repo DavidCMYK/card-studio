@@ -2,7 +2,7 @@ import { S, initial, replaceState, card, templateEl, layerEls, isExtra, effectiv
 import { $ , toast } from './dom';
 import { renderStage } from './preview';
 import { repaint, renderInspector, renderLeft, renderCardControl, chooseCard, patchElement, addElement, updateDimensionReadouts, setKnownFonts, baseFonts, refreshHistoryButtons, selectInspectorTab, filterCardData } from './interface';
-import { imageCache, cacheImage, getImageData, setImageUpdateHandler } from './image-sets';
+import { imageCache, cacheImage, getImageData, setImageUpdateHandler, imageScreenOffset, imageOffsetPatch } from './image-sets';
 import { exportPNG, exportAll } from './png-export';
 import { exportXLSX, readSheet } from './spreadsheet';
 import { saveProject, saveProjectAs, saveTemplate, saveTemplateAs, openFromDisk, openJSON, resetFileHandles } from './project-storage';
@@ -11,7 +11,7 @@ import { openImageManager, closeImageManager, renderImageManager, imageManagerAc
 import { layoutTextBox } from './text-layout';
 import { resizedRect, locksImageCornerAspect } from './resize';
 import { elementGeometry } from './anchor-layout';
-import {enterImageReposition,stopImageReposition,repositionImageId,imageDragPatch,imageZoomPatch} from './image-reposition';
+import {enterImageReposition,stopImageReposition,repositionImageId,imageDragPatch,imageScalePatch} from './image-reposition';
 import {checkpoint,undo,redo,resetHistory} from './history';
 import {showRecovery,recordProjectReplaced,noteLiveEdit} from './recovery';
 import {importFontFiles,embedInstalledUsedFonts,activateProjectFonts,onFontsReady,bundledFontFamilies} from './project-fonts';
@@ -153,13 +153,23 @@ function handleProp(input){const key=input.dataset.prop;if(!key)return;let v=inp
  if(key==='name'){const e=templateEl(S.selected);if(e)e.name=uniqName(v,e.id);return}
  if(['shadowOffsetX','shadowOffsetY','shadowSpread'].includes(key)){v=Number(v)*96/S.template.dpi;if(key==='shadowSpread')v=Math.max(0,v)}
  else if(['x','y','w','h','gutterLeft','gutterRight','gutterTop','gutterBottom'].includes(key)){v=px(Number(v),S.template.unit,S.template.dpi);if(key==='w'||key==='h')v=Math.max(1,v);if(key.startsWith('gutter'))v=Math.max(0,v)}
- else if(['fontSize','fontWeight','lineHeight','letterSpacing','borderWidth','radius','opacity','fillOpacity','borderOpacity','textOpacity','gradientAngle','imgScale','imgZoom','imgOffsetX','imgOffsetY','imgRotation','shadowOpacity'].includes(key)){v=Number(v);if(['opacity','fillOpacity','borderOpacity','textOpacity','shadowOpacity'].includes(key))v=clamp(v,0,100);if(key==='fontSize')v=Math.max(1,v);if(key==='imgScale')v=Math.max(.01,v);if(key==='imgZoom')v=clamp(v,.05,20);if(key==='borderWidth')v=Math.max(0,v)}
+ else if(['fontSize','fontWeight','lineHeight','letterSpacing','borderWidth','radius','opacity','fillOpacity','borderOpacity','textOpacity','gradientAngle','imgScale','imgOffsetX','imgOffsetY','imgRotation','shadowOpacity'].includes(key)){v=Number(v);if(['opacity','fillOpacity','borderOpacity','textOpacity','shadowOpacity'].includes(key))v=clamp(v,0,100);if(key==='fontSize')v=Math.max(1,v);if(key==='imgScale')v=Math.max(.01,v);if(key==='borderWidth')v=Math.max(0,v)}
  if(S.selected){
   // Changing sets invalidates the previous fixed-image choice, even when
   // both sets happen to contain identically named files.
   if(key==='autoSet'&&S.mode==='template'){
    const image=templateEl(S.selected);
    if(image?.kind==='image'&&image.autoSet!==v)image.singleImage='';
+  }
+  if(key==='imgOffsetX'||key==='imgOffsetY'){
+   const raw=templateEl(S.selected);
+   if(raw?.kind==='image'){
+    const el={...effective(raw),...elementGeometry(raw)};
+    const src=getImageData(raw,S.cardIndex,S.mode),cached=src?cacheImage(src):null;
+    const img=cached?.loaded?cached.im:null,previous=imageScreenOffset(el,img);
+    patchElement(S.selected,imageOffsetPatch(el,key==='imgOffsetX'?v:previous.x,key==='imgOffsetY'?v:previous.y,img));
+    return;
+   }
   }
   patchElement(S.selected,{[key]:v});
  }
@@ -246,10 +256,10 @@ stage.addEventListener('pointerdown',e=>{
  if(el.locked&&!isImageDrag)return;
  drag={id,type:isImageDrag?'image':handle?'resize':'move',handle,initialX:e.clientX,initialY:e.clientY,
   x:rect.x,y:rect.y,w:rect.w,h:rect.h,visual:{...rect},
-  imageStart:{...el},lockAspect:locksImageCornerAspect(el.kind,el.imageFit,handle)};
+  imageStart:{...el,...rect},lockAspect:locksImageCornerAspect(el.kind,el.imageFit,handle)};
  e.preventDefault();
 });
-document.addEventListener('pointermove',e=>{if(!drag)return;if(Math.hypot(e.clientX-drag.initialX,e.clientY-drag.initialY)>9)lastImagePointer=null;const {w,h}=sizePx(),dx=(e.clientX-drag.initialX)/S.zoom,dy=(e.clientY-drag.initialY)/S.zoom;let patch;if(drag.type==='image'){patch=imageDragPatch(drag.imageStart,dx,dy)}else if(drag.type==='resize'){const rect=resizedRect(drag.visual,drag.handle||'se',dx,dy,{w,h},drag.lockAspect);const handle=drag.handle||'se';patch={};if(handle.includes('w')||handle.includes('e'))Object.assign(patch,{x:rect.x,w:rect.w,autoWidth:false});if(handle.includes('n')||handle.includes('s'))Object.assign(patch,{y:rect.y,h:rect.h,autoHeight:false})}else patch={x:Math.round(clamp(drag.x+dx,-drag.w+4,w-4)),y:Math.round(clamp(drag.y+dy,-drag.h+4,h-4))};patchElement(drag.id,patch);renderStage();renderInspector()});
+document.addEventListener('pointermove',e=>{if(!drag)return;if(Math.hypot(e.clientX-drag.initialX,e.clientY-drag.initialY)>9)lastImagePointer=null;const {w,h}=sizePx(),dx=(e.clientX-drag.initialX)/S.zoom,dy=(e.clientY-drag.initialY)/S.zoom;let patch;if(drag.type==='image'){const raw=templateEl(drag.id),src=raw?getImageData(raw,S.cardIndex,S.mode):null,cached=src?cacheImage(src):null;patch=imageDragPatch(drag.imageStart,dx,dy,cached?.loaded?cached.im:null)}else if(drag.type==='resize'){const rect=resizedRect(drag.visual,drag.handle||'se',dx,dy,{w,h},drag.lockAspect);const handle=drag.handle||'se';patch={};if(handle.includes('w')||handle.includes('e'))Object.assign(patch,{x:rect.x,w:rect.w,autoWidth:false});if(handle.includes('n')||handle.includes('s'))Object.assign(patch,{y:rect.y,h:rect.h,autoHeight:false})}else patch={x:Math.round(clamp(drag.x+dx,-drag.w+4,w-4)),y:Math.round(clamp(drag.y+dy,-drag.h+4,h-4))};patchElement(drag.id,patch);renderStage();renderInspector()});
 document.addEventListener('pointerup',()=>{if(drag){drag=null;checkpoint();refreshHistoryButtons();renderInspector();renderLeft();renderStage()}});
 function onImageDoubleClick(e:MouseEvent){
  if(document.documentElement?.dataset.layout==='mobile')return;
@@ -271,7 +281,7 @@ stage.addEventListener('dblclick',onImageDoubleClick);
 let imageWheelTimer:ReturnType<typeof setTimeout>|null=null;
 $('#canvasOuter').addEventListener('wheel',(e:WheelEvent)=>{
  const id=repositionImageId();if(!id)return;
- const raw=templateEl(id);if(!raw)return;
+ const raw=templateEl(id);if(!raw||effective(raw).imageFit!=='free')return;
  const rect=elementGeometry(raw),stageRect=stage.getBoundingClientRect();
  const point={x:(e.clientX-stageRect.left)/S.zoom-rect.x,y:(e.clientY-stageRect.top)/S.zoom-rect.y};
  if(point.x<0||point.y<0||point.x>rect.w||point.y>rect.h)return;
@@ -280,7 +290,7 @@ $('#canvasOuter').addEventListener('wheel',(e:WheelEvent)=>{
  const src=getImageData(raw,S.cardIndex,S.mode),cached=cacheImage(src);
  const img=cached?.loaded?cached.im:null;
  const factor=Math.exp(-Math.max(-300,Math.min(300,e.deltaY))*.0015);
- patchElement(id,imageZoomPatch(el,img,(Number(el.imgZoom)||1)*factor,point));
+ patchElement(id,imageScalePatch(el,img,(Number(el.imgScale)||1)*factor,point));
  renderStage();renderInspector();
  if(imageWheelTimer!==null)clearTimeout(imageWheelTimer);
  imageWheelTimer=setTimeout(()=>{imageWheelTimer=null;checkpoint();refreshHistoryButtons()},220);
@@ -295,7 +305,8 @@ if((e.ctrlKey||e.metaKey)&&!e.altKey&&!e.shiftKey&&S.mode==='template'){
  }
 }
 if(e.ctrlKey||e.altKey||e.metaKey)return;if(!S.selected)return;if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();mutateAction('delete-element');return}const delta={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];if(delta){const el=effective(templateEl(S.selected)),rect=elementGeometry(templateEl(S.selected));if(el.locked&&repositionImageId()!==S.selected)return;e.preventDefault();const step=e.shiftKey?10:1;
- const patch=repositionImageId()===S.selected?imageDragPatch(el,delta[0]*step,delta[1]*step):{x:rect.x+delta[0]*step,y:rect.y+delta[1]*step};
+ const raw=templateEl(S.selected),src=raw?getImageData(raw,S.cardIndex,S.mode):null,cached=src?cacheImage(src):null;
+ const patch=repositionImageId()===S.selected?imageDragPatch({...el,...rect},delta[0]*step,delta[1]*step,cached?.loaded?cached.im:null):{x:rect.x+delta[0]*step,y:rect.y+delta[1]*step};
  patchElement(S.selected,patch);renderStage();renderInspector();checkpoint();refreshHistoryButtons()}});
 window.addEventListener('resize',()=>{});
 
