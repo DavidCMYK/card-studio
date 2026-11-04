@@ -51,15 +51,21 @@ export interface CardElement {
   singleImage?: string;
 }
 export type ShadowOverlapMode = 'add' | 'merge';
-export interface CardTemplate { guides?:CardGuides; shadowOverlapMode?: ShadowOverlapMode; name: string; width: number; height: number; unit: Units; dpi: number; background: string; elements: CardElement[]; }
+export interface CardTemplate { id?:string; guides?:CardGuides; shadowOverlapMode?: ShadowOverlapMode; name: string; width: number; height: number; unit: Units; dpi: number; background: string; elements: CardElement[]; }
 export interface ImageAsset { name: string; data: string; }
 export interface ImageSet { id: string; name: string; images: ImageAsset[]; }
-export interface StagedCard { id: string; name: string; values: Record<string,string>; overrides: Record<string,Partial<CardElement>>; extraElements: CardElement[]; printEnabled?: boolean; printQuantity?: number; printBack?: string; }
+export interface CardSet {id:string;name:string;frontTemplateId:string;backTemplateId?:string;}
+export type CardSide='front'|'back';
+export interface StagedCard { id: string; name: string; setId?:string; backExtraElements?:CardElement[]; values: Record<string,string>; overrides: Record<string,Partial<CardElement>>; extraElements: CardElement[]; printEnabled?: boolean; printQuantity?: number; printBack?: string; }
 /** Font binary carried inside projects/templates for consistent cross-device rendering. */
 export interface EmbeddedFont { family:string; filename:string; data:string; weight?:number; style?:'normal'|'italic'; }
 export interface StudioProject {
   printSetup?: PrintOptions;
   type: 'cardstudio-project'; version: number; projectName: string;
-  template: CardTemplate; sets: ImageSet[]; cards: StagedCard[]; fonts?: EmbeddedFont[];
+  /** Legacy template alias, resolved to the actively edited template at runtime. */
+  template: CardTemplate;
+  templates?:CardTemplate[]; cardSets?:CardSet[];
+  selectedTemplateId?:string; side?:CardSide;
+  sets: ImageSet[]; cards: StagedCard[]; fonts?: EmbeddedFont[];
   mode: 'template' | 'cards'; cardIndex: number; selected: string | null; zoom: number;
 }
