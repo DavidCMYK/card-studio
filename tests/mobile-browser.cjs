@@ -54,6 +54,7 @@ const server=http.createServer((req,res)=>{
   await dp.locator('#printModal [data-print-file="shared"]').setInputFiles({
    name:'card-back.png',mimeType:'image/png',buffer:Buffer.from(backPng,'base64')
   });
+  await dp.waitForFunction(()=>document.querySelector('#prSharedStatus')?.textContent==='Shared back loaded');
   await dp.locator('#printModal select[name="duplex"]').selectOption('long');
   assert.match(await dp.locator('#prSummary').textContent(),/2 PDF page/,'duplex doubles page count');
   await dp.locator('#printModal [data-print="preview-back"]').click();
