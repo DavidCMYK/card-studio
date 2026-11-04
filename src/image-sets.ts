@@ -86,7 +86,9 @@ export function imageScreenOffset(e:any,img:any):{x:number;y:number}{
 }
 export function imageOffsetPatch(e:any,x:number,y:number,img:any){
  const allowed=imageFitAxes(e,img);
- const normalized=screenToImageDelta(e,allowed.x?x:0,allowed.y?y:0);
+ const candidate=screenToImageDelta(e,allowed.x?x:0,allowed.y?y:0);
+ const visible=imageScreenOffset({...e,imgOffsetX:candidate.x,imgOffsetY:candidate.y},img);
+ const normalized=screenToImageDelta(e,visible.x,visible.y);
  return {imgOffsetX:normalized.x,imgOffsetY:normalized.y};
 }
 export function imgBox(e:any,img:any){
