@@ -1,4 +1,5 @@
 import { S, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, clamp, px, fmt, sizePx, makeElement, textKinds, escapeHTML, unitFactor, exportPixels, templateExportSize, isExported, isDataExported, visibleOnCard, opacityFor } from './model';
+import {guidesFor,guideRects,displayedDistance} from './card-guides';
 import { $ } from './dom';
 import { renderStage } from './preview';
 import { layoutTextBox } from './text-layout';
