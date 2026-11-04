@@ -1,6 +1,6 @@
 /** Shared dynamic edge anchoring for template editor, cards and PNG exports. */
 import type { CardElement,CardTemplate } from './types';
-import { S } from './model';
+import { S, cardExtras } from './model';
 import { layoutTextBox } from './text-layout';
 
 export type Edge = 'Left'|'Right'|'Top'|'Bottom';
@@ -9,7 +9,7 @@ export const anchorEdges: Edge[] = ['Left','Right','Top','Bottom'];
 export const hasAnchors=(e:CardElement)=>anchorEdges.some(side=>e[`anchor${side}`]);
 export function linkedSource(e:CardElement, ci:number, mode:'cards'|'template',template:CardTemplate=S.template) : CardElement|null {
  if(!e.linkedTextId)return null;
- return [...template.elements,...(mode==='cards'?(S.cards[ci]?.extraElements||[]):[])].find(item=>item.id===e.linkedTextId&&item.kind==='text')||null;
+ return [...template.elements,...(mode==='cards'?cardExtras(S.cards[ci]):[])].find(item=>item.id===e.linkedTextId&&item.kind==='text')||null;
 }
 export function textGeometry(raw:CardElement,ci:number,mode:'cards'|'template'):Rect {
  const e=mode==='cards'?{...raw,...(S.cards[ci]?.overrides?.[raw.id]||{})}:raw;
