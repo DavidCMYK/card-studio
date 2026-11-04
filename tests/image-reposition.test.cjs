@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const model=require('../.build/model.js');
 const {imgBox,imageCache}=require('../.build/image-sets.js');
 const {imageDragPatch,imageZoomPatch,screenToImageDelta,enterImageReposition,stopImageReposition,repositionImageId}=require('../.build/image-reposition.js');
-const {renderInspector}=require('../.build/interface.js');
+const {renderInspector,selectInspectorTab}=require('../.build/interface.js');
 const {renderStage}=require('../.build/preview.js');
 
 function approx(a,b,msg){assert.ok(Math.abs(a-b)<1e-7,msg||`${a} != ${b}`)}
@@ -75,7 +75,7 @@ test('both layouts share the image reposition UI, with a ghost preview and Done 
   assert.equal(tag,'canvas');return {getContext(){return {measureText(text){return {width:text.length*9}}}}};
  }};
  state.selected=image.id;
- renderInspector();assert.match(node('#inspector').innerHTML,/Reposition image/);
+ selectInspectorTab('content');renderInspector();assert.match(node('#inspector').innerHTML,/Reposition image/);
  assert.match(node('#inspector').innerHTML,/data-prop="imgZoom"/);
  renderStage();assert.equal(node('#imageRepositionBar').hidden,true);
  assert.equal(enterImageReposition(image.id),true);
