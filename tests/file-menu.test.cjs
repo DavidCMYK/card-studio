@@ -54,6 +54,7 @@ test('Save overwrites opened/saved handle, Save As switches target, projects rem
   showOpenFilePicker:async()=>[one],
  };
  const originalState=model.initial();
+ const originalTemplate=originalState.template;
  model.replaceState(originalState);
  storage.resetFileHandles();
 
@@ -91,15 +92,16 @@ test('Save overwrites opened/saved handle, Save As switches target, projects rem
  window.showOpenFilePicker=async()=>[loaded];
  await storage.openFromDisk('template');
  assert.equal(model.S.templates.length,2,'Import adds an independent template');
- assert.equal(originalState.template.name,'After Save As','Original template remains unchanged');
+ assert.strictEqual(model.S.templates[0],originalTemplate,'Original template object remains in the project');
+ assert.equal(originalTemplate.name,'After Save As','Original template remains unchanged');
  assert.equal(model.S.template.name,'Loaded template','Imported template is selected');
  model.S.template.name='Modified loaded template';
  assert.equal(await storage.saveTemplate(),true);
  assert.equal(loaded.writes,1);
  assert.equal(JSON.parse(loaded.content).template.name,'Modified loaded template');
  assert.equal(two.writes,2,'Import does not overwrite another template file');
- model.selectProjectTemplate(originalState.template.id);
- originalState.template.name='Modified first template';
+ model.selectProjectTemplate(originalTemplate.id);
+ originalTemplate.name='Modified first template';
  assert.equal(await storage.saveTemplate(),true);
  assert.equal(two.writes,3,'Returning to the first template reuses its own Save As handle');
  assert.equal(JSON.parse(two.content).template.name,'Modified first template');
