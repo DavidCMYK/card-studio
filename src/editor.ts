@@ -1,4 +1,5 @@
 import { S, initial, replaceState, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, px, unitFactor, sizePx, clamp, uid } from './model';
+import {openNewProjectDialog} from './new-project';
 import { $ , toast } from './dom';
 import { renderStage } from './preview';
 import { repaint, renderInspector, renderLeft, renderCardControl, chooseCard, patchElement, addElement, updateDimensionReadouts, setKnownFonts, baseFonts, refreshHistoryButtons, selectInspectorTab, filterCardData, showDiscoveredFonts, toggleFontBrowser, closeFontBrowser, filterFontBrowser } from './interface';
@@ -86,7 +87,7 @@ function changeZoom(delta: number) {
 }
 
 function newCard(copy=null){const c=copy?{id:uid(),name:copy.name+' copy',values:{...copy.values},overrides:structuredClone(copy.overrides||{}),extraElements:structuredClone(copy.extraElements||[])}:{id:uid(),name:'Card '+String(S.cards.length+1).padStart(3,'0'),values:{},overrides:{},extraElements:[]};S.cards.push(c);S.mode='cards';S.cardIndex=S.cards.length-1;S.selected=null;repaint();return c}
-function mutateAction(action,el: any = null){switch(action){case 'new-project':if(confirm('Start a new project? Unsaved changes will be lost.')){replaceState(initial());resetFileHandles();imageCache.clear();resetHistory();recordProjectReplaced();void activateProjectFonts();repaint()}break;
+function mutateAction(action,el: any = null){switch(action){case 'new-project':openNewProjectDialog(project=>{replaceState(project);resetFileHandles();imageCache.clear();resetHistory();recordProjectReplaced();void activateProjectFonts();repaint()});break;
 case 'undo':if(undo()){imageCache.clear();void activateProjectFonts();repaint()}break;
  case 'redo':if(redo()){imageCache.clear();void activateProjectFonts();repaint()}break;
  case 'embed-fonts':$('#fontFiles').click();break;
