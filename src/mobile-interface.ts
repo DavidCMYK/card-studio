@@ -55,7 +55,7 @@ function showPanel(next:Panel){
  const list=document.getElementById('mobileActionList');
  if(list&&next==='quick'&&!renderQuickEditor(list)){showPanel('properties');return}
  if(list&&next==='nudge'){
-  list.innerHTML='<div class="m-nudge-grid"><span></span><button data-mobile="nudge-up" aria-label="Move up">↑</button><span></span><button data-mobile="nudge-left" aria-label="Move left">←</button><button data-mobile="nudge-step">Step: '+nudgeStep+' px</button><button data-mobile="nudge-right" aria-label="Move right">→</button><span></span><button data-mobile="nudge-down" aria-label="Move down">↓</button><span></span></div><p class="m-quick-hint">Moves the selected element in design pixels. In Cards mode, only this card changes. Each tap can be undone.</p>';
+  list.innerHTML='<div class="m-nudge-grid"><span></span><button data-mobile="nudge-up" aria-label="Move up">↑</button><span></span><button data-mobile="nudge-left" aria-label="Move left">←</button><button data-mobile="nudge-step">Step: '+nudgeStep+' px</button><button data-mobile="nudge-right" aria-label="Move right">→</button><span></span><button data-mobile="nudge-down" aria-label="Move down">↓</button><span></span></div><p class="m-quick-hint">${repositionImageId()?'Moves the artwork within the frame, respecting its fit mode.':'Moves the selected element in design pixels.'} In Cards mode, only this card changes. Each tap can be undone.</p>';
  }
  if(list&&menus[next]){
   list.replaceChildren();
