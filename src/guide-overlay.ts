@@ -10,15 +10,12 @@ export function guideOverlay(template:CardTemplate,mode:'template'|'cards',zoom:
  const radius=(r:number)=>`border-radius:${Math.max(0,r)*d*zoom}px;`;
  const safeStyle=rect(safe.x,safe.y,safe.w,safe.h)+radius(radii.safe);
  const trimStyle=rect(trim.x,trim.y,trim.w,trim.h)+radius(radii.cut);
- const canvasStyle=rect(0,0,canvas.width,canvas.height)+radius(radii.canvas);
  // A shadow around the exact rounded safe-zone contour dims *all* the
  // unsafe area, including the wedges outside its rounded corners.
  const shaded=settings.dimUnsafe?`<div class="guide-dim-rounded" style="${safeStyle}"></div>`:'';
  const bleedIsVisible=settings.bleedMode==='bleed'&&Object.values(bleed).some(value=>value>0);
  const cutLine=bleedIsVisible||radii.cut>0;
- const canvasLine=bleedIsVisible&&radii.canvas>0;
  return `<div class="card-guide-overlay" aria-hidden="true">${shaded}
- ${canvasLine?`<div class="guide-canvas" style="${canvasStyle}"></div>`:''}
  ${cutLine?`<div class="guide-trim" style="${trimStyle}"><span>TRIM</span></div>`:''}
  <div class="guide-safe" style="${safeStyle}"><span>SAFE</span></div></div>`;
 }
