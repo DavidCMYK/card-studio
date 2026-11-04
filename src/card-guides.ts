@@ -30,10 +30,15 @@ export const DEFAULT_GUIDES:CardGuides={
   showTemplate:true,showCards:false,dimUnsafe:false
 };
 const mmPerUnit=(unit:Units,dpi:number):number=>unit==='in'?25.4:unit==='px'?25.4/dpi:1;
-export function distanceMm(value:number,unit:Units,dpi:number):number{return value*mmPerUnit(unit,dpi);}
+/** Pixel entries are whole export pixels. Other units retain precision.
+ * Unit switches are presentation-only: never round saved physical geometry. */
+export function distanceMm(value:number,unit:Units,dpi:number):number {
+ return (unit==='px'?Math.round(value):value)*mmPerUnit(unit,dpi);
+}
 export function distanceInUnit(valueMm:number,unit:Units,dpi:number):number{return valueMm/mmPerUnit(unit,dpi);}
 export function displayedDistance(valueMm:number,unit:Units,dpi:number):string {
-  return String(Number(distanceInUnit(valueMm,unit,dpi).toFixed(6)));
+ const value=distanceInUnit(valueMm,unit,dpi);
+ return String(unit==='px'?Math.round(value):Number(value.toFixed(6)));
 }
 export function guidesFor(t:CardTemplate):CardGuides {
  const g=t.guides;
