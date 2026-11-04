@@ -29,18 +29,26 @@ test('Template/Cards mode is outside the sidebar and toolboxes have separate scr
  try{
   renderLeft();
   const markup=get('#leftBody').innerHTML;
-  assert.equal((markup.match(/class="sidebar-panel sidebar-/g)||[]).length,3);
-  for(const id of ['layersScroll','cardsScroll','setsScroll'])assert.match(markup,new RegExp('id="'+id+'"'));
+  assert.equal((markup.match(/class="sidebar-panel sidebar-/g)||[]).length,5);
+  for(const id of ['layersScroll','templatesScroll','cardSetsScroll','cardsScroll','setsScroll'])assert.match(markup,new RegExp('id="'+id+'"'));
+  assert.match(markup,/TEMPLATES/);
+  assert.match(markup,/CARD SETS/);
+  assert.match(markup,/Front template/);
+  assert.match(markup,/Back template/);
   assert.match(markup,/STAGED CARDS/);
   assert.match(markup,/Illustrations/);
   assert.match(markup,/Manage images/);
   assert.equal(get('#btnTemplate').attributes['aria-pressed'],'true');
   get('#layersScroll').scrollTop=145;
+  get('#templatesScroll').scrollTop=56;
+  get('#cardSetsScroll').scrollTop=65;
   get('#cardsScroll').scrollTop=85;
   get('#setsScroll').scrollTop=38;
   state.selected=state.template.elements[0].id;
   renderLeft();
   assert.equal(get('#layersScroll').scrollTop,145);
+  assert.equal(get('#templatesScroll').scrollTop,56);
+  assert.equal(get('#cardSetsScroll').scrollTop,65);
   assert.equal(get('#cardsScroll').scrollTop,85);
   assert.equal(get('#setsScroll').scrollTop,38);
   state.mode='cards';state.cardIndex=1;renderLeft();
