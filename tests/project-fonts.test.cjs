@@ -47,3 +47,22 @@ test('importing font files stores bytes inside the project',async()=>{
  assert.equal(model.S.fonts[0].data,'data:font/ttf;base64,QUJDRA==');
  delete global.FileReader;
 });
+
+// The Local Font Access API requires a direct user gesture. A confirmation
+// dialog before queryLocalFonts can consume that gesture in Chromium.
+test('installed font request happens before licensing confirmation',async()=>{
+ model.replaceState(model.initial());
+ const order=[];
+ const oldWindow=global.window,oldConfirm=global.confirm;
+ global.window={queryLocalFonts(){order.push('query');return Promise.resolve([])}};
+ global.confirm=()=>{order.push('confirm');return false};
+ try{
+  const result=await fonts.embedInstalledUsedFonts();
+  assert.deepEqual(order,['query','confirm']);
+  assert.equal(result.added,0);
+  assert.ok(result.missing.length>0);
+ }finally{
+  if(oldWindow===undefined)delete global.window;else global.window=oldWindow;
+  if(oldConfirm===undefined)delete global.confirm;else global.confirm=oldConfirm;
+ }
+});
