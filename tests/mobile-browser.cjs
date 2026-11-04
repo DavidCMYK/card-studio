@@ -65,7 +65,7 @@ const server=http.createServer((req,res)=>{
   assert.equal(activation.active,true,'font access requested during a user click');
   assert.deepEqual(activation.order,['query','confirm'],'permission request precedes licensing confirmation');
   // Embed a real test-runner font, save a JSON project, and reopen it on mobile.
-  let portableProject=null;
+  let portableProject=null,desktopPng=null;
   let fontPath='';
   try{fontPath=execFileSync('fc-match',['-f','%{file}\\n','DejaVu Sans'],{encoding:'utf8'}).trim().split('\\n')[0]}catch{}
   if(fontPath&&fs.existsSync(fontPath)&&fs.statSync(fontPath).size<12*1024*1024){
@@ -82,6 +82,12 @@ const server=http.createServer((req,res)=>{
    const parsed=JSON.parse(portableProject);
    assert.equal(parsed.fonts[0].family,'Portable Integration','font family bundled');
    assert.ok(parsed.fonts[0].data.startsWith('data:'),'font file bytes saved in project');
+   const desktopDownloadPromise=dp.waitForEvent('download');
+   await dp.locator('.top [data-action="export-current"]').click();
+   const desktopExport=await desktopDownloadPromise;
+   desktopPng=fs.readFileSync(await desktopExport.path());
+   assert.equal(desktopPng.subarray(1,4).toString('ascii'),'PNG','real PNG export');
+   assert.ok(desktopPng.readUInt32BE(16)>500&&desktopPng.readUInt32BE(20)>700,'print-resolution dimensions');
   }else console.warn('Skipping optional real font check: fontconfig unavailable');
   await dp.screenshot({path:'test-results/desktop.png'});
   await desktop.close();
@@ -93,6 +99,12 @@ const server=http.createServer((req,res)=>{
   if(portableProject){
    await page.locator('#openProjectFile').setInputFiles({name:'portable-test.cardstudio.json',mimeType:'application/json',buffer:Buffer.from(portableProject)});
    await page.waitForFunction(()=>[...document.fonts].some(f=>f.family==='Portable Integration'&&f.status==='loaded'),null,{timeout:12000});
+   const mobileDownloadPromise=page.waitForEvent('download');
+   await page.locator('.m-appbar [data-mobile="export"]').click();
+   await page.locator('.m-actions [data-action="export-current"]').click();
+   const mobileExport=await mobileDownloadPromise;
+   const mobilePng=fs.readFileSync(await mobileExport.path());
+   assert.ok(desktopPng.equals(mobilePng),'desktop and mobile export identical print-resolution PNG');
   }
   assert.equal(await page.locator('.top').isVisible(),false,'desktop controls hidden on phone');
   await page.locator('.m-mode [data-action="mode-cards"]').click();
@@ -130,6 +142,20 @@ const server=http.createServer((req,res)=>{
   await page.screenshot({path:'test-results/mobile.png'});
   assert.deepEqual(errors,[],'no browser exceptions');
   await phone.close();
+
+  // Tablet rotation retains the live document and stays in the touch layout.
+  const tablet=await browser.newContext({viewport:{width:810,height:1100},hasTouch:true,isMobile:true});
+  const tp=await tablet.newPage();tp.on('pageerror',e=>errors.push('tablet: '+e.message));
+  await tp.goto(url);
+  await tp.locator('#mobileShell').waitFor({state:'visible'});
+  await tp.locator('.m-dock [data-mobile="add"]').click();
+  await tp.locator('.m-actions [data-action="add-shape"]').click();
+  const countBeforeRotate=await tp.locator('#stage .element').count();
+  await tp.setViewportSize({width:1100,height:810});
+  await tp.waitForFunction(()=>document.documentElement.dataset.layout==='mobile'&&
+   document.querySelector('#stage')?.getBoundingClientRect().width>0);
+  assert.equal(await tp.locator('#stage .element').count(),countBeforeRotate,'orientation keeps edits');
+  await tablet.close();
 
   // Fresh browser storage: a completed edit is backed up locally and survives reload.
   const recovery=await browser.newContext({viewport:{width:1440,height:900},acceptDownloads:true});
