@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const model = require('../.build/model.js');
 const {sheetTable} = require('../.build/spreadsheet.js');
-const {renderInspector} = require('../.build/interface.js');
+const {renderInspector,selectInspectorTab} = require('../.build/interface.js');
 
 test('XLSX columns omit only explicitly excluded text and image elements', () => {
   const state = model.initial();
@@ -50,6 +50,7 @@ test('desktop and mobile share the data-export toggle in element properties', ()
     assert.equal(tag,'canvas');
     return {getContext(){return {measureText(value){return {width:value.length*9}}}}};
   }};
+  selectInspectorTab('rules');
   for(const kind of ['text','image','shape']) {
     const element=state.template.elements.find(e=>e.kind===kind);
     state.mode='template';
