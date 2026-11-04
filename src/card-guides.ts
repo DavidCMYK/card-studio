@@ -7,7 +7,7 @@ export type Edge='top'|'right'|'bottom'|'left';
 export type Axis='width'|'height';
 export type Edges={top:number;right:number;bottom:number;left:number};
 export type BleedMode='trim'|'bleed';
-export type GuideBoundary='canvas'|'cut'|'safe';
+export type GuideBoundary='cut'|'safe';
 export type GuideRadii=Record<GuideBoundary,number>;
 export interface CardGuides {
   bleedMode:BleedMode;
@@ -26,7 +26,7 @@ export const DEFAULT_GUIDES:CardGuides={
   bleed:{top:3,right:3,bottom:3,left:3},
   safe:{top:4,right:4,bottom:4,left:4},
   bleedLinked:true,safeLinked:true,
-  radii:{canvas:0,cut:0,safe:0},
+  radii:{cut:0,safe:0},
   showTemplate:true,showCards:false,dimUnsafe:false
 };
 const mmPerUnit=(unit:Units,dpi:number):number=>unit==='in'?25.4:unit==='px'?25.4/dpi:1;
@@ -39,7 +39,7 @@ export function guidesFor(t:CardTemplate):CardGuides {
  const g=t.guides;
  return {...DEFAULT_GUIDES,...g,unit:g?.unit||t.unit,
   bleed:{...DEFAULT_GUIDES.bleed,...g?.bleed},safe:{...DEFAULT_GUIDES.safe,...g?.safe},
-  radii:{...DEFAULT_GUIDES.radii,...g?.radii}};
+  radii:{cut:g?.radii?.cut??0,safe:g?.radii?.safe??0}};
 }
 export function canvasDimensionsMm(t:CardTemplate):{width:number;height:number}{
  const k=mmPerUnit(t.unit,t.dpi);return {width:t.width*k,height:t.height*k};
@@ -59,8 +59,7 @@ export function guideRects(t:CardTemplate){
  const trim={x:b.left,y:b.top,w:c.width-b.left-b.right,h:c.height-b.top-b.bottom};
  const safe={x:trim.x+g.safe.left,y:trim.y+g.safe.top,
   w:trim.w-g.safe.left-g.safe.right,h:trim.h-g.safe.top-g.safe.bottom};
- const radii={canvas:Math.min(g.radii!.canvas,Math.min(c.width,c.height)/2),
-  cut:Math.min(g.radii!.cut,Math.min(trim.w,trim.h)/2),
+ const radii={cut:Math.min(g.radii!.cut,Math.min(trim.w,trim.h)/2),
   safe:Math.min(g.radii!.safe,Math.min(safe.w,safe.h)/2)};
  return {canvas:c,trim,safe,bleed:b,settings:g,radii};
 }
@@ -178,11 +177,11 @@ function clampStoredRadii(t:CardTemplate):void{
  t.guides={...g,radii:{...r.radii}};
 }
 export function setGuideCornerRadius(t:CardTemplate,boundary:GuideBoundary,valueMm:number):void{
- if(!['canvas','cut','safe'].includes(boundary))throw Error('Unknown corner-radius guide');
+ if(!['cut','safe'].includes(boundary))throw Error('Unknown corner-radius guide');
  if(!Number.isFinite(valueMm)||valueMm<0)throw Error('Corner radius must be zero or greater');
- const {canvas,trim,safe}=guideRects(t);
- const width=boundary==='canvas'?canvas.width:boundary==='cut'?trim.w:safe.w;
- const height=boundary==='canvas'?canvas.height:boundary==='cut'?trim.h:safe.h;
+ const {trim,safe}=guideRects(t);
+ const width=boundary==='cut'?trim.w:safe.w;
+ const height=boundary==='cut'?trim.h:safe.h;
  const max=Math.min(width,height)/2;
  if(valueMm>max+1e-8)throw Error('Corner radius cannot exceed half the guide’s smaller dimension');
  const g=guidesFor(t);
