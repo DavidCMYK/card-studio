@@ -1,5 +1,5 @@
 import { S, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, clamp, px, fmt, sizePx, makeElement, textKinds, escapeHTML, unitFactor, exportPixels, templateExportSize, isExported, isDataExported, visibleOnCard, opacityFor } from './model';
-import {guideRects,displayedDistance} from './card-guides';
+import {guideRects,displayedDistance,guidesFor} from './card-guides';
 import {guideSettingsHtml} from './guide-ui';
 import { $ } from './dom';
 import { renderStage } from './preview';
@@ -47,7 +47,17 @@ export function renderLeft(){
 // A blur/change event from an old input may arrive AFTER the user selects a new
 // element. Without this context it can incorrectly update the new element.
 function editorScope(){return `data-edit-owner="${escapeHTML(S.selected||'')}" data-edit-mode="${S.mode}" data-edit-card="${S.cardIndex}"`}
-function field(label,key,value,type='text',extra=''){return`<div class="field"><label for="inspector-${key}">${escapeHTML(label)}</label><input id="inspector-${key}" ${editorScope()} data-prop="${key}" type="${type}" value="${escapeHTML(value)}" ${extra}></div>`}
+function isPixelLengthField(key:string):boolean{
+ if(['borderWidth','radius','letterSpacing','shadowOffsetX','shadowOffsetY','shadowSpread','imgOffsetX','imgOffsetY'].includes(key))return true;
+ if(['template.width','template.height','guide.cut.width','guide.cut.height','guide.safeZone.width','guide.safeZone.height','x','y','w','h','gutterLeft','gutterRight','gutterTop','gutterBottom'].includes(key))return S.template.unit==='px';
+ return /^guide\\.(bleed|safe|radius)\\./.test(key)&&guidesFor(S.template).unit==='px';
+}
+function field(label,key,value,type='text',extra=''){
+ const pixel=type==='number'&&isPixelLengthField(key);
+ const shown=pixel?Math.round(Number(value)):value;
+ const attrs=pixel?extra.replace(/step="[^"]*"/,'step="1"').replace('min="0.01"','min="1"'):extra;
+ return`<div class="field"><label for="inspector-${key}">${escapeHTML(label)}</label><input id="inspector-${key}" ${editorScope()} data-prop="${key}" type="${type}" value="${escapeHTML(shown)}" ${attrs}></div>`;
+}
 function selectionField(label,key,items,value){return `<div class="field"><label for="inspector-${key}">${escapeHTML(label)}</label><select id="inspector-${key}" ${editorScope()} data-prop="${key}">${items.map(([v,l])=>`<option value="${escapeHTML(v)}" ${String(v)===String(value)?'selected':''}>${escapeHTML(l)}</option>`).join('')}</select></div>`}
 function checkbox(label,key,value){return `<label class="toggle-line"><input ${editorScope()} type="checkbox" data-prop="${key}" ${value?'checked':''}>${escapeHTML(label)}</label>`}
 // All pixel labels are export-image pixels at the selected resolution.
@@ -75,7 +85,8 @@ export function updateDimensionReadouts(){
  if(!S.selected&&S.mode==='template'){
   const {trim,safe}=guideRects(S.template),unit=S.template.unit,dpi=S.template.dpi;
   const values:Record<string,number|string>={
-   'template.width':S.template.width,'template.height':S.template.height,
+   'template.width':unit==='px'?Math.round(S.template.width):S.template.width,
+   'template.height':unit==='px'?Math.round(S.template.height):S.template.height,
    'guide.cut.width':displayedDistance(trim.w,unit,dpi),
    'guide.cut.height':displayedDistance(trim.h,unit,dpi),
    'guide.safeZone.width':displayedDistance(safe.w,unit,dpi),
