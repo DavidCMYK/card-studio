@@ -170,3 +170,13 @@ test('editor overlay rounds cut and safe guides only, including no-bleed cut lin
  html=guideOverlay(t,'template',1);
  assert.match(html,/guide-dim-rounded/,'unsafe mask follows safe-zone rounding');
 });
+
+test('guide borders do not draw a solid highlight underneath the dashed line',()=>{
+ const css=require('node:fs').readFileSync(require('node:path').join(__dirname,'../styles.css'),'utf8');
+ assert.match(css,/\.card-guide-overlay \.guide-trim,\.card-guide-overlay \.guide-safe\{[^}]*border:2px dashed/);
+ for(const guide of ['trim','safe']){
+  const rule=css.split('\n').find(line=>line.startsWith('.card-guide-overlay .guide-'+guide+'{'));
+  assert.ok(rule,'Missing '+guide+' guide CSS');
+  assert.doesNotMatch(rule,/box-shadow:(?!none)/,'Solid shadow overlays the dashed '+guide+' guide');
+ }
+});
