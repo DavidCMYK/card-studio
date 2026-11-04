@@ -75,10 +75,10 @@ function rememberFolds(box:HTMLElement){
 }
 function fold(id:string,label:string,body:string,defaultOpen=false){
  const isOpen=inspectorFolds.has(id)?inspectorFolds.get(id):defaultOpen;
- return \`<details class="inspector-fold" data-inspector-fold="\${id}" \${isOpen?'open':''}><summary>\${escapeHTML(label)}</summary><div class="inspector-fold-body">\${body}</div></details>\`;
+ return `<details class="inspector-fold" data-inspector-fold="${id}" ${isOpen?'open':''}><summary>${escapeHTML(label)}</summary><div class="inspector-fold-body">${body}</div></details>`;
 }
 function inspectorHeader(title:string,subtitle:string,tabs=false){
- return \`<div class="inspector-sticky"><div class="inspector-heading">\${escapeHTML(title)}</div><div class="inspector-sub">\${escapeHTML(subtitle)}</div>\${tabs?\`<div class="inspector-tabs" role="tablist" aria-label="Element property categories">\${inspectorTabs.map(tab=>\`<button type="button" role="tab" id="inspector-tab-\${tab}" aria-controls="inspector-tab-panel" aria-selected="\${inspectorTab===tab}" tabindex="\${inspectorTab===tab?0:-1}" data-inspector-tab="\${tab}" class="\${inspectorTab===tab?'active':''}">\${tab.charAt(0).toUpperCase()+tab.slice(1)}</button>\`).join('')}</div>\`:''}</div>\`;
+ return `<div class="inspector-sticky"><div class="inspector-heading">${escapeHTML(title)}</div><div class="inspector-sub">${escapeHTML(subtitle)}</div>${tabs?`<div class="inspector-tabs" role="tablist" aria-label="Element property categories">${inspectorTabs.map(tab=>`<button type="button" role="tab" id="inspector-tab-${tab}" aria-controls="inspector-tab-panel" aria-selected="${inspectorTab===tab}" tabindex="${inspectorTab===tab?0:-1}" data-inspector-tab="${tab}" class="${inspectorTab===tab?'active':''}">${tab.charAt(0).toUpperCase()+tab.slice(1)}</button>`).join('')}</div>`:''}</div>`;
 }
 function fieldIdentifier(node:HTMLElement|null){
  if(!node?.dataset)return null;
@@ -120,7 +120,7 @@ export function selectInspectorTab(tab:InspectorTab){
  const box=$('#inspector') as HTMLElement;
  const scroller=document.documentElement?.dataset?.layout==='mobile'?box:(box.closest?.('.side-right') as HTMLElement|null);
  if(scroller)scroller.scrollTop=0;
- box.querySelector?.<HTMLButtonElement>(\`[data-inspector-tab="\${tab}"]\`)?.focus?.({preventScroll:true});
+ box.querySelector?.<HTMLButtonElement>(`[data-inspector-tab="${tab}"]`)?.focus?.({preventScroll:true});
 }
 export function filterCardData(query:string){
  cardDataSearch=query;
@@ -134,19 +134,19 @@ export function renderInspector(){
  rememberFolds(box);
  if(!S.selected&&S.mode==='cards'){
   $('#rightTitle').textContent='Card data';
-  let out=inspectorHeader(card()?.name||'Card',\`Card \${S.cardIndex+1} of \${S.cards.length} · Spreadsheet values\`);
+  let out=inspectorHeader(card()?.name||'Card',`Card ${S.cardIndex+1} of ${S.cards.length} · Spreadsheet values`);
   out+=field('Card name','card.name',card()?.name||'');
-  out+=\`<div class="section-title">Element values</div><div class="field"><label for="cardDataFilter">Find a field</label><input id="cardDataFilter" data-card-filter="search" type="search" placeholder="Filter element values…" value="\${escapeHTML(cardDataSearch)}" autocomplete="off"></div>\`;
-  out+=\`<div class="small" style="padding:0 0 12px">Only this card changes. Select a layer to edit its layout or appearance.</div>\`;
+  out+=`<div class="section-title">Element values</div><div class="field"><label for="cardDataFilter">Find a field</label><input id="cardDataFilter" data-card-filter="search" type="search" placeholder="Filter element values…" value="${escapeHTML(cardDataSearch)}" autocomplete="off"></div>`;
+  out+=`<div class="small" style="padding:0 0 12px">Only this card changes. Select a layer to edit its layout or appearance.</div>`;
   const entries=S.template.elements.filter(e=>textKinds.includes(e.kind));
   for(const e of entries){
    let body='';
-   if(e.kind==='text')body=\`<div class="field"><label for="cardValue-\${escapeHTML(e.id)}">\${escapeHTML(e.name)}</label><textarea id="cardValue-\${escapeHTML(e.id)}" \${editorScope()} data-cardvalue="\${e.id}" style="min-height:62px">\${escapeHTML(actualValue(e))}</textarea></div>\`;
-   else if(e.autoMode==='single')body=\`<div class="field"><label>\${escapeHTML(e.name)} — fixed image</label><div class="small" style="padding:0">\${escapeHTML(e.singleImage||'(no image selected)')} · Set in Template mode; identical on every card.</div></div>\`;
-   else body=\`<div class="field"><label for="cardValue-\${escapeHTML(e.id)}">\${escapeHTML(e.name)} — image filename</label><input id="cardValue-\${escapeHTML(e.id)}" \${editorScope()} data-cardvalue="\${e.id}" value="\${escapeHTML(card()?.values?.[e.id]||'')}" placeholder="Blank = automatic" list="allImageFiles"></div>\`;
-   out+=\`<div data-card-row data-card-label="\${escapeHTML(e.name.toLowerCase())}" \${!e.name.toLowerCase().includes(cardDataSearch.trim().toLowerCase())?'hidden':''}>\${body}</div>\`;
+   if(e.kind==='text')body=`<div class="field"><label for="cardValue-${escapeHTML(e.id)}">${escapeHTML(e.name)}</label><textarea id="cardValue-${escapeHTML(e.id)}" ${editorScope()} data-cardvalue="${e.id}" style="min-height:62px">${escapeHTML(actualValue(e))}</textarea></div>`;
+   else if(e.autoMode==='single')body=`<div class="field"><label>${escapeHTML(e.name)} — fixed image</label><div class="small" style="padding:0">${escapeHTML(e.singleImage||'(no image selected)')} · Set in Template mode; identical on every card.</div></div>`;
+   else body=`<div class="field"><label for="cardValue-${escapeHTML(e.id)}">${escapeHTML(e.name)} — image filename</label><input id="cardValue-${escapeHTML(e.id)}" ${editorScope()} data-cardvalue="${e.id}" value="${escapeHTML(card()?.values?.[e.id]||'')}" placeholder="Blank = automatic" list="allImageFiles"></div>`;
+   out+=`<div data-card-row data-card-label="${escapeHTML(e.name.toLowerCase())}" ${!e.name.toLowerCase().includes(cardDataSearch.trim().toLowerCase())?'hidden':''}>${body}</div>`;
   }
-  out+=\`<datalist id="allImageFiles">\${S.sets.flatMap(set=>set.images.map(im=>\`<option value="\${escapeHTML(set.name+'/'+im.name)}"></option>\`)).join('')}</datalist>\`;
+  out+=`<datalist id="allImageFiles">${S.sets.flatMap(set=>set.images.map(im=>`<option value="${escapeHTML(set.name+'/'+im.name)}"></option>`)).join('')}</datalist>`;
   writeInspector(box,out);return;
  }
  if(!S.selected){
@@ -154,16 +154,16 @@ export function renderInspector(){
   const out=inspectorHeader(S.template.name,'Card dimensions and project settings')+
    fold('setup-dimensions','Dimensions',
     field('Template name','template.name',S.template.name)+
-    \`<div class="fields-two">\${field('Width ('+S.template.unit+')','template.width',S.template.width,'number','min="0.01" step="any"')}\${field('Height ('+S.template.unit+')','template.height',S.template.height,'number','min="0.01" step="any"')}</div>\`+
+    `<div class="fields-two">${field('Width ('+S.template.unit+')','template.width',S.template.width,'number','min="0.01" step="any"')}${field('Height ('+S.template.unit+')','template.height',S.template.height,'number','min="0.01" step="any"')}</div>`+
     selectionField('Units','template.unit',[['mm','Millimetres (mm)'],['in','Inches (in)'],['px','Pixels (px)']],S.template.unit)+
-    \`<div class="small" style="padding:4px 0 12px" id="templatePixelReadout">\${sizeReadout()}</div>\`,true)+
+    `<div class="small" style="padding:4px 0 12px" id="templatePixelReadout">${sizeReadout()}</div>`,true)+
    fold('setup-background','Background',field('Background colour','template.background',S.template.background,'color'),true)+
    fold('setup-rendering','Rendering',
     selectionField('PNG resolution','template.dpi',[[150,'150 DPI'],[300,'300 DPI'],[450,'450 DPI'],[600,'600 DPI']],S.template.dpi)+
     selectionField('Shadow overlap','template.shadowOverlapMode',[['add','Add (stack opacity)'],['merge','Merge (highest opacity only)']],S.template.shadowOverlapMode||'add')+
-    \`<div class="small" style="padding:0 0 10px">Merge retains the strongest shadow opacity where shadows overlap; Add stacks them separately.</div>\`)+
+    `<div class="small" style="padding:0 0 10px">Merge retains the strongest shadow opacity where shadows overlap; Add stacks them separately.</div>`)+
    fold('setup-project','Project',field('Project name','projectName',S.projectName)+
-    \`<div class="small" style="padding:0">Select a layer to edit its properties. Switch to Cards to customise individual cards.</div>\`);
+    `<div class="small" style="padding:0">Select a layer to edit its properties. Switch to Cards to customise individual cards.</div>`);
   writeInspector(box,out);return;
  }
  const raw=templateEl(S.selected);
@@ -172,106 +172,106 @@ export function renderInspector(){
  $('#rightTitle').textContent='Element properties';
  const panes:Record<InspectorTab,string>={layout:'',content:'',style:'',rules:''};
  const f=unitFactor(S.template.unit,S.template.dpi),unit=S.template.unit;
- panes.layout+=\`<div class="section-title">Position and size (\${unit})</div><div class="fields-two">\${field('X ('+unit+')','x',fmt(geometry.x/f),'number','step="any"')}\${field('Y ('+unit+')','y',fmt(geometry.y/f),'number','step="any"')}\${field('Width ('+unit+')','w',fmt(geometry.w/f),'number','min="0.01" step="any"')}\${field('Height ('+unit+')','h',fmt(geometry.h/f),'number','min="0.01" step="any"')}</div><div class="small" style="padding:4px 0 12px" id="elementPixelReadout">\${elementReadout()}</div>\`;
+ panes.layout+=`<div class="section-title">Position and size (${unit})</div><div class="fields-two">${field('X ('+unit+')','x',fmt(geometry.x/f),'number','step="any"')}${field('Y ('+unit+')','y',fmt(geometry.y/f),'number','step="any"')}${field('Width ('+unit+')','w',fmt(geometry.w/f),'number','min="0.01" step="any"')}${field('Height ('+unit+')','h',fmt(geometry.h/f),'number','min="0.01" step="any"')}</div><div class="small" style="padding:4px 0 12px" id="elementPixelReadout">${elementReadout()}</div>`;
  panes.layout+=checkbox('Lock position','locked',e.locked);
  if(raw.kind==='text'){
   panes.layout+=fold('text-autosize','Automatic text box sizing',
    checkbox('Auto width (expand horizontally)','autoWidth',e.autoWidth===true)+
    checkbox('Auto height (expand vertically)','autoHeight',e.autoHeight===true)+
-   \`<div class="small" style="padding:0 0 12px">The box grows from its text alignment. Width and Height above are the anchor dimensions.</div>\`);
+   `<div class="small" style="padding:0 0 12px">The box grows from its text alignment. Width and Height above are the anchor dimensions.</div>`);
   const factor=unitFactor(unit,S.template.dpi);
-  panes.layout+=fold('text-gutters',\`Text gutters (\${unit})\`,
-   \`<div class="fields-two">\`+
+  panes.layout+=fold('text-gutters',`Text gutters (${unit})`,
+   `<div class="fields-two">`+
    field('Left ('+unit+')','gutterLeft',fmt((e.gutterLeft||0)/factor),'number','min="0" step="any"')+
    field('Right ('+unit+')','gutterRight',fmt((e.gutterRight||0)/factor),'number','min="0" step="any"')+
    field('Top ('+unit+')','gutterTop',fmt((e.gutterTop||0)/factor),'number','min="0" step="any"')+
    field('Bottom ('+unit+')','gutterBottom',fmt((e.gutterBottom||0)/factor),'number','min="0" step="any"')+
-   \`</div><div class="small" style="padding:0 0 10px">Text remains inside these clearances; the border and fill still cover the full box.</div>\`);
+   `</div><div class="small" style="padding:0 0 10px">Text remains inside these clearances; the border and fill still cover the full box.</div>`);
  }else if(e.linkedTextId){
   panes.layout+=fold('anchor-edges','Anchor edges to text',
-   \`<div class="small" style="padding:0 0 8px">Lock selected edges to the linked text box. Opposite edges stretch the element when the text changes size.</div><div class="fields-two">\${anchorEdges.map(side=>checkbox('Lock '+side.toLowerCase()+' edge','anchor'+side,!!e['anchor'+side])).join('')}</div>\`);
+   `<div class="small" style="padding:0 0 8px">Lock selected edges to the linked text box. Opposite edges stretch the element when the text changes size.</div><div class="fields-two">${anchorEdges.map(side=>checkbox('Lock '+side.toLowerCase()+' edge','anchor'+side,!!e['anchor'+side])).join('')}</div>`);
  }
  if(S.mode==='template')panes.content+=field('Element name (spreadsheet column)','name',raw.name);
- else panes.content+=\`<div class="warn">Changes here affect only <b>\${escapeHTML(card()?.name)}</b>. Switch to Template to edit every card.</div>\`;
+ else panes.content+=`<div class="warn">Changes here affect only <b>${escapeHTML(card()?.name)}</b>. Switch to Template to edit every card.</div>`;
  if(raw.kind==='text'){
-  if(S.mode==='template')panes.content+=\`<div class="field"><label for="defaultCardText">Default text</label><textarea id="defaultCardText" \${editorScope()} data-prop="text">\${escapeHTML(e.text)}</textarea></div>\`;
-  else panes.content+=\`<div class="field"><label for="selectedCardText">Card text</label><textarea id="selectedCardText" \${editorScope()} data-cardvalue="\${raw.id}">\${escapeHTML(actualValue(raw))}</textarea></div>\`;
-  panes.content+=\`<div class="section-title">Typography</div>\`+
-   \`<div class="field"><label for="inspectorFont">Font family</label><input id="inspectorFont" \${editorScope()} data-prop="font" list="fontOptions" value="\${escapeHTML(e.font)}"><datalist id="fontOptions">\${[...new Set([...knownFonts,...bundledFontFamilies()])].map(x=>\`<option value="\${escapeHTML(x)}"></option>\`).join('')}</datalist></div>\`+
-   \`<div class="inspector-action"><button class="secondary" data-action="scan-fonts">Find installed fonts</button><button class="secondary" data-action="embed-fonts">Embed font files…</button></div><div class="inspector-action"><button class="secondary" data-action="embed-used-fonts">Embed installed fonts used in project…</button></div>\`+
-   \`<div class="small" style="padding:0 0 8px">\${(S.fonts||[]).some(f=>f.family.toLowerCase()===String(e.font).toLowerCase())?'Embedded font travels with this project.':'Font not included in this project. Embed it to avoid substitutions on other devices.'}</div>\`+
-   \`<div class="fields-two">\${field('Font size (pt)','fontSize',e.fontSize,'number','min="1" step="0.5"')}\${selectionField('Weight','fontWeight',[[100,'Thin'],[300,'Light'],[400,'Regular'],[500,'Medium'],[600,'Semibold'],[700,'Bold'],[800,'Extra bold'],[900,'Black']],e.fontWeight)}</div>\`+
+  if(S.mode==='template')panes.content+=`<div class="field"><label for="defaultCardText">Default text</label><textarea id="defaultCardText" ${editorScope()} data-prop="text">${escapeHTML(e.text)}</textarea></div>`;
+  else panes.content+=`<div class="field"><label for="selectedCardText">Card text</label><textarea id="selectedCardText" ${editorScope()} data-cardvalue="${raw.id}">${escapeHTML(actualValue(raw))}</textarea></div>`;
+  panes.content+=`<div class="section-title">Typography</div>`+
+   `<div class="field"><label for="inspectorFont">Font family</label><input id="inspectorFont" ${editorScope()} data-prop="font" list="fontOptions" value="${escapeHTML(e.font)}"><datalist id="fontOptions">${[...new Set([...knownFonts,...bundledFontFamilies()])].map(x=>`<option value="${escapeHTML(x)}"></option>`).join('')}</datalist></div>`+
+   `<div class="inspector-action"><button class="secondary" data-action="scan-fonts">Find installed fonts</button><button class="secondary" data-action="embed-fonts">Embed font files…</button></div><div class="inspector-action"><button class="secondary" data-action="embed-used-fonts">Embed installed fonts used in project…</button></div>`+
+   `<div class="small" style="padding:0 0 8px">${(S.fonts||[]).some(f=>f.family.toLowerCase()===String(e.font).toLowerCase())?'Embedded font travels with this project.':'Font not included in this project. Embed it to avoid substitutions on other devices.'}</div>`+
+   `<div class="fields-two">${field('Font size (pt)','fontSize',e.fontSize,'number','min="1" step="0.5"')}${selectionField('Weight','fontWeight',[[100,'Thin'],[300,'Light'],[400,'Regular'],[500,'Medium'],[600,'Semibold'],[700,'Bold'],[800,'Extra bold'],[900,'Black']],e.fontWeight)}</div>`+
    checkbox('Italic','italic',e.italic)+checkbox('Underline','underline',e.underline)+
-   \`<div class="fields-two">\${selectionField('Horizontal','align',[['left','Left'],['center','Center'],['right','Right']],e.align)}\${selectionField('Vertical','valign',[['top','Top'],['middle','Middle'],['bottom','Bottom']],e.valign)}\${field('Line height','lineHeight',e.lineHeight,'number','min="0.5" max="4" step="0.05"')}\${field('Letter spacing (px)','letterSpacing',e.letterSpacing,'number','step="0.2"')}</div>\`;
+   `<div class="fields-two">${selectionField('Horizontal','align',[['left','Left'],['center','Center'],['right','Right']],e.align)}${selectionField('Vertical','valign',[['top','Top'],['middle','Middle'],['bottom','Bottom']],e.valign)}${field('Line height','lineHeight',e.lineHeight,'number','min="0.5" max="4" step="0.05"')}${field('Letter spacing (px)','letterSpacing',e.letterSpacing,'number','step="0.2"')}</div>`;
  }else if(raw.kind==='image'){
   if(S.mode==='cards'){
-   if(raw.autoMode==='single')panes.content+=\`<div class="small" style="padding:0 0 10px">Fixed image: <b>\${escapeHTML(raw.singleImage||'(none selected)')}</b>. Change it in Template mode.</div>\`;
-   else panes.content+=\`<div class="field"><label for="selectedImageFile">Image filename (blank = automatic)</label><input id="selectedImageFile" \${editorScope()} data-cardvalue="\${raw.id}" value="\${escapeHTML(card()?.values?.[raw.id]||'')}" list="imageFiles" placeholder="Set name/image.png"><datalist id="imageFiles">\${S.sets.flatMap(s=>s.images.map(im=>\`<option value="\${escapeHTML(s.name+'/'+im.name)}"></option>\`)).join('')}</datalist></div><div class="small" style="padding:0 0 10px">Enter <b>none</b> to leave this frame empty.</div>\`;
+   if(raw.autoMode==='single')panes.content+=`<div class="small" style="padding:0 0 10px">Fixed image: <b>${escapeHTML(raw.singleImage||'(none selected)')}</b>. Change it in Template mode.</div>`;
+   else panes.content+=`<div class="field"><label for="selectedImageFile">Image filename (blank = automatic)</label><input id="selectedImageFile" ${editorScope()} data-cardvalue="${raw.id}" value="${escapeHTML(card()?.values?.[raw.id]||'')}" list="imageFiles" placeholder="Set name/image.png"><datalist id="imageFiles">${S.sets.flatMap(s=>s.images.map(im=>`<option value="${escapeHTML(s.name+'/'+im.name)}"></option>`)).join('')}</datalist></div><div class="small" style="padding:0 0 10px">Enter <b>none</b> to leave this frame empty.</div>`;
   }else{
-   panes.content+=\`<div class="section-title">Image assignment</div>\`+
+   panes.content+=`<div class="section-title">Image assignment</div>`+
     selectionField('Automatically use image set','autoSet',[['','None'],...S.sets.map(x=>[x.id,x.name])],e.autoSet)+
     selectionField('Image assignment','autoMode',[['sequence','Sequential (no repeat)'],['cycle','Cycle through set'],['random','Deterministic random'],['single','Single Image (same on all cards)']],e.autoMode);
    if(e.autoMode==='single'){
     const set=S.sets.find(s=>s.id===e.autoSet||s.name===e.autoSet);
     panes.content+=set?.images.length?selectionField('Single image','singleImage',[['','Choose an image…'],...set.images.map(im=>[im.name,im.name])],e.singleImage||''):
-     \`<div class="small" style="padding:0 0 10px">\${set?'Add images to this set first.':'Choose an image set first.'}</div>\`;
+     `<div class="small" style="padding:0 0 10px">${set?'Add images to this set first.':'Choose an image set first.'}</div>`;
    }
   }
-  panes.content+=\`<div class="section-title">Image framing</div>\`+
+  panes.content+=`<div class="section-title">Image framing</div>`+
    selectionField('Fit inside frame','imageFit',[['cover','Cover frame (crop)'],['contain','Fit whole image'],['width','Fit to frame width'],['height','Fit to frame height'],['stretch','Stretch to frame'],['free','Free / original size']],e.imageFit)+
-   \`<div class="fields-two">\${field('Image zoom (×)','imgZoom',e.imgZoom??1,'number','min="0.05" max="20" step="0.1"')}\${field('Free resize scale','imgScale',e.imgScale,'number','min="0.01" step="0.1"')}\${field('Offset X (px)','imgOffsetX',e.imgOffsetX,'number','step="1"')}\${field('Offset Y (px)','imgOffsetY',e.imgOffsetY,'number','step="1"')}</div>\`+
-   \`<div class="inspector-action"><button class="secondary" data-action="\${repositionImageId()===raw.id?'finish-reposition-image':'reposition-image'}">\${repositionImageId()===raw.id?'Done repositioning':'Reposition image'}</button></div><div class="small" style="padding:0 0 12px">Double-click (double-tap on mobile) to reposition. Drag to pan; wheel or pinch to zoom. Escape or Done to finish.</div>\`;
+   `<div class="fields-two">${field('Image zoom (×)','imgZoom',e.imgZoom??1,'number','min="0.05" max="20" step="0.1"')}${field('Free resize scale','imgScale',e.imgScale,'number','min="0.01" step="0.1"')}${field('Offset X (px)','imgOffsetX',e.imgOffsetX,'number','step="1"')}${field('Offset Y (px)','imgOffsetY',e.imgOffsetY,'number','step="1"')}</div>`+
+   `<div class="inspector-action"><button class="secondary" data-action="${repositionImageId()===raw.id?'finish-reposition-image':'reposition-image'}">${repositionImageId()===raw.id?'Done repositioning':'Reposition image'}</button></div><div class="small" style="padding:0 0 12px">Double-click (double-tap on mobile) to reposition. Drag to pan; wheel or pinch to zoom. Escape or Done to finish.</div>`;
   panes.content+=fold('image-transforms','Image transforms',
    checkbox('Flip horizontally','imgFlipX',e.imgFlipX===true)+
    checkbox('Flip vertically','imgFlipY',e.imgFlipY===true)+
    field('Rotation (degrees, clockwise)','imgRotation',e.imgRotation??0,'number','step="1"')+
-   \`<div class="asset-actions" style="margin:0 0 10px"><button class="secondary" data-action="image-rotate-left">Rotate 90° left</button><button class="secondary" data-action="image-rotate-right">Rotate 90° right</button></div><div class="small">Transforms the image inside its frame without changing the crop boundary.</div>\`);
+   `<div class="asset-actions" style="margin:0 0 10px"><button class="secondary" data-action="image-rotate-left">Rotate 90° left</button><button class="secondary" data-action="image-rotate-right">Rotate 90° right</button></div><div class="small">Transforms the image inside its frame without changing the crop boundary.</div>`);
  }else{
-  panes.content+=\`<div class="section-title">Shape</div>\`+
+  panes.content+=`<div class="section-title">Shape</div>`+
    selectionField('Shape','shape',[['rect','Rectangle'],['ellipse','Ellipse']],e.shape);
  }
- panes.style+=\`<div class="section-title">Appearance</div>\`+
+ panes.style+=`<div class="section-title">Appearance</div>`+
   selectionField('Fill','fillMode',[['none','Transparent'],['solid','Solid colour'],['gradient','Linear gradient']],e.fillMode);
  if(e.fillMode!=='none'){
-  panes.style+=\`<div class="fields-two">\${field('Fill colour 1','fill1',e.fill1,'color')}\${e.fillMode==='gradient'?field('Fill colour 2','fill2',e.fill2,'color'):''}</div>\`+
+  panes.style+=`<div class="fields-two">${field('Fill colour 1','fill1',e.fill1,'color')}${e.fillMode==='gradient'?field('Fill colour 2','fill2',e.fill2,'color'):''}</div>`+
    (e.fillMode==='gradient'?field('Gradient angle (degrees)','gradientAngle',e.gradientAngle,'number','step="5"'):'');
  }
- panes.style+=\`<div class="fields-two">\${field('Border thickness (px)','borderWidth',e.borderWidth,'number','min="0" step="0.5"')}\${field('Border colour','borderColor',e.borderColor,'color')}</div>\`;
+ panes.style+=`<div class="fields-two">${field('Border thickness (px)','borderWidth',e.borderWidth,'number','min="0" step="0.5"')}${field('Border colour','borderColor',e.borderColor,'color')}</div>`;
  if(e.shape!=='ellipse')panes.style+=field('Corner radius (px)','radius',e.radius,'number','min="0" step="1"');
  const opacityField=(label:string,key:string)=>field(label,key,Math.round(opacityFor(e,key)*100),'number','min="0" max="100" step="1"');
- panes.style+=\`<div class="section-title">Opacity</div>\`+
+ panes.style+=`<div class="section-title">Opacity</div>`+
   opacityField(raw.kind==='image'?'Image opacity (%)':'Background opacity (%)','fillOpacity')+
   opacityField('Border opacity (%)','borderOpacity')+
   (raw.kind==='text'?opacityField('Text opacity (%)','textOpacity'):'');
  if(raw.kind==='text')panes.style+=field('Text colour','color',e.color,'color');
- panes.style+=\`<div class="section-title">Shadow</div>\`+
+ panes.style+=`<div class="section-title">Shadow</div>`+
   checkbox('Enable shadow','shadowEnabled',e.shadowEnabled===true);
  if(e.shadowEnabled){
   const spx=(v:number|undefined)=>fmt((Number(v)||0)*S.template.dpi/96);
   panes.style+=fold('shadow-advanced','Shadow controls',
-   \`<div class="fields-two">\${field('Shadow colour','shadowColor',e.shadowColor||'#000000','color')}\${field('Opacity (%)','shadowOpacity',e.shadowOpacity??65,'number','min="0" max="100" step="1"')}</div>\`+
-   \`<div class="fields-two">\${field('Offset X (export px)','shadowOffsetX',spx(e.shadowOffsetX),'number','step="1"')}\${field('Offset Y (export px)','shadowOffsetY',spx(e.shadowOffsetY),'number','step="1"')}</div>\`+
+   `<div class="fields-two">${field('Shadow colour','shadowColor',e.shadowColor||'#000000','color')}${field('Opacity (%)','shadowOpacity',e.shadowOpacity??65,'number','min="0" max="100" step="1"')}</div>`+
+   `<div class="fields-two">${field('Offset X (export px)','shadowOffsetX',spx(e.shadowOffsetX),'number','step="1"')}${field('Offset Y (export px)','shadowOffsetY',spx(e.shadowOffsetY),'number','step="1"')}</div>`+
    field('Spread (export px)','shadowSpread',spx(e.shadowSpread),'number','min="0" step="1"')+
-   \`<div class="small" style="padding:0 0 10px">Shadows follow visible text, fills, borders and image transparency.</div>\`,true);
+   `<div class="small" style="padding:0 0 10px">Shadows follow visible text, fills, borders and image transparency.</div>`,true);
  }
- panes.rules+=\`<div class="section-title">Visibility</div>\`+checkbox('Hide element','hidden',e.hidden);
+ panes.rules+=`<div class="section-title">Visibility</div>`+checkbox('Hide element','hidden',e.hidden);
  if(raw.kind==='text')panes.rules+=checkbox('Invisible if empty','invisibleIfEmpty',e.invisibleIfEmpty!==false)+
-  \`<div class="small" style="padding:0 0 12px">Hides the whole text box on cards where its value is empty.</div>\`;
+  `<div class="small" style="padding:0 0 12px">Hides the whole text box on cards where its value is empty.</div>`;
  if(raw.kind==='image'||raw.kind==='shape'){
   const texts=[...S.template.elements,...(S.mode==='cards'?(card()?.extraElements||[]):[])].filter(item=>item.kind==='text');
-  panes.rules+=\`<div class="section-title">Conditional visibility</div>\`+
+  panes.rules+=`<div class="section-title">Conditional visibility</div>`+
    selectionField('Follow text visibility','linkedTextId',[['','None (always independent)'],...texts.map(item=>[item.id,item.name])],e.linkedTextId||'')+
-   \`<div class="small" style="padding:0 0 12px">Hide this \${raw.kind==='image'?'image frame':'shape'} when the linked text box is hidden. Anchor edges can be configured in Layout.</div>\`;
+   `<div class="small" style="padding:0 0 12px">Hide this ${raw.kind==='image'?'image frame':'shape'} when the linked text box is hidden. Anchor edges can be configured in Layout.</div>`;
  }
  if(S.mode==='template'){
-  panes.rules+=\`<div class="section-title">Export</div>\`+
+  panes.rules+=`<div class="section-title">Export</div>`+
    checkbox('Include in exported images','includeInExport',isExported(e))+
-   \`<div class="small" style="padding:0 0 12px">When off, the element appears only in the Template editor.</div>\`+
+   `<div class="small" style="padding:0 0 12px">When off, the element appears only in the Template editor.</div>`+
    checkbox('Include in data export','includeInDataExport',isDataExported(raw))+
-   \`<div class="small" style="padding:0 0 12px">Text and image elements are included as XLSX columns unless excluded here.</div>\`;
- }else panes.rules+=\`<div class="inspector-action"><button class="secondary" data-action="reset-element">\${isExtra(raw.id)?'Remove card-only element':'Reset this element to template'}</button></div>\`;
- const header=inspectorHeader(raw.name,\`\${raw.kind.toUpperCase()} \${S.mode==='cards'?'· This card only':'· All cards'}\`,true);
- writeInspector(box,header+\`<section id="inspector-tab-panel" role="tabpanel" aria-labelledby="inspector-tab-\${inspectorTab}" class="inspector-pane">\${panes[inspectorTab]}</section>\`);
+   `<div class="small" style="padding:0 0 12px">Text and image elements are included as XLSX columns unless excluded here.</div>`;
+ }else panes.rules+=`<div class="inspector-action"><button class="secondary" data-action="reset-element">${isExtra(raw.id)?'Remove card-only element':'Reset this element to template'}</button></div>`;
+ const header=inspectorHeader(raw.name,`${raw.kind.toUpperCase()} ${S.mode==='cards'?'· This card only':'· All cards'}`,true);
+ writeInspector(box,header+`<section id="inspector-tab-panel" role="tabpanel" aria-labelledby="inspector-tab-${inspectorTab}" class="inspector-pane">${panes[inspectorTab]}</section>`);
 }
 export function refreshHistoryButtons(){
  const state=historyState();
