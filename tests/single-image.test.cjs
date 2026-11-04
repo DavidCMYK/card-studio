@@ -2,7 +2,7 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const model=require('../.build/model.js');
 const {getImageRef,imageCache}=require('../.build/image-sets.js');
-const {renderInspector}=require('../.build/interface.js');
+const {renderInspector,selectInspectorTab}=require('../.build/interface.js');
 const {renderStage}=require('../.build/preview.js');
 const {canvasCard}=require('../.build/png-renderer.js');
 
@@ -50,7 +50,7 @@ test('missing fixed image does not silently fall back, and old assignment modes 
 test('template inspector lets user select one file, card inspector shows a fixed assignment',()=>{
  const {state,frame}=setup(),ui=dom();
  try{
-  state.selected=frame.id;renderInspector();
+  state.selected=frame.id;selectInspectorTab('content');renderInspector();
   let html=ui.get('#inspector').innerHTML;
   assert.match(html,/Single Image \(same on all cards\)/);
   assert.match(html,/data-prop="singleImage"/);
