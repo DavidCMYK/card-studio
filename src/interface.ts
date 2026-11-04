@@ -217,7 +217,7 @@ export function renderInspector(){
     `<div class="fields-two">${field('Canvas width ('+S.template.unit+')','template.width',S.template.width,'number','min="0.01" step="any"')}${field('Canvas height ('+S.template.unit+')','template.height',S.template.height,'number','min="0.01" step="any"')}</div>`+
     selectionField('Units','template.unit',[['mm','Millimetres (mm)'],['in','Inches (in)'],['px','Pixels (px)']],S.template.unit)+
     `<div class="small" style="padding:4px 0 12px" id="templatePixelReadout">${sizeReadout()}</div><div class="small">${guideReadout()}</div>`,true)+
-   fold('setup-guides','Trim and safe area guides',guideSettingsHtml(S.template,field,selectionField,checkbox))+
+   fold('setup-guides','Trim and safe area guides',guideSettingsHtml(S.template,field,selectionField,checkbox,guideReadout()))+
 
    fold('setup-background','Background',field('Background colour','template.background',S.template.background,'color'),true)+
    fold('setup-rendering','Rendering',
