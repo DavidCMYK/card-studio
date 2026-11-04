@@ -11,7 +11,7 @@ import {chooseEditorLayout,fitCardZoom,EditorLayout} from './mobile-mode';
 import {installMobileGestures} from './mobile-touch';
 import {renderQuickEditor,performQuickAction} from './mobile-quick';
 
-type Panel='none'|'add'|'file'|'export'|'layers'|'cards'|'images'|'properties'|'quick'|'nudge';
+type Panel='none'|'add'|'file'|'export'|'layers'|'templates'|'cards'|'images'|'properties'|'quick'|'nudge';
 const root=document.documentElement,app=$('.app') as HTMLElement,outer=$('#canvasOuter') as HTMLElement;
 const key='cardstudio.interface-layout';
 const mobile=()=>root.dataset.layout==='mobile';
@@ -96,7 +96,7 @@ function start(){
  context.innerHTML='<div><strong id="mobileSelectionName"></strong><small id="mobileSelectionScope"></small></div><button data-mobile="nudge" id="mobileNudgeButton">Move</button><button data-mobile="quick" id="mobileQuickButton">Edit</button>';
  app.append(context);
  const dock=document.createElement('nav');dock.className='m-dock';dock.setAttribute('aria-label','Mobile editing tools');
- dock.innerHTML='<button data-mobile="add"><span>＋</span>Add</button><button data-mobile="layers"><span>▤</span>Layers</button><button data-mobile="cards"><span>▦</span>Cards</button><button data-mobile="images"><span>▧</span>Images</button><button data-mobile="properties"><span>⚙</span>Properties</button><button data-mobile="fit"><span>⛶</span>Fit</button>';
+ dock.innerHTML='<button data-mobile="add"><span>＋</span>Add</button><button data-mobile="layers"><span>▤</span>Layers</button><button data-mobile="templates"><span>▣</span>Sets</button><button data-mobile="cards"><span>▦</span>Cards</button><button data-mobile="images"><span>▧</span>Images</button><button data-mobile="properties"><span>⚙</span>Properties</button><button data-mobile="fit"><span>⛶</span>Fit</button>';
  app.append(dock);
  const scrim=document.createElement('button');scrim.className='m-scrim';scrim.dataset.mobile='close';scrim.setAttribute('aria-label','Close panel');app.append(scrim);
  const sheet=document.createElement('section');sheet.className='m-actions';sheet.setAttribute('aria-label','Mobile actions');
