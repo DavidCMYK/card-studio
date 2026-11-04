@@ -138,9 +138,10 @@ test('cut and safe radii clamp to smaller limits when corresponding guide shrink
  g.setSafeZoneDimension(t,'width',30);
  near(g.guidesFor(t).radii.cut,25);
  near(g.guidesFor(t).radii.safe,15);
- g.setCutDimension(t,'width',20);
- near(g.guidesFor(t).radii.cut,10);
- assert.deepEqual(g.trimDimensionsMm(t),{width:20,height:88});
+ g.setCutDimension(t,'width',40);
+ near(g.guidesFor(t).radii.cut,20);
+ assert.deepEqual(g.trimDimensionsMm(t),{width:40,height:88});
+ near(g.guidesFor(t).radii.safe,3.5);
  assert.equal(cards[0].extraElements[0].x,4);
 });
 
