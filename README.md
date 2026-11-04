@@ -137,6 +137,15 @@ When creating a project, choose whether the **canvas dimensions are the finished
 
 In **Template → Card Setup → Trim and safe area guides**, configure the bleed and safe inset for all sides together or each edge separately. Select **mm, inches or DPI-aware pixels**, independently of the canvas size unit; measurements are stored in physical units so changing display units cannot move artwork. Toggle the guide overlay with **Guides (G)** in the desktop toolbar, the **G** keyboard shortcut, or the mobile Project menu. Display in Cards mode and dimming outside the safe area are separate options.
 
-**Existing projects are protected:** changing canvas/trim interpretation or modifying guide distances never resizes the canvas or moves, scales or stretches any artwork, including template elements, card overrides and extra elements. The guide controls only update measurements and non-exporting overlays. If needed, edit the canvas size explicitly in **Card Setup → Dimensions**; the finished trim dimensions update automatically. Existing projects without guide metadata default to **canvas edge = trim**, preserving their original geometry and PNG output.
+**Three editable, connected sizes:** In **Card Setup → Dimensions**, edit **Finished cut width/height**, **Canvas width/height**, or **Safe-zone width/height** in the canvas unit (mm/in/px). The cut size is the reference for the others:
+
+- **Cut size edited** → canvas adjusts by the currently configured bleed; safe dimensions change by the current safety buffers.
+- **Canvas size edited** → bleed recalculates, cut size remains unchanged; canvas cannot shrink below cut size. Opposing bleed edges share the difference, and the all-sides link unchecks automatically when necessary.
+- **Bleed edited** → canvas expands/contracts, cut size remains unchanged.
+- **Safety buffer edited** → safe dimensions update, cut size stays unchanged.
+- **Safe-zone size edited** → safety buffers update, cut size stays unchanged; safe dimensions cannot exceed the cut size.
+- Changing canvas bleed mode adds/removes configured bleed around the fixed cut size; changing no-bleed canvas dimensions automatically enables bleed when required.
+
+All dimension calculations preserve the user's **element geometry**: changing canvas/trim/bleed/safe size never edits template element positions, card overrides or extra card elements. Users may need to arrange artwork relative to a newly positioned trim boundary, but nothing is silently moved or stretched. Older project files without guide metadata default to **canvas edge = trim**. The **New Project** dialog offers the same directly editable sizes and per-edge buffer controls.
 
 **Export PNG** and **Export all ZIP** continue to use the complete canvas; the File menu and mobile Export menu now offer **Export trimmed PNG**, which removes included bleed and produces the finished-card dimensions at the selected DPI. Print-sheet PDFs place cards using the **finished trim size**, render artwork already in the canvas outside the trim edge, and align crop marks to that trim boundary. The old edge-extension bleed fallback remains available only when the canvas excludes bleed. Guides, sizing mode, distances and visibility are saved with the template/project; existing editor-only shape guides remain untouched.
