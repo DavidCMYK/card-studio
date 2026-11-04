@@ -281,6 +281,11 @@ const server=http.createServer((req,res)=>{
   await op.waitForFunction(()=>Boolean(navigator.serviceWorker.controller),null,{timeout:15000});
   const manifest=await op.evaluate(async()=>await (await fetch('./manifest.webmanifest')).json());
   assert.equal(manifest.display,'standalone');
+  const appIcon=await op.evaluate(async()=>{
+   const picture=await createImageBitmap(await (await fetch('./icons/card-512.png')).blob());
+   return [picture.width,picture.height];
+  });
+  assert.deepEqual(appIcon,[512,512],'install icon is a decodable PNG');
   await offline.setOffline(true);
   await op.reload({waitUntil:'domcontentloaded',timeout:15000});
   await op.locator('#stage .element').first().waitFor({timeout:8000});
