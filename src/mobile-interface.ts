@@ -11,7 +11,7 @@ const key='cardstudio.interface-layout';
 const mobile=()=>root.dataset.layout==='mobile';
 const menus:Record<string,Array<[string,string]>>={
  add:[['add-text','Add text'],['add-image','Add image frame'],['add-shape','Add shape']],
- file:[['new-project','New project'],['open-project','Open project'],['load-template','Open template'],['save-project','Save project'],['save-project-as','Save project as…'],['save-template','Save template'],['save-template-as','Save template as…']],
+ file:[['new-project','New project'],['open-project','Open project'],['load-template','Open template'],['embed-fonts','Embed font files…'],['embed-used-fonts','Embed installed fonts…'],['save-project','Save project'],['save-project-as','Save project as…'],['save-template','Save template'],['save-template-as','Save template as…']],
  export:[['export-current','Export current PNG'],['export-all','Export all cards ZIP'],['export-sheet','Export staging XLSX'],['import-sheet','Import card data CSV/XLSX']]
 };
 let panel:Panel='none',autoFit=true;
@@ -72,7 +72,7 @@ function autoLayout(){
 }
 function start(){
  const header=document.createElement('header');header.id='mobileShell';header.className='m-header';
- header.innerHTML='<div class="m-appbar"><button data-mobile="file" aria-label="Project menu">☰</button><strong id="mobileProjectName">Card Studio</strong><button data-action="save-project">Save</button><button data-mobile="export">Export</button></div><div class="m-mode" role="group" aria-label="Editing mode"><button data-action="mode-template">Template</button><button data-action="mode-cards">Cards</button></div>';
+ header.innerHTML='<div class="m-appbar"><button data-mobile="file" aria-label="Project menu">☰</button><strong id="mobileProjectName">Card Studio</strong><button data-action="undo" aria-label="Undo" title="Undo" disabled>↶</button><button data-action="redo" aria-label="Redo" title="Redo" disabled>↷</button><button data-action="save-project">Save</button><button data-mobile="export">Export</button></div><div class="m-mode" role="group" aria-label="Editing mode"><button data-action="mode-template">Template</button><button data-action="mode-cards">Cards</button></div>';
  app.prepend(header);
  const nav=document.createElement('div');nav.id='mobileCardNav';nav.className='m-card-nav';
  nav.innerHTML='<button data-action="prev-card" aria-label="Previous card">‹</button><button data-mobile="cards" id="mobileCardLabel">Card</button><button data-action="next-card" aria-label="Next card">›</button>';
