@@ -1,5 +1,5 @@
 /** Debounced, local-only crash recovery. Never overwrites a chosen project file. */
-import {S,initial,replaceState,escapeHTML} from './model';
+import {S,loadedProject,replaceState,escapeHTML} from './model';
 import {subscribeHistory,historyRevision,resetHistory,checkpoint} from './history';
 import {imageCache} from './image-sets';
 import {repaint} from './interface';
@@ -94,7 +94,7 @@ function recoveryDialog(draft:RecoveryDraft){
    if(!pending)throw Error('Recovery copy no longer available');
    const copy=structuredClone(pending.project);
    resetFileHandles();
-   replaceState({...initial(),...copy});
+   replaceState(loadedProject(copy));
    imageCache.clear();resetHistory();
    await activateProjectFonts();
    blocked=false;pending=null;dirty=false;closeDialog();
