@@ -56,63 +56,32 @@ export function validateGuides(t:CardTemplate):void{
   if(canvas.width<=0||canvas.height<=0||trim.w<=0||trim.h<=0)throw Error('Bleed must leave a positive finished-card size');
   if(safe.w<=0||safe.h<=0)throw Error('Safe-area insets must leave a visible interior');
 }
-function scaleMm(t:CardTemplate,mm:number):number{return mm/mmPerUnit(t.unit,t.dpi);}
-/** Shift artwork so its position relative to trim stays fixed, while full-canvas
- * backgrounds still cover the outer canvas. Applies to template, card overrides
- * and card-only objects. Values/anchors are unchanged. */
-function resizeCanvasAroundTrim(t:CardTemplate,cards:StagedCard[],oldEdges:Edges,newEdges:Edges){
-  const dx=distanceMm(newEdges.left-oldEdges.left,'mm',t.dpi)*96/25.4;
-  const dy=distanceMm(newEdges.top-oldEdges.top,'mm',t.dpi)*96/25.4;
-  const dw=distanceMm(newEdges.left+newEdges.right-oldEdges.left-oldEdges.right,'mm',t.dpi)*96/25.4;
-  const dh=distanceMm(newEdges.top+newEdges.bottom-oldEdges.top-oldEdges.bottom,'mm',t.dpi)*96/25.4;
-  const c=canvasDimensionsMm(t),oldW=c.width*96/25.4,oldH=c.height*96/25.4;
-  const background=(e:Partial<CardElement>)=>Math.abs((e.x??NaN))<.01&&Math.abs((e.y??NaN))<.01&&Math.abs((e.w??NaN)-oldW)<.01&&Math.abs((e.h??NaN)-oldH)<.01;
-  const edit=(e:Partial<CardElement>,full:boolean)=>{
-    if(full){if(e.x!==undefined)e.x=0;if(e.y!==undefined)e.y=0;
-      if(e.w!==undefined)e.w+=dw;if(e.h!==undefined)e.h+=dh;
-    }else{if(e.x!==undefined)e.x+=dx;if(e.y!==undefined)e.y+=dy;}
-  };
-  const fullIds=new Set(t.elements.filter(background).map(e=>e.id));
-  for(const e of t.elements)edit(e,fullIds.has(e.id));
-  for(const card of cards){
-    for(const e of card.extraElements||[])edit(e,background(e));
-    for(const [id,o] of Object.entries(card.overrides||{})){
-      // A partial override inherits shifted coordinates from the template.
-      // Explicit position overrides must follow that shift too.
-      if(fullIds.has(id)){if(o.x!==undefined)o.x=0;if(o.y!==undefined)o.y=0;
-        if(o.w!==undefined)o.w+=dw;if(o.h!==undefined)o.h+=dh;
-      }else{if(o.x!==undefined)o.x+=dx;if(o.y!==undefined)o.y+=dy;}
-    }
-  }
-  t.width+=scaleMm(t,newEdges.left+newEdges.right-oldEdges.left-oldEdges.right);
-  t.height+=scaleMm(t,newEdges.top+newEdges.bottom-oldEdges.top-oldEdges.bottom);
+/**
+ * Existing artwork MUST remain unchanged when bleed interpretation changes.
+ * The canvas is an existing physical document, not a request to rescale it.
+ * Explicit canvas size edits belong to the existing dimension controls.
+ */
+export function changeBleedMode(t:CardTemplate,_cards:StagedCard[],mode:BleedMode):void {
+  const before=guidesFor(t);
+  if(before.bleedMode===mode)return;
+  if(mode!=='trim'&&mode!=='bleed')throw Error('Unknown canvas sizing mode');
+  const next={...before,bleedMode:mode};
+  validateGuides({...t,guides:next});
+  t.guides=next;
 }
-const zero:Edges={top:0,right:0,bottom:0,left:0};
-/** Mode change, with either size-preserving expansion or explicit reinterpretation. */
-export function changeBleedMode(t:CardTemplate,cards:StagedCard[],mode:BleedMode,preserveTrim=true){
-  const before=guidesFor(t);if(before.bleedMode===mode)return;
-  const oldEdges=before.bleedMode==='bleed'?before.bleed:zero;
-  const newEdges=mode==='bleed'?before.bleed:zero;
-  const k=mmPerUnit(t.unit,t.dpi);
-  const trial:CardTemplate={...t,guides:{...before,bleedMode:mode},
-   width:t.width+(preserveTrim?(newEdges.left+newEdges.right-oldEdges.left-oldEdges.right)/k:0),
-   height:t.height+(preserveTrim?(newEdges.top+newEdges.bottom-oldEdges.top-oldEdges.bottom)/k:0)};
-  validateGuides(trial); // Reject impossible sizes before moving any artwork.
-  if(preserveTrim)resizeCanvasAroundTrim(t,cards,oldEdges,newEdges);
-  t.guides={...before,bleedMode:mode};
-}
-export function setGuideDistance(t:CardTemplate,cards:StagedCard[],kind:'bleed'|'safe',edge:Edge,valueMm:number){
+
+/**
+ * Distances are metadata measured from the current canvas/trim edge.
+ * Changing them must never move, stretch or otherwise alter user artwork.
+ */
+export function setGuideDistance(t:CardTemplate,_cards:StagedCard[],kind:'bleed'|'safe',edge:Edge,valueMm:number):void {
   if(!Number.isFinite(valueMm)||valueMm<0)throw Error('Distance must be zero or greater');
-  const g=guidesFor(t),before={...g[kind]},after={...before};
-  if(g[kind+'Linked' as 'bleedLinked'|'safeLinked'])for(const e of ['top','right','bottom','left'] as Edge[])after[e]=valueMm;
-  else after[edge]=valueMm;
-  const k=mmPerUnit(t.unit,t.dpi);
-  const expanding=kind==='bleed'&&g.bleedMode==='bleed';
-  const trial:CardTemplate={...t,guides:{...g,[kind]:after},
-   width:t.width+(expanding?(after.left+after.right-before.left-before.right)/k:0),
-   height:t.height+(expanding?(after.top+after.bottom-before.top-before.bottom)/k:0)};
-  validateGuides(trial); // Failed edits never corrupt layout.
-  if(expanding)resizeCanvasAroundTrim(t,cards,before,after);
-  t.guides={...g,[kind]:after};
+  const g=guidesFor(t),after={...g[kind]};
+  if(g[kind+'Linked' as 'bleedLinked'|'safeLinked']){
+    for(const e of ['top','right','bottom','left'] as Edge[])after[e]=valueMm;
+  }else after[edge]=valueMm;
+  const next={...g,[kind]:after};
+  validateGuides({...t,guides:next});
+  t.guides=next;
 }
 export function setGuideUnit(t:CardTemplate,unit:Units){t.guides={...guidesFor(t),unit};}
