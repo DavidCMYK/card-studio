@@ -1,5 +1,5 @@
 import { S, initial, replaceState, safeFile,selectProjectTemplate,templateById,normalizeProject,uid } from './model';
-import {cloneTemplate} from './project-collections';
+import {cloneTemplate,uniqueTemplateName} from './project-collections';
 import { $, jsonDownload, download, toast } from './dom';
 import { imageCache } from './image-sets';
 import { repaint } from './interface';
@@ -148,7 +148,7 @@ export async function openJSON(file: {text: () => Promise<string>}, onlyTemplate
    // any existing template or clearing cards/data. Remap element IDs so a
    // separately loaded template cannot accidentally share field IDs.
    normalizeProject(S);
-   const added=cloneTemplate(obj.template,obj.template.name||'Imported template');
+   const added=cloneTemplate(obj.template,uniqueTemplateName(obj.template.name||'Imported template'));
    // Keep imported image assets independent from existing image sets.
    const importedSets=Array.isArray(obj.sets)?obj.sets:[];
    const remap=new Map<string,string>();
