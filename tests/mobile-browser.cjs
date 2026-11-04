@@ -38,6 +38,33 @@ const server=http.createServer((req,res)=>{
   });
   await dp.goto(url);
   await dp.locator('#stage .element').first().waitFor();
+  // Separate project: guide modes, physical size preservation and creation dialog.
+  const guideContext=await browser.newContext({viewport:{width:1360,height:900}});
+  const gp=await guideContext.newPage();gp.on('pageerror',e=>errors.push('guides: '+e.message));
+  await gp.goto(url);
+  await gp.locator('#stage .element').first().waitFor();
+  await gp.locator('#inspector [data-inspector-fold="setup-guides"] summary').click();
+  await gp.locator('#inspector [data-prop="guide.bleedMode"]').selectOption('bleed');
+  assert.equal(Number(await gp.locator('[data-prop="template.width"]').inputValue()),69,'adding 3mm bleed expands canvas');
+  assert.equal(await gp.locator('#stage .guide-trim').count(),1,'inset red trim line displayed');
+  assert.equal(await gp.locator('#stage .guide-safe').count(),1,'safe line displayed');
+  await gp.locator('#inspector [data-prop="guide.unit"]').selectOption('px');
+  assert.ok(Math.abs(Number(await gp.locator('[data-prop="guide.bleed.top"]').inputValue())-35.433071)<.01,'DPI-aware millimetre to pixel conversion');
+  await gp.locator('#inspector [data-prop="guide.bleedMode"]').selectOption('trim');
+  assert.equal(Number(await gp.locator('[data-prop="template.width"]').inputValue()),63,'removing bleed restores canvas size');
+  assert.equal(await gp.locator('#stage .guide-trim').count(),0,'trim guide absent when canvas edge is trim');
+  await gp.keyboard.press('g');
+  assert.equal(await gp.locator('#stage .guide-safe').count(),0,'G toggles guides');
+  await gp.locator('#fileMenu summary').click();
+  await gp.locator('#fileMenu [data-action="new-project"]').click();
+  await gp.locator('#newProjectDialog').waitFor({state:'visible'});
+  await gp.locator('#newProjectDialog [name="mode"]').selectOption('bleed');
+  assert.equal(await gp.locator('#newProjectDialog [name="width"]').inputValue(),'69','new project wizard grows canvas on bleed selection');
+  await gp.locator('#newProjectDialog button[type="submit"]').click();
+  await gp.locator('#newProjectDialog').waitFor({state:'detached'});
+  assert.equal(Number(await gp.locator('[data-prop="template.width"]').inputValue()),69,'new project's canvas size is explicit');
+  assert.equal(await gp.locator('#stage .guide-trim').count(),1,'new project starts with trim guide');
+  await guideContext.close();
   // Print-sheet workflow: quantities, preview, shared backs, duplex PDF.
   await dp.locator('.top [data-action="print-sheets"]').click();
   assert.equal(await dp.locator('#printModal').isVisible(),true,'print dialog opens');
@@ -70,7 +97,7 @@ const server=http.createServer((req,res)=>{
   assert.equal(await dp.locator('#printModal').count(),0,'print dialog closes');
   assert.equal(await dp.locator('.top').isVisible(),true,'desktop toolbar visible');
   assert.equal(await dp.locator('#mobileShell').isVisible(),false,'mobile toolbar hidden on desktop');
-  assert.equal(await dp.locator('#inspector .inspector-fold').count(),4,'card setup grouped into four collapsible sections');
+  assert.equal(await dp.locator('#inspector .inspector-fold').count(),5,'card setup includes a dedicated guides section');
   assert.equal(await dp.locator('#inspector [data-inspector-fold="setup-dimensions"]').getAttribute('open'),'','dimensions initially expanded');
   await dp.locator('#inspector [data-inspector-fold="setup-rendering"] summary').click();
   assert.equal(await dp.locator('#inspector [data-inspector-fold="setup-rendering"]').getAttribute('open'),'','rendering can expand');
