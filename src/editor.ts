@@ -304,6 +304,10 @@ $('#inspector').addEventListener('focusout',()=>{checkpoint();refreshHistoryButt
   if(inp.dataset.cardFilter!==undefined||!activeInspectorInput(inp))return;
   if(inp.dataset.cardvalue){checkpoint();refreshHistoryButtons();renderLeft();return}
   if(inp.dataset.prop){
+   // Immediately normalize export-pixel fields on blur; do not leave
+   // fractional text visible while the saved measurement is already rounded.
+   if(inp.type==='number'&&inp.step==='1'&&inp.value.trim()!==''&&Number.isFinite(Number(inp.value)))
+    inp.value=String(Math.round(Number(inp.value)));
    handleProp(inp);
    repaint(false);
    renderLeft();renderCardControl();
