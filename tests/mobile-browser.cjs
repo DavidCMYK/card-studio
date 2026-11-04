@@ -44,13 +44,25 @@ const server=http.createServer((req,res)=>{
   await gp.goto(url);
   await gp.locator('#stage .element').first().waitFor();
   await gp.locator('#inspector [data-inspector-fold="setup-guides"] summary').click();
+  const guideElementGeometry=await gp.locator('#stage .element').evaluateAll(els=>
+   els.map(el=>({id:el.dataset.id,left:el.style.left,top:el.style.top,width:el.style.width,height:el.style.height})));
   await gp.locator('#inspector [data-prop="guide.bleedMode"]').selectOption('bleed');
+  assert.deepEqual(await gp.locator('#stage .element').evaluateAll(els=>
+   els.map(el=>({id:el.dataset.id,left:el.style.left,top:el.style.top,width:el.style.width,height:el.style.height}))),
+   guideElementGeometry,'changing bleed mode never repositions existing elements');
   assert.equal(Number(await gp.locator('[data-prop="template.width"]').inputValue()),63,'switching to bleed leaves existing canvas unchanged');
   assert.equal(await gp.locator('#stage .guide-trim').count(),1,'inset red trim line displayed');
   assert.equal(await gp.locator('[data-prop="guide.modeChange"]').count(),0,'no implicit artwork conversion setting remains');
   assert.equal(await gp.locator('#stage .guide-safe').count(),1,'safe line displayed');
   await gp.locator('#inspector [data-prop="guide.unit"]').selectOption('px');
   assert.ok(Math.abs(Number(await gp.locator('[data-prop="guide.bleed.top"]').inputValue())-35.433071)<.01,'DPI-aware millimetre to pixel conversion');
+  await gp.locator('[data-prop="guide.bleed.top"]').fill('59.055118');
+  await gp.locator('[data-prop="guide.bleed.top"]').press('Tab');
+  assert.equal(Number(await gp.locator('[data-prop="template.width"]').inputValue()),63,'editing bleed does not resize canvas');
+  assert.deepEqual(await gp.locator('#stage .element').evaluateAll(els=>
+   els.map(el=>({id:el.dataset.id,left:el.style.left,top:el.style.top,width:el.style.width,height:el.style.height}))),
+   guideElementGeometry,'editing bleed does not move any artwork');
+
   await gp.locator('#inspector [data-prop="guide.bleedMode"]').selectOption('trim');
   assert.equal(Number(await gp.locator('[data-prop="template.width"]').inputValue()),63,'reverting bleed interpretation leaves canvas unchanged');
   assert.equal(await gp.locator('#stage .guide-trim').count(),0,'trim guide absent when canvas edge is trim');
