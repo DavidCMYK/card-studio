@@ -54,8 +54,18 @@ const server=http.createServer((req,res)=>{
   assert.equal(Number(await gp.locator('[data-prop="guide.cut.width"]').inputValue()),63,'mode switch preserves cut width');
   assert.equal(await gp.locator('#stage .guide-trim').count(),1,'trim guide visible inside canvas');
   assert.equal(await gp.locator('#stage .guide-safe').count(),1,'safe line displayed');
+  assert.equal(await gp.locator('#inspector [data-prop="guide.radius.canvas"]').count(),0,'canvas edge is not an independently rounded guide');
+  await gp.locator('#inspector [data-prop="guide.radius.cut"]').fill('3');
+  await gp.locator('#inspector [data-prop="guide.radius.cut"]').press('Tab');
+  await gp.locator('#inspector [data-prop="guide.radius.safe"]').fill('2');
+  await gp.locator('#inspector [data-prop="guide.radius.safe"]').press('Tab');
+  assert.match(await gp.locator('#stage .guide-trim').getAttribute('style'),/border-radius:/,'cut guide is rounded');
+  assert.match(await gp.locator('#stage .guide-safe').getAttribute('style'),/border-radius:/,'safe guide is rounded');
+  assert.equal(await gp.locator('#stage .guide-canvas').count(),0,'no canvas-edge guide is drawn');
 
   await gp.locator('#inspector [data-prop="guide.unit"]').selectOption('px');
+  assert.ok(Math.abs(Number(await gp.locator('[data-prop="guide.radius.cut"]').inputValue())-3*300/25.4)<.01,'cut radius converts to pixels at project DPI');
+  assert.ok(Math.abs(Number(await gp.locator('[data-prop="guide.radius.safe"]').inputValue())-2*300/25.4)<.01,'safe radius converts to pixels independently');
   assert.ok(Math.abs(Number(await gp.locator('[data-prop="guide.bleed.top"]').inputValue())-35.433071)<.01,'millimetre to pixel conversion at 300 DPI');
   await gp.locator('[data-prop="guide.bleed.top"]').fill('59.055118');
   await gp.locator('[data-prop="guide.bleed.top"]').press('Tab');
@@ -83,7 +93,7 @@ const server=http.createServer((req,res)=>{
   await gp.locator('#inspector [data-prop="guide.bleedMode"]').selectOption('trim');
   assert.equal(Number(await gp.locator('[data-prop="template.width"]').inputValue()),66,'removing bleed shrinks canvas to cut');
   assert.equal(Number(await gp.locator('[data-prop="guide.cut.width"]').inputValue()),66,'cut retained when disabling bleed');
-  assert.equal(await gp.locator('#stage .guide-trim').count(),0,'trim guide absent when canvas edge is trim');
+  assert.equal(await gp.locator('#stage .guide-trim').count(),1,'rounded cut guide remains visible when cut coincides with canvas edge');
   await gp.evaluate(()=>document.activeElement?.blur());
   await gp.keyboard.press('g');
   assert.equal(await gp.locator('#stage .guide-safe').count(),0,'G toggles guides');
@@ -109,11 +119,19 @@ const server=http.createServer((req,res)=>{
   await gp.locator('#fileMenu summary').click();
   await gp.locator('#fileMenu [data-action="new-project"]').click();
   await gp.locator('#newProjectDialog [name="mode"]').selectOption('bleed');
+  assert.equal(await gp.locator('#newProjectDialog [name="radiusCanvas"]').count(),0,'wizard has no canvas-edge radius');
+  await gp.locator('#newProjectDialog [name="radiusCut"]').fill('3');
+  await gp.locator('#newProjectDialog [name="radiusCut"]').press('Tab');
+  await gp.locator('#newProjectDialog [name="radiusSafe"]').fill('2');
+  await gp.locator('#newProjectDialog [name="radiusSafe"]').press('Tab');
+  assert.equal(await gp.locator('#newProjectDialog [name="width"]').inputValue(),'69','corner rounding does not alter canvas');
   assert.equal(await gp.locator('#newProjectDialog [name="width"]').inputValue(),'69','new-project defaults retain standard cut and bleed');
   await gp.locator('#newProjectDialog button[type="submit"]').click();
   await gp.locator('#newProjectDialog').waitFor({state:'detached'});
   assert.equal(Number(await gp.locator('[data-prop="template.width"]').inputValue()),69,'new project's canvas size is explicit');
   assert.equal(await gp.locator('#stage .guide-trim').count(),1,'new project starts with trim guide');
+  assert.match(await gp.locator('#stage .guide-trim').getAttribute('style'),/border-radius:11\.33858/,'new project saves cut-line rounding');
+  assert.match(await gp.locator('#stage .guide-safe').getAttribute('style'),/border-radius:7\.55905/,'new project saves independent safe rounding');
   await gp.locator('.top [data-action="print-sheets"]').click();
   assert.match(await gp.locator('#prSummary').textContent(),/Cards: 63 × 88 mm/,'print sheet uses finished trim dimensions, not canvas');
   assert.equal(await gp.locator('#printModal [name="bleed"]').isDisabled(),true,'no second edge-extension bleed on full-bleed canvas');
