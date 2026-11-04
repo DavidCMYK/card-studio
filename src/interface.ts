@@ -3,6 +3,8 @@ import { $ } from './dom';
 import { renderStage } from './preview';
 import { layoutTextBox } from './text-layout';
 import { elementGeometry, offsetsForRect, anchorEdges } from './anchor-layout';
+import {checkpoint,historyState} from './history';
+import {bundledFontFamilies} from './project-fonts';
 export function renderCardControl(){const cc=$('#cardControl');cc.style.display=S.mode==='cards'?'flex':'none';if(S.mode!=='cards')return;cc.innerHTML=`<span style="font-weight:700;color:#62778f">CARD</span><button data-action="prev-card" title="Previous card">‹</button><select id="cardSelector">${S.cards.map((c,i)=>`<option value="${i}" ${i===S.cardIndex?'selected':''}>${escapeHTML(c.name)}</option>`).join('')}</select><button data-action="next-card" title="Next card">›</button><span style="color:#8a98a9;margin-left:auto">${S.cardIndex+1} / ${S.cards.length}</span>`}
 export function renderLeft(){
  const v=$('#leftBody');
@@ -109,7 +111,7 @@ export function renderInspector(){const box=$('#inspector');if(!S.selected&&S.mo
  field('Bottom ('+unit+')','gutterBottom',fmt((e.gutterBottom||0)/factor),'number','min="0" step="any"')+
  `</div><div class="small" style="padding:0 0 12px">Background and border cover the full box; the text stays inside these four clearances.</div>`;
  html+=`<div class="section-title">Typography</div>`;
- html+=`<div class="field"><label>Font family</label><input ${editorScope()} data-prop="font" list="fontOptions" value="${escapeHTML(e.font)}"><datalist id="fontOptions">${knownFonts.map(x=>`<option value="${escapeHTML(x)}"></option>`).join('')}</datalist></div><button class="secondary" style="margin:-4px 0 12px" data-action="scan-fonts">Find installed fonts</button>`;
+ html+=`<div class="field"><label>Font family</label><input ${editorScope()} data-prop="font" list="fontOptions" value="${escapeHTML(e.font)}"><datalist id="fontOptions">${[...new Set([...knownFonts,...bundledFontFamilies()])].map(x=>`<option value="${escapeHTML(x)}"></option>`).join('')}</datalist></div><div class="inspector-action"><button class="secondary" data-action="scan-fonts">Find installed fonts</button><button class="secondary" data-action="embed-fonts">Embed font files…</button></div><div class="inspector-action"><button class="secondary" data-action="embed-used-fonts">Embed installed fonts used in project…</button></div>${!(S.fonts||[]).some(f=>f.family.toLowerCase()===String(e.font).toLowerCase())?'<div class="small" style="padding:0 0 8px">Font not included in this project file. Add its font file to avoid substitutions on other devices.</div>':'<div class="small" style="padding:0 0 8px">Embedded font travels with this project.</div>'}`;
  html+=`<div class="fields-two">${field('Font size (pt)','fontSize',e.fontSize,'number','min="1" step="0.5"')}${selectionField('Weight','fontWeight',[[100,'Thin'],[300,'Light'],[400,'Regular'],[500,'Medium'],[600,'Semibold'],[700,'Bold'],[800,'Extra bold'],[900,'Black']],e.fontWeight)}</div>`;
  html+=checkbox('Italic','italic',e.italic)+checkbox('Underline','underline',e.underline);
  html+=`<div class="fields-two">${selectionField('Horizontal','align',[['left','Left'],['center','Center'],['right','Right']],e.align)}${selectionField('Vertical','valign',[['top','Top'],['middle','Middle'],['bottom','Bottom']],e.valign)}${field('Line height','lineHeight',e.lineHeight,'number','min="0.5" max="4" step="0.05"')}${field('Letter spacing (px)','letterSpacing',e.letterSpacing,'number','step="0.2"')}</div>${field('Text colour','color',e.color,'color')}`;
@@ -165,7 +167,13 @@ export function renderInspector(){const box=$('#inspector');if(!S.selected&&S.mo
  if(S.mode==='cards')html+=`<div class="inspector-action"><button class="secondary" data-action="reset-element">${isExtra(raw.id)?'Remove card-only element':'Reset this element to template'}</button></div>`;
  box.innerHTML=html;
 }
-export function repaint(all=true){if(all){renderLeft();renderCardControl();renderInspector()}renderStage();$('#projectTitle').textContent=S.projectName;if(typeof document.dispatchEvent==='function'&&typeof CustomEvent==='function')document.dispatchEvent(new CustomEvent('cardstudio:repaint'))}
+export function refreshHistoryButtons(){
+ const state=historyState();
+ if(typeof document==='undefined'||!document.querySelectorAll)return;
+ for(const button of document.querySelectorAll('[data-action="undo"]') as NodeListOf<HTMLButtonElement>)button.disabled=!state.canUndo;
+ for(const button of document.querySelectorAll('[data-action="redo"]') as NodeListOf<HTMLButtonElement>)button.disabled=!state.canRedo;
+}
+export function repaint(all=true){checkpoint();if(all){renderLeft();renderCardControl();renderInspector()}renderStage();$('#projectTitle').textContent=S.projectName;refreshHistoryButtons();if(typeof document.dispatchEvent==='function'&&typeof CustomEvent==='function')document.dispatchEvent(new CustomEvent('cardstudio:repaint'))}
 export function patchElement(id,patch){
  const raw=templateEl(id);if(!raw)return;
  const before=effective(raw),visual=elementGeometry(raw);
