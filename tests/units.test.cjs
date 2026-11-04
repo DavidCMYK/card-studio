@@ -88,3 +88,29 @@ test('legacy pixel templates migrate design geometry while preserving old PNG di
   const output=await canvasCard(0,'template');
   assert.deepEqual([output.width,output.height],[750,1050]);
 });
+
+test('pixel dimension inspector fields are whole integers with step 1',()=>{
+ let inspector={innerHTML:''};
+ global.document={querySelector(){return inspector;}};
+ const s=model.initial();
+ s.template.unit='px';
+ s.template.width=744.35;
+ s.template.height=1039.72;
+ s.template.guides.unit='px';
+ model.replaceState(s);
+ renderInspector();
+ assert.match(inspector.innerHTML,/data-prop="template.width"[^>]*value="744"[^>]*step="1"/);
+ assert.match(inspector.innerHTML,/data-prop="template.height"[^>]*value="1040"[^>]*step="1"/);
+ assert.match(inspector.innerHTML,/data-prop="guide.cut.width"[^>]*value="744"[^>]*step="1"/);
+ assert.match(inspector.innerHTML,/data-prop="guide.safeZone.width"[^>]*value="[0-9]+"[^>]*step="1"/);
+ assert.match(inspector.innerHTML,/data-prop="guide.bleed.top"[^>]*value="35"[^>]*step="1"/);
+ assert.match(inspector.innerHTML,/data-prop="guide.radius.cut"[^>]*value="0"[^>]*step="1"/);
+ const element=s.template.elements[0];
+ element.x=200.24;element.y=20.5;element.w=50.55;element.h=80.05;
+ s.selected=element.id;
+ renderInspector();
+ assert.match(inspector.innerHTML,/data-prop="x"[^>]*value="626"[^>]*step="1"/);
+ assert.match(inspector.innerHTML,/data-prop="y"[^>]*value="64"[^>]*step="1"/);
+ assert.match(inspector.innerHTML,/data-prop="w"[^>]*value="158"[^>]*step="1"/);
+ assert.match(inspector.innerHTML,/data-prop="h"[^>]*value="250"[^>]*step="1"/);
+});
