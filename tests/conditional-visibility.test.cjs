@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const model = require('../.build/model.js');
 const {renderStage} = require('../.build/preview.js');
-const {renderInspector, renderLeft, patchElement} = require('../.build/interface.js');
+const {renderInspector, renderLeft, patchElement, selectInspectorTab} = require('../.build/interface.js');
 const {canvasCard} = require('../.build/png-renderer.js');
 const {applyTable} = require('../.build/spreadsheet.js');
 const {imageCache} = require('../.build/image-sets.js');
@@ -93,7 +93,7 @@ test('visibility settings can be overridden independently on a card',()=>{
 
 test('inspector exposes a default-on text toggle and link dropdown for frames and shapes',()=>{
  const {get}=dom();const {s,text,shape,image}=setup();
- s.selected=text.id;s.mode='template';renderInspector();
+ s.selected=text.id;s.mode='template';selectInspectorTab('rules');renderInspector();
  assert.match(get('#inspector').innerHTML,/Invisible if empty/);
  assert.match(get('#inspector').innerHTML,/data-prop="invisibleIfEmpty"[^>]+checked/);
  s.selected=shape.id;renderInspector();
