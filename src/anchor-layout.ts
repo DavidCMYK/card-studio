@@ -1,5 +1,5 @@
 /** Shared dynamic edge anchoring for template editor, cards and PNG exports. */
-import type { CardElement } from './types';
+import type { CardElement,CardTemplate } from './types';
 import { S } from './model';
 import { layoutTextBox } from './text-layout';
 
@@ -7,9 +7,9 @@ export type Edge = 'Left'|'Right'|'Top'|'Bottom';
 export type Rect = {x:number;y:number;w:number;h:number};
 export const anchorEdges: Edge[] = ['Left','Right','Top','Bottom'];
 export const hasAnchors=(e:CardElement)=>anchorEdges.some(side=>e[`anchor${side}`]);
-export function linkedSource(e:CardElement, ci:number, mode:'cards'|'template') : CardElement|null {
+export function linkedSource(e:CardElement, ci:number, mode:'cards'|'template',template:CardTemplate=S.template) : CardElement|null {
  if(!e.linkedTextId)return null;
- return [...S.template.elements,...(mode==='cards'?(S.cards[ci]?.extraElements||[]):[])].find(item=>item.id===e.linkedTextId&&item.kind==='text')||null;
+ return [...template.elements,...(mode==='cards'?(S.cards[ci]?.extraElements||[]):[])].find(item=>item.id===e.linkedTextId&&item.kind==='text')||null;
 }
 export function textGeometry(raw:CardElement,ci:number,mode:'cards'|'template'):Rect {
  const e=mode==='cards'?{...raw,...(S.cards[ci]?.overrides?.[raw.id]||{})}:raw;
@@ -26,12 +26,12 @@ const offset=(e:CardElement,side:Edge,child:Rect,source:Rect)=>{
  return child.y+child.h-source.y-source.h;
 };
 /** Compute the actual rectangle WITHOUT mutating persisted element dimensions. */
-export function elementGeometry(raw:CardElement,ci=S.cardIndex,mode:'cards'|'template'=S.mode):Rect {
+export function elementGeometry(raw:CardElement,ci=S.cardIndex,mode:'cards'|'template'=S.mode,template:CardTemplate=S.template):Rect {
  const e=mode==='cards'?{...raw,...(S.cards[ci]?.overrides?.[raw.id]||{})}:raw;
  if(e.kind==='text')return textGeometry(raw,ci,mode);
  const child={x:e.x,y:e.y,w:e.w,h:e.h};
  if(!hasAnchors(e))return child;
- const sourceRaw=linkedSource(e,ci,mode);
+ const sourceRaw=linkedSource(e,ci,mode,template);
  if(!sourceRaw)return child; // Orphaned links do not move or resize an element.
  const source=textGeometry(sourceRaw,ci,mode);
  const l=source.x+offset(e,'Left',child,source),r=source.x+source.w+offset(e,'Right',child,source);
