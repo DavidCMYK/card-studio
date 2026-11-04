@@ -93,16 +93,26 @@ export function changeBleedMode(t:CardTemplate,cards:StagedCard[],mode:BleedMode
   const before=guidesFor(t);if(before.bleedMode===mode)return;
   const oldEdges=before.bleedMode==='bleed'?before.bleed:zero;
   const newEdges=mode==='bleed'?before.bleed:zero;
+  const k=mmPerUnit(t.unit,t.dpi);
+  const trial:CardTemplate={...t,guides:{...before,bleedMode:mode},
+   width:t.width+(preserveTrim?(newEdges.left+newEdges.right-oldEdges.left-oldEdges.right)/k:0),
+   height:t.height+(preserveTrim?(newEdges.top+newEdges.bottom-oldEdges.top-oldEdges.bottom)/k:0)};
+  validateGuides(trial); // Reject impossible sizes before moving any artwork.
   if(preserveTrim)resizeCanvasAroundTrim(t,cards,oldEdges,newEdges);
   t.guides={...before,bleedMode:mode};
-  validateGuides(t);
 }
 export function setGuideDistance(t:CardTemplate,cards:StagedCard[],kind:'bleed'|'safe',edge:Edge,valueMm:number){
   if(!Number.isFinite(valueMm)||valueMm<0)throw Error('Distance must be zero or greater');
   const g=guidesFor(t),before={...g[kind]},after={...before};
   if(g[kind+'Linked' as 'bleedLinked'|'safeLinked'])for(const e of ['top','right','bottom','left'] as Edge[])after[e]=valueMm;
   else after[edge]=valueMm;
-  if(kind==='bleed'&&g.bleedMode==='bleed')resizeCanvasAroundTrim(t,cards,before,after);
-  t.guides={...g,[kind]:after};validateGuides(t);
+  const k=mmPerUnit(t.unit,t.dpi);
+  const expanding=kind==='bleed'&&g.bleedMode==='bleed';
+  const trial:CardTemplate={...t,guides:{...g,[kind]:after},
+   width:t.width+(expanding?(after.left+after.right-before.left-before.right)/k:0),
+   height:t.height+(expanding?(after.top+after.bottom-before.top-before.bottom)/k:0)};
+  validateGuides(trial); // Failed edits never corrupt layout.
+  if(expanding)resizeCanvasAroundTrim(t,cards,before,after);
+  t.guides={...g,[kind]:after};
 }
 export function setGuideUnit(t:CardTemplate,unit:Units){t.guides={...guidesFor(t),unit};}
