@@ -53,6 +53,7 @@ const server=http.createServer((req,res)=>{
   await gp.locator('#inspector [data-prop="guide.bleedMode"]').selectOption('trim');
   assert.equal(Number(await gp.locator('[data-prop="template.width"]').inputValue()),63,'removing bleed restores canvas size');
   assert.equal(await gp.locator('#stage .guide-trim').count(),0,'trim guide absent when canvas edge is trim');
+  await gp.evaluate(()=>document.activeElement?.blur());
   await gp.keyboard.press('g');
   assert.equal(await gp.locator('#stage .guide-safe').count(),0,'G toggles guides');
   await gp.locator('#fileMenu summary').click();
