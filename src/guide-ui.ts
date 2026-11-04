@@ -4,7 +4,7 @@ import {guidesFor,displayedDistance} from './card-guides';
 export function guideSettingsHtml(t:CardTemplate,
  field:(label:string,key:string,value:any,type?:string,extra?:string)=>string,
  selectionField:(label:string,key:string,items:any[],value:any)=>string,
- checkbox:(label:string,key:string,value:boolean)=>string):string{
+ checkbox:(label:string,key:string,value:boolean)=>string,readout:string=''):string{
  const g=guidesFor(t),u=g.unit,dpi=t.dpi;
  const sideInputs=(kind:'bleed'|'safe')=>{
   const linked=kind==='bleed'?g.bleedLinked:g.safeLinked;
@@ -28,5 +28,5 @@ export function guideSettingsHtml(t:CardTemplate,
  checkbox('Show guides in Template mode','guide.showTemplate',g.showTemplate)+
  checkbox('Show guides in Cards mode','guide.showCards',g.showCards)+
  checkbox('Dim outside the safe area','guide.dimUnsafe',g.dimUnsafe)+
- '<div class="small" id="guideReadout"></div>';
+ '<div class="small" id="guideReadout">'+readout+'</div>';
 }
