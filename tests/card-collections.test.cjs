@@ -103,3 +103,30 @@ test('rendering a different card-set template never switches the editor template
  assert.equal(lastFill,'#008080');
  assert.strictEqual(s.template,original);
 });
+
+test('back rendering uses the assigned back template and leaves shared front template untouched',async()=>{
+ const s=reset(),front=s.templates[0],back=addTemplate('Back');
+ front.elements=[];back.elements=[];
+ front.background='#ff0000';back.background='#0000ff';
+ collection.assignSetTemplate(s.cardSets[0].id,'back',back.id);
+ const colors=[];
+ global.document={createElement(tag){return {width:0,height:0,getContext(){return {
+  scale(){},set fillStyle(value){colors.push(value)},fillRect(){}
+ }}}}};
+ model.selectProjectTemplate(front.id);
+ await canvasCard(0,'cards','front');
+ await canvasCard(0,'cards','back');
+ assert.deepEqual(colors,['#ff0000','#0000ff']);
+ assert.strictEqual(s.template,front);
+ assert.equal(s.cardSets[0].frontTemplateId,front.id);
+ assert.equal(s.cardSets[0].backTemplateId,back.id);
+});
+
+test('removing a back assignment leaves the set and front template unchanged',()=>{
+ const s=reset(),front=s.templates[0],back=addTemplate('Back');
+ collection.assignSetTemplate(s.cardSets[0].id,'back',back.id);
+ collection.assignSetTemplate(s.cardSets[0].id,'back','');
+ assert.equal(s.cardSets[0].frontTemplateId,front.id);
+ assert.equal(s.cardSets[0].backTemplateId,undefined);
+ assert.equal(model.assignedTemplate(0,'back'),undefined);
+});
