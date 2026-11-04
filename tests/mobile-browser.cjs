@@ -130,8 +130,10 @@ const server=http.createServer((req,res)=>{
   await gp.locator('#newProjectDialog').waitFor({state:'detached'});
   assert.equal(Number(await gp.locator('[data-prop="template.width"]').inputValue()),69,'new project's canvas size is explicit');
   assert.equal(await gp.locator('#stage .guide-trim').count(),1,'new project starts with trim guide');
-  assert.match(await gp.locator('#stage .guide-trim').getAttribute('style'),/border-radius:11\.33858/,'new project saves cut-line rounding');
-  assert.match(await gp.locator('#stage .guide-safe').getAttribute('style'),/border-radius:7\.55905/,'new project saves independent safe rounding');
+  const cutRadiusPixels=await gp.locator('#stage .guide-trim').evaluate(el=>parseFloat(el.style.borderRadius));
+  const safeRadiusPixels=await gp.locator('#stage .guide-safe').evaluate(el=>parseFloat(el.style.borderRadius));
+  assert.ok(cutRadiusPixels>0&&safeRadiusPixels>0,'new project saves both radius settings');
+  assert.ok(Math.abs(cutRadiusPixels/safeRadiusPixels-1.5)<.001,'cut and safe radii stay independent at any editor zoom');
   await gp.locator('.top [data-action="print-sheets"]').click();
   assert.match(await gp.locator('#prSummary').textContent(),/Cards: 63 × 88 mm/,'print sheet uses finished trim dimensions, not canvas');
   assert.equal(await gp.locator('#printModal [name="bleed"]').isDisabled(),true,'no second edge-extension bleed on full-bleed canvas');
