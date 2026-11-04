@@ -121,9 +121,21 @@ On Android Chrome, open the test site online, then use the browser menu's **Inst
 PWA storage is tied to the exact site origin. Installing the *test* address does not migrate local drafts to a future live domain; save JSON files to move projects between devices or environments. An installed PWA is still a web application; Android/iOS native wrappers remain separate future work.
 
 
+## Multi-template projects and card sets (test branch)
+
+A project can contain **multiple reusable templates** and **multiple card sets**. Each card set has one assigned **front template** and an optional **back template**, both referenced by persistent template IDs. Any template may be assigned to any number of sets on either side. Editing a template updates all cards that reference it, without copying the design to those cards. Individual card content and layout overrides remain separate.
+
+On desktop, use the **Templates** panel to create an empty template, duplicate an existing one, rename or select one for editing. Use **Card Sets** to create sets, assign their front/back templates, add cards, and move existing cards between sets with the **Card set** control in Card Data. In Cards mode, switch **Front / Back** to inspect each side; Template mode edits the current shared design. Mobile has a **Sets** bottom-dock panel and a front/back toggle in card navigation.
+
+The front and back of any one set must have matching **finished cut dimensions**, though their canvas/bleed measurements may differ. Print sheets accept multiple sets of the same cut size; for different sizes, print them in separate jobs. Older projects load as one shared template and one default card set, retaining their artwork, data, and card overrides.
+
+**File management:** **Open template** imports a new independent template without replacing cards or existing designs. **Save template** and **Save template as** operate on the currently selected template; each template has its own file handle. **Save all templates** writes separate `.template.json` files into a chosen folder where supported, or downloads one ZIP containing all independent templates. The files include embedded fonts and referenced image sets. **Save project** retains every template, set, card, assignment, font and image in one project JSON.
+
+**Export and printing:** The current-card PNG follows the selected front/back side. **Export all ZIP** exports fronts, while **Export backs ZIP** and **Export fronts and backs ZIP** offer separate outputs. Duplex print sheets render assigned back templates by default. Legacy individual back images take precedence, and legacy shared back images remain as fallbacks when a set has no back template. Spreadsheet exports include set membership and template-qualified fields when the project has multiple templates or sets.
+
 ## Print sheets PDF (test branch)
 
-Open **Print sheets PDF** from the desktop toolbar or mobile Export menu to create printable A4, Letter, or custom-size PDF sheets. Choose portrait/landscape paper, margins, card spacing, cut marks, 150/300 DPI, and edge-extension bleed. Select cards and quantities without duplicating staged cards. Add a shared back image or a different back image per card; double-sided output alternates front/back pages and mirrors placement for long- or short-edge duplex printing. Preview the first front or back sheet before exporting.
+Open **Print sheets PDF** from the desktop toolbar or mobile Export menu to create printable A4, Letter, or custom-size PDF sheets. Choose portrait/landscape paper, margins, card spacing, cut marks, 150/300 DPI, and edge-extension bleed. Select cards and quantities without duplicating staged cards. Assign reusable back templates to card sets or use legacy shared/individual back images; double-sided output alternates front/back pages and mirrors placement for long- or short-edge duplex printing. Preview the first front or back sheet before exporting.
 
 Print at **actual size / 100%**, not fit-to-page. Edge-extension bleed repeats the outer edge pixels; it is not a substitute for artwork composed with a genuine bleed area. Printer alignment varies, so test duplex registration before producing a large deck. This initial PDF output embeds raster RGB JPEG sheets, not CMYK or vector elements. Print selections, quantities, backs and print settings are saved in project JSON. Printed card designs preserve the existing shared template and individual card overrides.
 
