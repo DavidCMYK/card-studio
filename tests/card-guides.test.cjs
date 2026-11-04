@@ -180,3 +180,30 @@ test('guide borders do not draw a solid highlight underneath the dashed line',()
   assert.doesNotMatch(rule,/box-shadow:(?!none)/,'Solid shadow overlays the dashed '+guide+' guide');
  }
 });
+
+test('pixel measurements display and parse only nearest whole export pixels',()=>{
+ const dpi=300,mmPerPx=25.4/dpi;
+ assert.equal(g.displayedDistance(3,'px',dpi),'35');
+ assert.equal(g.displayedDistance(2,'px',dpi),'24');
+ assert.equal(g.displayedDistance(40.49*mmPerPx,'px',dpi),'40');
+ assert.equal(g.displayedDistance(40.5*mmPerPx,'px',dpi),'41');
+ near(g.distanceMm(35.49,'px',dpi),35*mmPerPx);
+ near(g.distanceMm(35.5,'px',dpi),36*mmPerPx);
+ near(g.distanceMm(2.75,'mm',dpi),2.75);
+ near(g.distanceMm(0.5,'in',dpi),12.7);
+ assert.equal(g.displayedDistance(2.75,'mm',dpi),'2.75');
+});
+
+test('editing guides in pixels snaps physical distances, without rounding when units are merely switched',()=>{
+ const {t,cards}=doc(),original=structuredClone(sizes(t));
+ g.setGuideUnit(t,'px');
+ assert.deepEqual(sizes(t),original,'display unit alone cannot move the guides');
+ assert.equal(g.displayedDistance(t.guides.bleed.top,'px',300),'35');
+ const value=g.distanceMm(35.7,'px',300);
+ g.setGuideDistance(t,cards,'safe','top',value);
+ near(g.guideRects(t).settings.safe.top,36*25.4/300);
+ g.setGuideCornerRadius(t,'cut',g.distanceMm(12.5,'px',300));
+ near(g.guidesFor(t).radii.cut,13*25.4/300);
+ assert.equal(g.displayedDistance(g.guidesFor(t).radii.cut,'px',300),'13');
+ assert.equal(g.displayedDistance(g.guideRects(t).trim.w,'px',300),'744');
+});
