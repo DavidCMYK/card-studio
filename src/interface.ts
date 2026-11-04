@@ -1,4 +1,4 @@
-import { S, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, clamp, px, fmt, sizePx, makeElement, textKinds, escapeHTML, unitFactor, exportPixels, templateExportSize, isExported, visibleOnCard, opacityFor } from './model';
+import { S, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, clamp, px, fmt, sizePx, makeElement, textKinds, escapeHTML, unitFactor, exportPixels, templateExportSize, isExported, isDataExported, visibleOnCard, opacityFor } from './model';
 import { $ } from './dom';
 import { renderStage } from './preview';
 import { layoutTextBox } from './text-layout';
@@ -97,6 +97,8 @@ export function renderInspector(){const box=$('#inspector');if(!S.selected&&S.mo
  html+=checkbox('Hide element','hidden',e.hidden)+checkbox('Lock position','locked',e.locked);
  if(S.mode==='template')html+=checkbox('Include in exported images','includeInExport',isExported(e))+
  `<div class="small" style="padding:0 0 12px">Turn this off for non-printing guides, such as cut lines and bleed markers. These elements appear only in the Template editor, not in Cards previews or PNG exports.</div>`;
+ if(S.mode==='template')html+=checkbox('Include in data export','includeInDataExport',isDataExported(raw))+
+ `<div class="small" style="padding:0 0 12px">Include this element as an XLSX data column when it has card values (text or image). This does not affect card previews or image exports.</div>`;
  if(raw.kind==='text'){
  if(S.mode==='template')html+=`<div class="field"><label>Default text</label><textarea ${editorScope()} data-prop="text">${escapeHTML(e.text)}</textarea></div>`;
  html+=`<div class="section-title">Visibility</div>`+checkbox('Invisible if empty','invisibleIfEmpty',e.invisibleIfEmpty!==false)+

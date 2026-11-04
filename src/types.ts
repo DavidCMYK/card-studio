@@ -7,6 +7,8 @@ export interface CardElement {
   locked: boolean; hidden: boolean;
   /** False for editor-only guides, bleed or cut lines. Missing means true for older projects. */
   includeInExport?: boolean;
+  /** Include this element's card data in XLSX exports. Missing means true for older projects. */
+  includeInDataExport?: boolean;
   /** Text: hide the complete text element when the card's text value is blank. Defaults to true. */
   invisibleIfEmpty?: boolean;
   /** Shape/image: link visibility to the selected text element's ID. */
