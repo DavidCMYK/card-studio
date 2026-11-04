@@ -12,6 +12,7 @@ import { layoutTextBox } from './text-layout';
 import { resizedRect, locksImageCornerAspect } from './resize';
 import { elementGeometry } from './anchor-layout';
 import {enterImageReposition,stopImageReposition,repositionImageId,imageDragPatch,imageScalePatch} from './image-reposition';
+import {enterTextIsolation,stopTextIsolation,isolatedTextId,patchTextIndependently} from './text-isolation';
 import {checkpoint,undo,redo,resetHistory} from './history';
 import {showRecovery,recordProjectReplaced,noteLiveEdit} from './recovery';
 import {importFontFiles,embedInstalledUsedFonts,activateProjectFonts,onFontsReady,bundledFontFamilies} from './project-fonts';
@@ -115,6 +116,8 @@ case 'reposition-image':{
  break;
 }
 case 'finish-reposition-image':stopImageReposition();repaint();break;
+case 'isolate-text':{const raw=templateEl(S.selected);if(raw?.kind==='text'&&enterTextIsolation(raw.id)){stopImageReposition();repaint()}break}
+case 'finish-text-isolation':stopTextIsolation();repaint();break;
 case 'image-rotate-left':case 'image-rotate-right':{
  const raw=templateEl(S.selected);if(!raw||raw.kind!=='image')break;
  const current=effective(raw),step=action==='image-rotate-left'?-90:90;
@@ -195,7 +198,8 @@ function handleProp(input){const key=input.dataset.prop;if(!key)return;let v=inp
     return;
    }
   }
-  patchElement(S.selected,{[key]:v});
+  if(isolatedTextId()===S.selected&&['x','y','w','h','autoWidth','autoHeight'].includes(key))patchTextIndependently(S.selected,{[key]:v},patchElement);
+  else patchElement(S.selected,{[key]:v});
  }
 }
 // The event target may be from the previous inspector after a pointerdown has
@@ -249,29 +253,30 @@ $('#assetFiles').addEventListener('change',async e=>{if(e.target.files.length){a
  $('#fontFiles').addEventListener('change',async e=>{try{if(e.target.files?.length){const {added,skipped}=await importFontFiles(e.target.files);repaint();toast(`Embedded ${added} font file(s) in this project${skipped?' · '+skipped+' skipped':''}. Save the project to take them to other devices.`)}}catch(err){alert('Could not embed fonts: '+(err as Error).message)}finally{e.target.value=''}});
 $('#dialogHolder').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('[data-manager-name]')){e.preventDefault();imageManagerAction('manage-rename',Number(e.target.dataset.managerName))}});
 let drag: any = null;
-function clearSelection(){if(S.selected===null&&!repositionImageId())return;stopImageReposition();S.selected=null;renderInspector();renderLeft();renderStage()}
+function clearSelection(){if(S.selected===null&&!repositionImageId()&&!isolatedTextId())return;stopImageReposition();stopTextIsolation();S.selected=null;renderInspector();renderLeft();renderStage()}
 const stage=$('#stage');
-let lastImagePointer:{id:string;x:number;y:number;at:number}|null=null;
+let lastEditPointer:{id:string;x:number;y:number;at:number}|null=null;
 // The card may be entirely covered by elements. Click the workspace to clear selection.
 // Use the event's original propagation path: renderStage() can replace the clicked
 // element before the event bubbles here, so target.closest('#stage') becomes false.
 $('#canvasOuter').addEventListener('pointerdown',e=>{if(!(e.pointerType==='touch'&&document.documentElement?.dataset.layout==='mobile')&&e.button===0&&!e.composedPath().includes(stage))clearSelection()});
 stage.addEventListener('pointerdown',e=>{
  if(e.button!==0||(e.pointerType==='touch'&&document.documentElement?.dataset.layout==='mobile'))return;
- const now=Date.now(),previous=lastImagePointer;
+ const now=Date.now(),previous=lastEditPointer;
  const rapid=!!previous&&now-previous.at<490&&Math.hypot(previous.x-e.clientX,previous.y-e.clientY)<24;
  const node=e.target.closest('.element');
  const id=node?.dataset.id||(rapid?previous!.id:null);
- if(!id){lastImagePointer=null;clearSelection();return}
+ if(!id){lastEditPointer=null;clearSelection();return}
  const raw=templateEl(id);
- if(rapid&&previous!.id===id&&raw?.kind==='image'){
+ if(rapid&&previous!.id===id&&(raw?.kind==='image'||raw?.kind==='text')&&!e.target.closest('[data-handle]')){
   // Recognize the second pointerdown before redraw removes the click target.
-  S.selected=id;drag=null;lastImagePointer=null;
-  if(enterImageReposition(id)){renderInspector();renderLeft();renderStage()}
+  S.selected=id;drag=null;lastEditPointer=null;
+  if(raw.kind==='image'?enterImageReposition(id):enterTextIsolation(id)){renderInspector();renderLeft();renderStage()}
   e.preventDefault();return;
  }
- lastImagePointer=raw?.kind==='image'?{id,x:e.clientX,y:e.clientY,at:now}:null;
+ lastEditPointer=raw?.kind==='image'||raw?.kind==='text'?{id,x:e.clientX,y:e.clientY,at:now}:null;
  if(repositionImageId()&&repositionImageId()!==id)stopImageReposition();
+ if(isolatedTextId()&&isolatedTextId()!==id)stopTextIsolation();
  S.selected=id;renderInspector();renderLeft();
  const el=effective(templateEl(id)),rect=elementGeometry(templateEl(id));
  const isImageDrag=repositionImageId()===id&&el.kind==='image';
@@ -283,25 +288,25 @@ stage.addEventListener('pointerdown',e=>{
   imageStart:{...el,...rect},lockAspect:locksImageCornerAspect(el.kind,el.imageFit,handle)};
  e.preventDefault();
 });
-document.addEventListener('pointermove',e=>{if(!drag)return;if(Math.hypot(e.clientX-drag.initialX,e.clientY-drag.initialY)>9)lastImagePointer=null;const {w,h}=sizePx(),dx=(e.clientX-drag.initialX)/S.zoom,dy=(e.clientY-drag.initialY)/S.zoom;let patch;if(drag.type==='image'){const raw=templateEl(drag.id),src=raw?getImageData(raw,S.cardIndex,S.mode):null,cached=src?cacheImage(src):null;patch=imageDragPatch(drag.imageStart,dx,dy,cached?.loaded?cached.im:null)}else if(drag.type==='resize'){const rect=resizedRect(drag.visual,drag.handle||'se',dx,dy,{w,h},drag.lockAspect);const handle=drag.handle||'se';patch={};if(handle.includes('w')||handle.includes('e'))Object.assign(patch,{x:rect.x,w:rect.w,autoWidth:false});if(handle.includes('n')||handle.includes('s'))Object.assign(patch,{y:rect.y,h:rect.h,autoHeight:false})}else patch={x:Math.round(clamp(drag.x+dx,-drag.w+4,w-4)),y:Math.round(clamp(drag.y+dy,-drag.h+4,h-4))};patchElement(drag.id,patch);renderStage();renderInspector()});
+document.addEventListener('pointermove',e=>{if(!drag)return;if(Math.hypot(e.clientX-drag.initialX,e.clientY-drag.initialY)>9)lastEditPointer=null;const {w,h}=sizePx(),dx=(e.clientX-drag.initialX)/S.zoom,dy=(e.clientY-drag.initialY)/S.zoom;let patch;if(drag.type==='image'){const raw=templateEl(drag.id),src=raw?getImageData(raw,S.cardIndex,S.mode):null,cached=src?cacheImage(src):null;patch=imageDragPatch(drag.imageStart,dx,dy,cached?.loaded?cached.im:null)}else if(drag.type==='resize'){const rect=resizedRect(drag.visual,drag.handle||'se',dx,dy,{w,h},drag.lockAspect);const handle=drag.handle||'se';patch={};if(handle.includes('w')||handle.includes('e'))Object.assign(patch,{x:rect.x,w:rect.w,autoWidth:false});if(handle.includes('n')||handle.includes('s'))Object.assign(patch,{y:rect.y,h:rect.h,autoHeight:false})}else patch={x:Math.round(clamp(drag.x+dx,-drag.w+4,w-4)),y:Math.round(clamp(drag.y+dy,-drag.h+4,h-4))};if(isolatedTextId()===drag.id)patchTextIndependently(drag.id,patch,patchElement);else patchElement(drag.id,patch);renderStage();renderInspector()});
 document.addEventListener('pointerup',()=>{if(drag){drag=null;checkpoint();refreshHistoryButtons();renderInspector();renderLeft();renderStage()}});
-function onImageDoubleClick(e:MouseEvent){
+function onElementDoubleClick(e:MouseEvent){
  if(document.documentElement?.dataset.layout==='mobile')return;
  // The first pointerdown redraws the selected element. On some browsers the
  // second click (and dblclick) therefore targets the unchanged stage instead.
  const hit=(e.target as HTMLElement).closest?.('.element') as HTMLElement|null;
- const recent=lastImagePointer&&Date.now()-lastImagePointer.at<900&&
-  Math.hypot(lastImagePointer.x-e.clientX,lastImagePointer.y-e.clientY)<25?lastImagePointer.id:null;
+ const recent=lastEditPointer&&Date.now()-lastEditPointer.at<900&&
+  Math.hypot(lastEditPointer.x-e.clientX,lastEditPointer.y-e.clientY)<25?lastEditPointer.id:null;
  const id=hit?.dataset.id||recent||S.selected;
- const raw=templateEl(id);if(raw?.kind!=='image')return;
+ const raw=templateEl(id);if(raw?.kind!=='image'&&raw?.kind!=='text')return;
  const rect=elementGeometry(raw),stageRect=stage.getBoundingClientRect();
  const x=(e.clientX-stageRect.left)/S.zoom,y=(e.clientY-stageRect.top)/S.zoom;
  if(x<rect.x||y<rect.y||x>rect.x+rect.w||y>rect.y+rect.h)return;
  S.selected=raw.id;
- if(enterImageReposition(raw.id)){renderInspector();renderLeft();renderStage();e.preventDefault()}
+ if(raw.kind==='image'?enterImageReposition(raw.id):enterTextIsolation(raw.id)){renderInspector();renderLeft();renderStage();e.preventDefault()}
 }
-stage.addEventListener('click',e=>{if(e.detail>=2)onImageDoubleClick(e)});
-stage.addEventListener('dblclick',onImageDoubleClick);
+stage.addEventListener('click',e=>{if(e.detail>=2)onElementDoubleClick(e)});
+stage.addEventListener('dblclick',onElementDoubleClick);
 let imageWheelTimer:ReturnType<typeof setTimeout>|null=null;
 $('#canvasOuter').addEventListener('wheel',(e:WheelEvent)=>{
  const id=repositionImageId();if(!id)return;
@@ -319,7 +324,7 @@ $('#canvasOuter').addEventListener('wheel',(e:WheelEvent)=>{
  if(imageWheelTimer!==null)clearTimeout(imageWheelTimer);
  imageWheelTimer=setTimeout(()=>{imageWheelTimer=null;checkpoint();refreshHistoryButtons()},220);
 },{passive:false});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.querySelector('.image-manager')){closeImageManager();e.preventDefault();return}if(e.key==='Escape'&&repositionImageId()){stopImageReposition();renderStage();renderInspector();e.preventDefault();return}const active=document.activeElement,tag=active?.tagName;
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.querySelector('.image-manager')){closeImageManager();e.preventDefault();return}if(e.key==='Escape'&&repositionImageId()){stopImageReposition();renderStage();renderInspector();e.preventDefault();return}if(e.key==='Escape'&&isolatedTextId()){stopTextIsolation();renderStage();renderInspector();e.preventDefault();return}const active=document.activeElement,tag=active?.tagName;
 if(['INPUT','TEXTAREA','SELECT'].includes(tag)||(active as HTMLElement)?.isContentEditable)return;
  if((e.ctrlKey||e.metaKey)&&!e.altKey){const key=e.key.toLowerCase();if(key==='z'||key==='y'){e.preventDefault();mutateAction(key==='y'||e.shiftKey?'redo':'undo');return}}
 if((e.ctrlKey||e.metaKey)&&!e.altKey&&!e.shiftKey&&S.mode==='template'){
@@ -331,7 +336,7 @@ if((e.ctrlKey||e.metaKey)&&!e.altKey&&!e.shiftKey&&S.mode==='template'){
 if(e.ctrlKey||e.altKey||e.metaKey)return;if(!S.selected)return;if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();mutateAction('delete-element');return}const delta={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];if(delta){const el=effective(templateEl(S.selected)),rect=elementGeometry(templateEl(S.selected));if(el.locked&&repositionImageId()!==S.selected)return;e.preventDefault();const step=e.shiftKey?10:1;
  const raw=templateEl(S.selected),src=raw?getImageData(raw,S.cardIndex,S.mode):null,cached=src?cacheImage(src):null;
  const patch=repositionImageId()===S.selected?imageDragPatch({...el,...rect},delta[0]*step,delta[1]*step,cached?.loaded?cached.im:null):{x:rect.x+delta[0]*step,y:rect.y+delta[1]*step};
- patchElement(S.selected,patch);renderStage();renderInspector();checkpoint();refreshHistoryButtons()}});
+ if(isolatedTextId()===S.selected)patchTextIndependently(S.selected,patch,patchElement);else patchElement(S.selected,patch);renderStage();renderInspector();checkpoint();refreshHistoryButtons()}});
 window.addEventListener('resize',()=>{});
 
 repaint();
