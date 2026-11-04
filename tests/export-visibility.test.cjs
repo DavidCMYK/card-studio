@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const model = require('../.build/model.js');
 const {renderStage} = require('../.build/preview.js');
-const {renderInspector, renderLeft} = require('../.build/interface.js');
+const {renderInspector, renderLeft, selectInspectorTab} = require('../.build/interface.js');
 const {canvasCard} = require('../.build/png-renderer.js');
 
 function initDOM(){
@@ -38,7 +38,7 @@ test('editor-only elements show in template but never in cards preview or PNGs',
   s.selected=guide.id;
   renderStage();
   assert.match(node('#stage').innerHTML,new RegExp(`data-id="${guide.id}"`));
-  renderInspector();
+  selectInspectorTab('rules');renderInspector();
   assert.match(node('#inspector').innerHTML,/Include in exported images/);
   assert.match(node('#inspector').innerHTML,/data-prop="includeInExport"/);
   assert.doesNotMatch(node('#inspector').innerHTML,/data-prop="includeInExport"[^>]*checked/);
