@@ -1,5 +1,5 @@
 // Shared document model. Stored card overrides never mutate template elements.
-import type { CardElement, ElementKind, StudioProject, Units } from './types';
+import type { CardElement, ElementKind, StudioProject, Units, CardTemplate, CardSet, CardSide, StagedCard } from './types';
 import {DEFAULT_GUIDES} from './card-guides';
 export const uid=()=>Math.random().toString(36).slice(2,10);
 export const escapeHTML=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -28,9 +28,72 @@ makeElement('text',{name:'Card Title',x:13,y:9,w:213,h:32,text:'THE HOLLOW GATE'
 makeElement('shape',{name:'Text panel',x:8,y:217,w:222,h:103,fillMode:'solid',fill1:'#fdfcf8',borderWidth:1,borderColor:'#8da0af',radius:6}),
 makeElement('text',{name:'Description',x:18,y:223,w:201,h:83,text:'Beyond the old stones, the road descends into darkness.',font:'Georgia',fontSize:11,fontWeight:400,valign:'top',color:'#324358',lineHeight:1.3})
 ];
-export const initial=(): StudioProject =>({type:'cardstudio-project',version:2,projectName:'Untitled deck',fonts:[],template:{name:'Standard game card',width:63,height:88,unit:'mm',dpi:300,guides:structuredClone(DEFAULT_GUIDES),background:'#ffffff',shadowOverlapMode:'add',elements:initialElements()},sets:[],cards:[{id:uid(),name:'Card 001',values:{},overrides:{},extraElements:[]}],mode:'template',cardIndex:0,selected:null,zoom:1.55});
+/** One template object may be referenced by any number of card sets. */
+export function initial():StudioProject{
+ const template:CardTemplate={id:uid(),name:'Standard game card',width:63,height:88,unit:'mm',dpi:300,guides:structuredClone(DEFAULT_GUIDES),background:'#ffffff',shadowOverlapMode:'add',elements:initialElements()};
+ const set:CardSet={id:uid(),name:'Default set',frontTemplateId:template.id!};
+ return {type:'cardstudio-project',version:2,projectName:'Untitled deck',fonts:[],template,templates:[template],cardSets:[set],selectedTemplateId:template.id,side:'front',sets:[],cards:[{id:uid(),setId:set.id,name:'Card 001',values:{},overrides:{},extraElements:[]}],mode:'template',cardIndex:0,selected:null,zoom:1.55};
+}
+/** Resolve legacy projects without mutating artwork, IDs of existing elements, or card data.
+ * The template alias ALWAYS points to one of templates[] in memory. */
+export function normalizeProject(value:StudioProject):StudioProject{
+ if(!Array.isArray(value.templates)||!value.templates.length)value.templates=[value.template];
+ value.templates=value.templates.filter(t=>t&&Array.isArray(t.elements));
+ if(!value.templates.length)value.templates=[value.template];
+ const templateIds=new Set<string>();
+ for(const template of value.templates){
+  if(!template.id||templateIds.has(template.id))template.id=uid();
+  templateIds.add(template.id);
+ }
+ if(!Array.isArray(value.cardSets)||!value.cardSets.length){
+  value.cardSets=[{id:uid(),name:'Default set',frontTemplateId:value.templates[0].id!}];
+ }
+ const setIds=new Set<string>();
+ for(const set of value.cardSets){
+  if(!set.id||setIds.has(set.id))set.id=uid();
+  setIds.add(set.id);
+  if(!templateIds.has(set.frontTemplateId))set.frontTemplateId=value.templates[0].id!;
+  if(set.backTemplateId&&!templateIds.has(set.backTemplateId))delete set.backTemplateId;
+ }
+ for(const card of value.cards||[]){
+  if(!card.setId||!setIds.has(card.setId))card.setId=value.cardSets[0].id;
+  card.values??={};card.overrides??={};card.extraElements??=[];
+ }
+ if(!templateIds.has(value.selectedTemplateId||''))value.selectedTemplateId=value.templates[0].id;
+ if(value.side!=='back')value.side='front';
+ const current=value.cards?.[value.cardIndex]||value.cards?.[0],set=value.cardSets.find(x=>x.id===current?.setId)||value.cardSets[0];
+ if(value.mode==='cards'){
+  const selectedId=value.side==='back'?set.backTemplateId:set.frontTemplateId;
+  if(!selectedId)value.side='front';
+  value.template=value.templates.find(x=>x.id===(value.side==='back'?set.backTemplateId:set.frontTemplateId))||value.templates[0];
+ }else value.template=value.templates.find(x=>x.id===value.selectedTemplateId)||value.templates[0];
+ return value;
+}
 export let S: StudioProject = initial();
-export function replaceState(value: StudioProject) { S = value; }
+export function replaceState(value: StudioProject) { S = normalizeProject(value); }
+export function templateById(id?:string):CardTemplate|undefined {return S.templates?.find(t=>t.id===id);}
+export function cardSetFor(card:StagedCard|undefined):CardSet|undefined{
+ return S.cardSets?.find(set=>set.id===card?.setId)||S.cardSets?.[0];
+}
+export function assignedTemplate(ci:number,side:CardSide='front'):CardTemplate|undefined{
+ const set=cardSetFor(S.cards[ci]);
+ return templateById(side==='front'?set?.frontTemplateId:set?.backTemplateId);
+}
+export function syncEditorTemplate():void{
+ normalizeProject(S);
+ S.selected=null;
+}
+export function selectProjectTemplate(id:string):boolean{
+ const target=templateById(id);if(!target)return false;
+ S.selectedTemplateId=id;S.mode='template';S.template=target;S.selected=null;return true;
+}
+export function setCardSide(side:CardSide):boolean{
+ if(side==='back'&&!assignedTemplate(S.cardIndex,'back'))return false;
+ S.side=side;
+ if(S.mode==='cards')syncEditorTemplate();
+ return true;
+}
+
 export const card=()=>S.cards[S.cardIndex]||null;
 export const templateEl=(id: string | null)=>S.template.elements.find(e=>e.id===id)||(S.mode==='cards'?card()?.extraElements?.find(e=>e.id===id):null);
 export const layerEls=()=>[...S.template.elements,...(S.mode==='cards'?(card()?.extraElements||[]):[])];
