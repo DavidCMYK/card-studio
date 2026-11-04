@@ -1,86 +1,101 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const g=require('../.build/card-guides.js');
-const px=x=>x*96/25.4;
-function fixture(){
- return {
-  t:{unit:'mm',dpi:300,width:63,height:88,elements:[
-   {id:'bg',x:0,y:0,w:px(63),h:px(88)},
-   {id:'txt',x:px(12),y:px(16),w:px(25),h:px(10)}
-  ]},
-  cards:[{extraElements:[{id:'extra',x:px(2),y:px(3),w:px(1),h:px(1)}],
-   overrides:{txt:{x:px(18)}}}]
- };
+const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-7,`${a} should equal ${b}`);
+function doc(mode='bleed'){
+ const t={unit:'mm',dpi:300,width:69,height:94,
+  elements:[{id:'a',x:2,y:8,w:20,h:18}],
+  guides:{...structuredClone(g.DEFAULT_GUIDES),bleedMode:mode}};
+ if(mode==='trim'){t.width=63;t.height=88;}
+ const cards=[{extraElements:[{id:'b',x:4,y:4,w:30,h:30}],overrides:{a:{x:11,y:16}}}];
+ return {t,cards};
 }
-function artwork(t,cards){return structuredClone({width:t.width,height:t.height,elements:t.elements,cards});}
-
-test('old projects retain canvas edge as trim',()=>{
- const {t}=fixture(),r=g.guideRects(t);
- assert.equal(r.settings.bleedMode,'trim');
- assert.equal(r.trim.w,63);
- assert.equal(r.safe.x,4);
+const art=(t,cards)=>structuredClone({els:t.elements,cards});
+const sizes=t=>[g.canvasDimensionsMm(t),g.trimDimensionsMm(t),g.safeDimensionsMm(t)];
+test('new and legacy canvas meanings',()=>{
+ const {t}=doc();assert.deepEqual(sizes(t),[{width:69,height:94},{width:63,height:88},{width:55,height:80}]);
+ const l={unit:'mm',dpi:300,width:63,height:88};assert.equal(g.trimDimensionsMm(l).width,63);
 });
-
-test('switching an existing template to includes bleed never moves artwork or resizes canvas',()=>{
- const {t,cards}=fixture(),before=artwork(t,cards);
- g.changeBleedMode(t,cards,'bleed');
- assert.deepEqual(artwork(t,cards),before);
- assert.deepEqual(g.trimDimensionsMm(t),{width:57,height:82});
- assert.equal(g.guideRects(t).trim.x,3);
+test('editing cut size changes canvas, preserves bleed and safe buffers',()=>{
+ const {t,cards}=doc(),before=art(t,cards);
+ g.setCutDimension(t,'width',66);g.setCutDimension(t,'height',90);
+ assert.deepEqual(sizes(t),[{width:72,height:96},{width:66,height:90},{width:58,height:82}]);
+ assert.deepEqual(art(t,cards),before);
 });
-
-test('reversing mode after manual canvas edits does not touch element positions',()=>{
- const {t,cards}=fixture(),before=structuredClone({elements:t.elements,cards});
- g.changeBleedMode(t,cards,'bleed');
- t.width=69;t.height=94; // User explicitly chose to change canvas dimensions.
- g.changeBleedMode(t,cards,'trim');
- assert.equal(t.width,69);
- assert.equal(t.height,94);
- assert.deepEqual({elements:t.elements,cards},before);
+test('editing canvas changes bleed but not cut, safe or artwork',()=>{
+ const {t,cards}=doc(),before=art(t,cards);
+ g.setCanvasDimension(t,'width',75);
+ const [canvas,trim,safe]=sizes(t);
+ near(canvas.width,75);near(trim.width,63);near(safe.width,55);
+ near(t.guides.bleed.left,6);near(t.guides.bleed.right,6);
+ near(t.guides.bleed.top,3);near(t.guides.bleed.bottom,3);
+ assert.equal(t.guides.bleedLinked,false);
+ assert.deepEqual(art(t,cards),before);
 });
-
-test('legacy preserve flag or modeChange property cannot trigger automatic resizing',()=>{
- const {t,cards}=fixture(),before=artwork(t,cards);
- t.guides={...g.guidesFor(t),modeChange:'preserve'};
- g.changeBleedMode(t,cards,'bleed',true);
- assert.deepEqual(artwork(t,cards),before);
+test('editing canvas cannot shrink below cut, with no mutation',()=>{
+ const {t,cards}=doc(); const before=structuredClone({t,cards});
+ assert.throws(()=>g.setCanvasDimension(t,'width',62.999),/smaller/);
+ assert.deepEqual({t,cards},before);
 });
-
-test('editing bleed distances changes trim guides, not canvas or card objects',()=>{
- const {t,cards}=fixture();
- g.changeBleedMode(t,cards,'bleed');
- t.guides.bleedLinked=false;
- const before=artwork(t,cards);
- g.setGuideDistance(t,cards,'bleed','left',5);
- assert.deepEqual(artwork(t,cards),before);
- assert.equal(g.guideRects(t).trim.x,5);
- assert.equal(g.trimDimensionsMm(t).width,55);
+test('changing linked bleed changes canvas, not trim',()=>{
+ const {t,cards}=doc(),before=art(t,cards);
+ g.setGuideDistance(t,cards,'bleed','top',5);
+ assert.deepEqual(sizes(t),[{width:73,height:98},{width:63,height:88},{width:55,height:80}]);
+ assert.deepEqual(art(t,cards),before);
 });
-
-test('editing linked safe margins changes guide geometry but never user art',()=>{
- const {t,cards}=fixture(),before=artwork(t,cards);
+test('changing a single bleed edge only changes corresponding canvas axis',()=>{
+ const {t,cards}=doc();g.setGuideLinked(t,'bleed',false);
+ g.setGuideDistance(t,cards,'bleed','right',8);
+ assert.deepEqual(sizes(t),[{width:74,height:94},{width:63,height:88},{width:55,height:80}]);
+ assert.equal(t.guides.bleed.right,8);assert.equal(t.guides.bleed.left,3);
+});
+test('trim mode + bleed entry activates bleed without moving artwork',()=>{
+ const {t,cards}=doc('trim'),before=art(t,cards);
+ g.setGuideDistance(t,cards,'bleed','top',5);
+ assert.equal(t.guides.bleedMode,'bleed');
+ assert.deepEqual(sizes(t),[{width:73,height:98},{width:63,height:88},{width:55,height:80}]);
+ assert.deepEqual(art(t,cards),before);
+});
+test('changing mode preserves cut but changes canvas',()=>{
+ const {t,cards}=doc('trim'),before=art(t,cards);
+ g.changeBleedMode(t,cards,'bleed');assert.deepEqual(sizes(t),[{width:69,height:94},{width:63,height:88},{width:55,height:80}]);
+ g.changeBleedMode(t,cards,'trim');assert.deepEqual(sizes(t),[{width:63,height:88},{width:63,height:88},{width:55,height:80}]);
+ assert.deepEqual(art(t,cards),before);
+});
+test('editing safety buffer modifies safe zone but no other dimension',()=>{
+ const {t,cards}=doc(),before=art(t,cards);
  g.setGuideDistance(t,cards,'safe','top',6);
- assert.deepEqual(artwork(t,cards),before);
- assert.deepEqual(g.guideRects(t).settings.safe,{top:6,right:6,bottom:6,left:6});
+ assert.deepEqual(sizes(t),[{width:69,height:94},{width:63,height:88},{width:51,height:76}]);
+ assert.deepEqual(art(t,cards),before);
 });
-
-test('mm, inch and pixel conversions use template DPI without changing physical dimensions',()=>{
- assert.ok(Math.abs(g.distanceInUnit(3,'px',300)-300*3/25.4)<1e-7);
- assert.equal(g.distanceMm(1,'in',300),25.4);
- const {t,cards}=fixture();const before=artwork(t,cards);
- g.setGuideUnit(t,'px');
- assert.deepEqual(artwork(t,cards),before);
- assert.ok(Math.abs(g.distanceInUnit(g.guidesFor(t).bleed.left,'px',300)-35.43307)<.001);
+test('editing safe zone dims changes buffers, cut/canvas remain',()=>{
+ const {t,cards}=doc(),before=art(t,cards);
+ g.setSafeZoneDimension(t,'width',57);g.setSafeZoneDimension(t,'height',78);
+ assert.deepEqual(sizes(t),[{width:69,height:94},{width:63,height:88},{width:57,height:78}]);
+ near(t.guides.safe.left,3);near(t.guides.safe.right,3);
+ near(t.guides.safe.top,5);near(t.guides.safe.bottom,5);
+ assert.equal(t.guides.safeLinked,false);assert.deepEqual(art(t,cards),before);
 });
-
-test('invalid mode and impossible bleed insets fail without modifying existing data',()=>{
- const {t,cards}=fixture(),before=artwork(t,cards);
- assert.throws(()=>g.changeBleedMode(t,cards,'broken'),/mode/);
- assert.throws(()=>g.setGuideDistance(t,cards,'safe','top',88),/safe-area/i);
- assert.equal(g.guidesFor(t).safe.top,4);
- assert.deepEqual(artwork(t,cards),before);
- g.changeBleedMode(t,cards,'bleed');
- const afterMode=artwork(t,cards);
- assert.throws(()=>g.setGuideDistance(t,cards,'bleed','top',100),/finished-card size/i);
- assert.deepEqual(artwork(t,cards),afterMode);
- assert.equal(g.guidesFor(t).bleed.top,3);
+test('safe zone cannot exceed trim and cannot be negative',()=>{
+ const {t,cards}=doc(),before=structuredClone({t,cards});
+ assert.throws(()=>g.setSafeZoneDimension(t,'width',64),/cannot exceed/);
+ assert.throws(()=>g.setSafeZoneDimension(t,'height',0),/greater/);
+ assert.deepEqual({t,cards},before);
+});
+test('pixel / inch conversions preserve physical dimensions and invariants',()=>{
+ const {t}=doc();g.setGuideUnit(t,'px');t.unit='px';t.width=69*300/25.4;t.height=94*300/25.4;
+ g.setCutDimension(t,'width',65*300/25.4);near(g.canvasDimensionsMm(t).width,71);near(g.trimDimensionsMm(t).width,65);
+ g.setCanvasDimension(t,'width',75*300/25.4);near(g.trimDimensionsMm(t).width,65);
+ g.setSafeZoneDimension(t,'width',60*300/25.4);near(g.safeDimensionsMm(t).width,60);
+ near(g.distanceInUnit(3,'in',300),3/25.4);
+});
+test('unlinked asymmetric margins remain nonnegative and target dimensions match',()=>{
+ const {t,cards}=doc();g.setGuideLinked(t,'bleed',false);
+ g.setGuideDistance(t,cards,'bleed','left',1);g.setGuideDistance(t,cards,'bleed','right',5);
+ g.setCanvasDimension(t,'width',65);near(g.trimDimensionsMm(t).width,63);
+ assert.ok(t.guides.bleed.left>=0&&t.guides.bleed.right>=0);
+ near(t.guides.bleed.left+t.guides.bleed.right,2);
+ g.setGuideLinked(t,'safe',false);
+ g.setGuideDistance(t,cards,'safe','left',1);g.setGuideDistance(t,cards,'safe','right',6);
+ g.setSafeZoneDimension(t,'width',62);near(g.safeDimensionsMm(t).width,62);
+ assert.ok(t.guides.safe.left>=0&&t.guides.safe.right>=0);
 });
