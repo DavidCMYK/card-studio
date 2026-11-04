@@ -118,7 +118,13 @@ export function openNewProjectDialog(onCreate:(project:StudioProject)=>void){
   };
   for(const [name,val] of Object.entries(fields)){
    const input=element(name);
-   if(input&&input!==active)input.value=val;
+   if(!input)continue;
+   if(input.type==='number'){
+    input.step=draft.unit==='px'?'1':'any';
+    if(['width','height','cutWidth','cutHeight','safeWidth','safeHeight'].includes(name))
+     input.min=draft.unit==='px'?'1':'0.01';
+   }
+   if(input!==active)input.value=val;
   }
   (element('bleedLinked') as HTMLInputElement).checked=g.bleedLinked;
   (element('safeLinked') as HTMLInputElement).checked=g.safeLinked;
@@ -127,7 +133,7 @@ export function openNewProjectDialog(onCreate:(project:StudioProject)=>void){
    ' '+draft.unit+' · Safe '+fields.safeWidth+' × '+fields.safeHeight+' '+draft.unit;
  }
  form.addEventListener('input',e=>apply(e.target as HTMLInputElement));
- form.addEventListener('change',e=>apply(e.target as HTMLInputElement));
+ form.addEventListener('change',e=>{apply(e.target as HTMLInputElement);updateFields();});
  root.querySelector('[data-new-project="cancel"]')?.addEventListener('click',()=>{holder.innerHTML='';});
  form.addEventListener('submit',e=>{
   e.preventDefault();
