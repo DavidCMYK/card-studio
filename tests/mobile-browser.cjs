@@ -40,6 +40,32 @@ const server=http.createServer((req,res)=>{
   await dp.locator('#stage .element').first().waitFor();
   assert.equal(await dp.locator('.top').isVisible(),true,'desktop toolbar visible');
   assert.equal(await dp.locator('#mobileShell').isVisible(),false,'mobile toolbar hidden on desktop');
+
+  // Desktop: double-click enters image-content mode; drag and wheel change only image placement.
+  await dp.locator('#stage .element').nth(2).dblclick({position:{x:42,y:42}});
+  assert.equal(await dp.locator('#imageRepositionBar').isVisible(),true,'double-click enters image reposition mode');
+  assert.equal(await dp.locator('#stage .element.repositioning').count(),1,'reposition frame marked');
+  assert.equal(await dp.locator('#stage .element.repositioning .resize-handle').count(),0,'no frame handles in crop mode');
+  const beforeFrameLeft=await dp.locator('#stage .element.repositioning').evaluate(el=>el.style.left);
+  const beforeImageOffset=Number(await dp.locator('#inspector [data-prop="imgOffsetX"]').inputValue());
+  let cropRect=await dp.locator('#stage .element.repositioning').boundingBox();
+  let cropX=cropRect.x+cropRect.width*.43,cropY=cropRect.y+cropRect.height*.42;
+  await dp.mouse.move(cropX,cropY);await dp.mouse.down();
+  await dp.mouse.move(cropX+27,cropY+12,{steps:4});await dp.mouse.up();
+  assert.notEqual(Number(await dp.locator('#inspector [data-prop="imgOffsetX"]').inputValue()),beforeImageOffset,
+   'drag changes image offset');
+  assert.equal(await dp.locator('#stage .element.repositioning').evaluate(el=>el.style.left),beforeFrameLeft,
+   'drag must not move frame');
+  await dp.mouse.move(cropX,cropY);await dp.mouse.wheel(0,-180);
+  await dp.waitForFunction(()=>Number(document.querySelector('#inspector [data-prop="imgZoom"]')?.value)>1);
+  await dp.locator('#imageRepositionBar button').click();
+  assert.equal(await dp.locator('#imageRepositionBar').isVisible(),false,'Done ends crop mode');
+  cropRect=await dp.locator('#stage .element.selected').boundingBox();
+  cropX=cropRect.x+cropRect.width*.44;cropY=cropRect.y+cropRect.height*.45;
+  await dp.mouse.move(cropX,cropY);await dp.mouse.down();
+  await dp.mouse.move(cropX+20,cropY,{steps:3});await dp.mouse.up();
+  assert.notEqual(await dp.locator('#stage .element.selected').evaluate(el=>el.style.left),beforeFrameLeft,
+   'normal drag resumes frame movement after Done');
   const desktopElements=await dp.locator('#stage .element').count();
   await dp.locator('.work-tools [data-action="add-shape"]').click();
   assert.equal(await dp.locator('#stage .element').count(),desktopElements+1,'desktop add shape');
@@ -136,6 +162,14 @@ const server=http.createServer((req,res)=>{
     assert.equal(result.different,0,'desktop/mobile exported pixels identical');
    }
   }
+
+  // Mobile: touch double-tap enters crop mode; Done restores ordinary editing.
+  const mobileImage=page.locator('#stage .element').nth(2);
+  await mobileImage.tap();await mobileImage.tap();
+  assert.equal(await page.locator('#imageRepositionBar').isVisible(),true,'double-tap enters image reposition mode');
+  assert.equal(await page.locator('#stage .element.repositioning').count(),1,'mobile crop frame marked');
+  await page.locator('#imageRepositionBar button').tap();
+  assert.equal(await page.locator('#imageRepositionBar').isVisible(),false,'mobile Done ends crop mode');
   assert.equal(await page.locator('.top').isVisible(),false,'desktop controls hidden on phone');
   await page.locator('.m-mode [data-action="mode-cards"]').click();
   await page.locator('#mobileCardNav').waitFor({state:'visible',timeout:5000});
