@@ -31,7 +31,7 @@ function decode(key:string):string{return keyToData.get(key)||key}
 function take():RecordState{
  const doc={
   projectName:S.projectName,
-  template:structuredClone(S.template),
+  template:structuredClone((S.templates||[S.template])[0]),
   templates:structuredClone(S.templates||[S.template]),
   cardSets:structuredClone(S.cardSets||[]),
   printSetup:structuredClone(S.printSetup),
