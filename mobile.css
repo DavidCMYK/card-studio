@@ -115,3 +115,14 @@
 
 :root[data-layout="mobile"] .font-browser-list button{min-height:43px;font-size:14px}
 :root[data-layout="mobile"] .font-browser-list{max-height:230px}
+
+/* Templates and card sets can be managed on mobile without desktop layout. */
+:root[data-layout="mobile"] .m-dock{grid-template-columns:repeat(7,minmax(0,1fr))}
+:root[data-layout="mobile"] .m-dock button{font-size:9px}
+:root[data-layout="mobile"][data-mobile-panel="templates"] .side-left{display:flex;flex-direction:column}
+:root[data-layout="mobile"][data-mobile-panel="templates"] .side-left .sidebar-stack{flex-direction:column;gap:5px}
+:root[data-layout="mobile"][data-mobile-panel="templates"] .sidebar-templates,
+:root[data-layout="mobile"][data-mobile-panel="templates"] .sidebar-cardsets{display:flex;flex:1}
+:root[data-layout="mobile"] .m-card-nav button:nth-child(3){font-size:26px}
+:root[data-layout="mobile"] .m-card-nav button:last-child{font-size:13px;border:1px solid #c4d8ed;background:#edf4ff;border-radius:7px;padding:6px 9px}
+:root[data-layout="mobile"] .m-card-nav button:last-child:disabled{opacity:.5}
