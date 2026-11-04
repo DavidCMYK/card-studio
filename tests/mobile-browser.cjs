@@ -182,6 +182,7 @@ const server=http.createServer((req,res)=>{
   await independent.locator('#inspector [data-inspector-tab="rules"]').click();
   await independent.locator('#inspector [data-prop="linkedTextId"]').selectOption(textId);
   await independent.locator('#inspector [data-inspector-tab="layout"]').click();
+  await independent.locator('#inspector [data-inspector-fold="anchor-edges"] summary').click();
   for(const edge of ['Left','Right','Top','Bottom']){
    await independent.locator('#inspector [data-prop="anchor'+edge+'"]').check();
   }
