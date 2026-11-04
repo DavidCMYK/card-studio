@@ -130,6 +130,92 @@ const server=http.createServer((req,res)=>{
   await page.screenshot({path:'test-results/mobile.png'});
   assert.deepEqual(errors,[],'no browser exceptions');
   await phone.close();
-  console.log('Browser checks passed: desktop, phone navigation, card creation, properties and fit');
+
+  // Fresh browser storage: a completed edit is backed up locally and survives reload.
+  const recovery=await browser.newContext({viewport:{width:1440,height:900},acceptDownloads:true});
+  const rp=await recovery.newPage();rp.on('pageerror',e=>errors.push('recovery: '+e.message));
+  await rp.goto(url);
+  await rp.waitForFunction(()=>document.getElementById('recoveryStatus')?.textContent==='Local recovery ready');
+  assert.equal(await rp.locator('#recoveryDialog').count(),0,'new profile has no recovery copy');
+  const defaultCount=await rp.locator('#stage .element').count();
+  await rp.locator('.work-tools [data-action="add-shape"]').click();
+  await rp.waitForFunction(()=>document.getElementById('recoveryStatus')?.textContent==='Backed up locally',null,{timeout:12000});
+  await rp.reload();
+  await rp.locator('#recoveryDialog').waitFor({state:'visible',timeout:8000});
+  assert.match(await rp.locator('#recoveryDialog').innerText(),/Untitled deck/);
+  await rp.locator('#recoveryRestore').click();
+  await rp.locator('#recoveryDialog').waitFor({state:'detached',timeout:8000});
+  assert.equal(await rp.locator('#stage .element').count(),defaultCount+1,'restored unsaved element after reload');
+  // Restoring must not silently consume or delete the recovery copy.
+  await rp.reload();
+  await rp.locator('#recoveryDialog').waitFor({state:'visible',timeout:8000});
+  await rp.locator('#recoveryDiscard').click();
+  await rp.locator('#recoveryDialog').waitFor({state:'detached',timeout:8000});
+  await rp.reload();
+  await rp.waitForFunction(()=>document.getElementById('recoveryStatus')?.textContent==='Local recovery ready');
+  assert.equal(await rp.locator('#recoveryDialog').count(),0,'discarded backup stays discarded');
+  assert.equal(await rp.locator('#stage .element').count(),defaultCount,'discard does not replace the document');
+
+  // An explicit successful project save clears its local recovery. Downloads
+  // without a native file handle do not pretend the project was saved.
+  await rp.evaluate(()=>{
+   window.showSaveFilePicker=async()=>({
+    name:'recovery-browser.cardstudio.json',
+    createWritable:async()=>({
+     write:async(contents)=>{window.__projectSavedText=String(contents)},
+     close:async()=>{window.__projectSaveClosed=true}
+    })
+   });
+  });
+  await rp.locator('.work-tools [data-action="add-shape"]').click();
+  await rp.waitForFunction(()=>document.getElementById('recoveryStatus')?.textContent==='Backed up locally',null,{timeout:12000});
+  await rp.locator('#fileMenu summary').click();
+  await rp.locator('#fileMenu [data-action="save-project"]').click();
+  await rp.waitForFunction(()=>window.__projectSaveClosed&&document.getElementById('recoveryStatus')?.textContent==='Project saved');
+  const savedProject=await rp.evaluate(()=>window.__projectSavedText);
+  await rp.reload();
+  await rp.waitForFunction(()=>document.getElementById('recoveryStatus')?.textContent==='Local recovery ready');
+  assert.equal(await rp.locator('#recoveryDialog').count(),0,'confirmed project save clears recovery');
+
+  // Large deck: ensure the entire JSON, all staged cards and embedded images
+  // survive IndexedDB storage without depending on localStorage quota.
+  const base=JSON.parse(savedProject);
+  const titleElement=base.template.elements.find(e=>e.kind==='text');
+  base.projectName='Large deck recovery smoke test';
+  base.cards=Array.from({length:240},(_,i)=>({
+   id:'bulk-'+i,name:'Card '+String(i+1).padStart(3,'0'),
+   values:{[titleElement.id]:'Card title '+i},overrides:{},extraElements:[]
+  }));
+  const pixel=await rp.evaluate(()=>{
+   const c=document.createElement('canvas');c.width=96;c.height=96;
+   const x=c.getContext('2d');x.fillStyle='#b4a7d6';x.fillRect(0,0,96,96);
+   return c.toDataURL('image/png');
+  });
+  base.sets=[{id:'bulk-images',name:'Artwork',images:Array.from({length:24},(_,i)=>({
+   name:'image-'+i+'.png',data:pixel
+  }))}];
+  await rp.locator('#openProjectFile').setInputFiles({
+   name:'large-deck.cardstudio.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(base))
+  });
+  await rp.waitForFunction(()=>document.querySelectorAll('.sidebar-cards .card-row').length===240,null,{timeout:20000});
+  await rp.locator('.work-tools [data-action="add-shape"]').click();
+  await rp.waitForFunction(()=>document.getElementById('recoveryStatus')?.textContent==='Backed up locally',null,{timeout:15000});
+  await rp.reload();
+  await rp.locator('#recoveryDialog').waitFor({state:'visible',timeout:8000});
+  const downloadPromise=rp.waitForEvent('download');
+  await rp.locator('#recoveryDownload').click();
+  const recoveredDownload=await downloadPromise;
+  const recoveredPath=await recoveredDownload.path();
+  const recoveredData=JSON.parse(fs.readFileSync(recoveredPath,'utf8'));
+  assert.equal(recoveredData.cards.length,240,'large deck card count retained');
+  assert.equal(recoveredData.sets[0].images.length,24,'all embedded artwork retained');
+  assert.equal(recoveredData.template.elements.length,base.template.elements.length+1,'unsaved edit retained in backup');
+  await rp.locator('#recoveryRestore').click();
+  await rp.locator('#recoveryDialog').waitFor({state:'detached',timeout:8000});
+  assert.equal(await rp.locator('.sidebar-cards .card-row').count(),240);
+  assert.equal(await rp.locator('#stage .element').count(),defaultCount+2,'loaded and recovered edits remain');
+  await recovery.close();
+  assert.deepEqual(errors,[],'no browser exceptions');
+  console.log('Browser checks passed: desktop/mobile editing, local autosave, restore, discard, manual save and 240-card recovery');
  }finally{await browser.close();shutdown()}
 })().catch(e=>{console.error(e);if(server.listening)server.close();process.exitCode=1});
