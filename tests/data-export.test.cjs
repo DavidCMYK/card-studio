@@ -46,6 +46,9 @@ test('desktop and mobile share the data-export toggle in element properties', ()
   global.document = {querySelector(selector) {
     if(!nodes.has(selector))nodes.set(selector,{innerHTML:'',textContent:''});
     return nodes.get(selector);
+  },createElement(tag) {
+    assert.equal(tag,'canvas');
+    return {getContext(){return {measureText(value){return {width:value.length*9}}}}};
   }};
   for(const kind of ['text','image','shape']) {
     const element=state.template.elements.find(e=>e.kind===kind);

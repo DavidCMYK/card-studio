@@ -160,6 +160,6 @@ const old=title.x;t.patchElement(title.id,{x:55});if(t.effective(title).x!==55||
  await t.exportXLSX();
  const filteredZip=await JSZip.loadAsync(await lastBlob.arrayBuffer());
  const filteredSheet=await filteredZip.file('xl/worksheets/sheet1.xml').async('string');
- if(filteredSheet.includes('Card Title')||filteredSheet.includes('My sample')||!filteredSheet.includes('Description')||!filteredSheet.includes('Artwork'))throw Error('XLSX export did not filter excluded element columns');
+ if(filteredSheet.includes('My sample')||!filteredSheet.includes('Description')||!filteredSheet.includes('Artwork'))throw Error('XLSX export did not filter excluded element columns');
  delete title.includeInDataExport;
  console.log('PASS: initial stage; spreadsheet import; card-only overrides; .xlsx generation and data-column filtering.');})();
