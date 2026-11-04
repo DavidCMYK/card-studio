@@ -36,6 +36,7 @@ export function renderLeft(){
  for(const [id,offset] of Object.entries(previousScroll)){
   const panel=document.querySelector('#'+id);if(panel)panel.scrollTop=offset;
  }
+ renderCardThumbnails();
 }
 // Record the selection and card to which a control belongs when it is created.
 // A blur/change event from an old input may arrive AFTER the user selects a new
