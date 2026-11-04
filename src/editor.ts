@@ -1,6 +1,6 @@
 import { S, initial, replaceState, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, px, unitFactor, sizePx, clamp, uid, templateById,selectProjectTemplate,syncEditorTemplate,setCardSide,cardSetFor,cardExtras,ensureCardExtras } from './model';
 import {openNewProjectDialog} from './new-project';
-import {createTemplate,deleteTemplate,newCardSet,deleteCardSet,assignSetTemplate,moveCardToSet} from './project-collections';
+import {createTemplate,deleteTemplate,newCardSet,deleteCardSet,assignSetTemplate,moveCardToSet,uniqueTemplateName,uniqueCardSetName} from './project-collections';
 import { $ , toast } from './dom';
 import { renderStage } from './preview';
 import { repaint, renderInspector, renderLeft, renderCardControl, chooseCard, patchElement, addElement, updateDimensionReadouts, setKnownFonts, baseFonts, refreshHistoryButtons, selectInspectorTab, filterCardData, showDiscoveredFonts, toggleFontBrowser, closeFontBrowser, filterFontBrowser } from './interface';
@@ -106,7 +106,7 @@ case 'undo':if(undo()){imageCache.clear();void activateProjectFonts();repaint()}
  case 'rename-template':{
   const t=templateById(el?.dataset.templateId||S.selectedTemplateId);
   if(!t)break;const name=prompt('Template name',t.name);
-  if(name?.trim()){t.name=name.trim();repaint()}break;
+  if(name?.trim()){t.name=uniqueTemplateName(name,t.id);repaint()}break;
  }
  case 'delete-template':{
   const t=templateById(el?.dataset.templateId||S.selectedTemplateId);
@@ -123,7 +123,7 @@ case 'undo':if(undo()){imageCache.clear();void activateProjectFonts();repaint()}
  case 'rename-card-set':{
   const set=S.cardSets?.find(x=>x.id===el?.dataset.setId);if(!set)break;
   const name=prompt('Card set name',set.name);
-  if(name?.trim()){set.name=name.trim();repaint()}break;
+  if(name?.trim()){set.name=uniqueCardSetName(name,set.id);repaint()}break;
  }
  case 'delete-card-set':{
   try{deleteCardSet(el?.dataset.setId||'');repaint()}catch(error){alert((error as Error).message)}
