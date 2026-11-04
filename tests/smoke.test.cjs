@@ -142,8 +142,18 @@ if(Math.abs(state.template.width-firstPixels*2)>.01||Math.abs(state.template.wid
 if(!get('#statusLeft').textContent.includes('export px'))throw Error('Status does not show export pixel dimensions');
 prop('template.unit','mm');
 if(Math.abs(state.template.width-63)>.01)throw Error('Unit switch did not preserve physical width');
+// The cut remains 63 mm. A canvas width smaller than its locked cut size must
+// be rejected, while growing the canvas must increase bleed rather than cut.
 prop('template.width','50');
-if(!get('#statusLeft').textContent.includes('50 ×'))throw Error('Canvas resize not reflected in status');
+if(Math.abs(state.template.width-63)>.01)throw Error('Canvas shrank below the fixed 63 mm cut size');
+prop('template.width','70');
+if(Math.abs(state.template.width-70)>.01)throw Error('Valid canvas enlargement was rejected');
+if(!get('#statusLeft').textContent.includes('70 ×'))throw Error('Canvas resize not reflected in status');
+if(state.template.guides?.bleedMode!=='bleed'||Math.abs(state.template.guides.bleed.left-3.5)>.01||Math.abs(state.template.guides.bleed.right-3.5)>.01)
+ throw Error('Enlarging canvas did not distribute new bleed while keeping cut fixed');
+// Restore the original no-bleed geometry for the remaining independent checks.
+prop('guide.bleedMode','trim');
+if(Math.abs(state.template.width-63)>.01)throw Error('Disabling bleed did not restore the original canvas');
 state.selected=state.template.elements.find(x=>x.name==='Artwork').id;
 // A 100-pixel-wide image frame at 600 DPI corresponds to 16 design pixels.
 prop('w','16.9333333333'); // mm -> approx 400 export pixels
