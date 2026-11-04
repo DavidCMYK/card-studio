@@ -2,7 +2,7 @@ import { S, initial, replaceState, card, templateEl, layerEls, isExtra, effectiv
 import { $ , toast } from './dom';
 import { renderStage } from './preview';
 import { repaint, renderInspector, renderLeft, chooseCard, patchElement, addElement, updateDimensionReadouts, setKnownFonts, baseFonts, refreshHistoryButtons } from './interface';
-import { imageCache, setImageUpdateHandler } from './image-sets';
+import { imageCache, cacheImage, getImageData, setImageUpdateHandler } from './image-sets';
 import { exportPNG, exportAll } from './png-export';
 import { exportXLSX, readSheet } from './spreadsheet';
 import { saveProject, saveProjectAs, saveTemplate, saveTemplateAs, openFromDisk, openJSON, resetFileHandles } from './project-storage';
@@ -11,6 +11,7 @@ import { openImageManager, closeImageManager, renderImageManager, imageManagerAc
 import { layoutTextBox } from './text-layout';
 import { resizedRect, locksImageCornerAspect } from './resize';
 import { elementGeometry } from './anchor-layout';
+import {enterImageReposition,stopImageReposition,repositionImageId,imageDragPatch,imageZoomPatch} from './image-reposition';
 import {checkpoint,undo,redo,resetHistory} from './history';
 import {showRecovery,recordProjectReplaced,noteLiveEdit} from './recovery';
 import {importFontFiles,embedInstalledUsedFonts,activateProjectFonts,onFontsReady,bundledFontFamilies} from './project-fonts';
@@ -109,6 +110,11 @@ case 'reset-element':if(card()){if(isExtra(S.selected)){card().extraElements=car
 case 'prev-card':chooseCard(S.cardIndex-1);break;case 'next-card':chooseCard(S.cardIndex+1);break;
 case 'export-sheet':exportXLSX().catch(err=>alert(err.message));break;case 'import-sheet':$('#openSheetFile').click();break;
 case 'export-current':exportPNG();break;case 'export-all':exportAll();break;
+case 'reposition-image':{
+ const raw=templateEl(S.selected);if(raw?.kind==='image'&&enterImageReposition(raw.id))repaint();
+ break;
+}
+case 'finish-reposition-image':stopImageReposition();repaint();break;
 case 'image-rotate-left':case 'image-rotate-right':{
  const raw=templateEl(S.selected);if(!raw||raw.kind!=='image')break;
  const current=effective(raw),step=action==='image-rotate-left'?-90:90;
@@ -147,7 +153,7 @@ function handleProp(input){const key=input.dataset.prop;if(!key)return;let v=inp
  if(key==='name'){const e=templateEl(S.selected);if(e)e.name=uniqName(v,e.id);return}
  if(['shadowOffsetX','shadowOffsetY','shadowSpread'].includes(key)){v=Number(v)*96/S.template.dpi;if(key==='shadowSpread')v=Math.max(0,v)}
  else if(['x','y','w','h','gutterLeft','gutterRight','gutterTop','gutterBottom'].includes(key)){v=px(Number(v),S.template.unit,S.template.dpi);if(key==='w'||key==='h')v=Math.max(1,v);if(key.startsWith('gutter'))v=Math.max(0,v)}
- else if(['fontSize','fontWeight','lineHeight','letterSpacing','borderWidth','radius','opacity','fillOpacity','borderOpacity','textOpacity','gradientAngle','imgScale','imgOffsetX','imgOffsetY','imgRotation','shadowOpacity'].includes(key)){v=Number(v);if(['opacity','fillOpacity','borderOpacity','textOpacity','shadowOpacity'].includes(key))v=clamp(v,0,100);if(key==='fontSize')v=Math.max(1,v);if(key==='imgScale')v=Math.max(.01,v);if(key==='borderWidth')v=Math.max(0,v)}
+ else if(['fontSize','fontWeight','lineHeight','letterSpacing','borderWidth','radius','opacity','fillOpacity','borderOpacity','textOpacity','gradientAngle','imgScale','imgZoom','imgOffsetX','imgOffsetY','imgRotation','shadowOpacity'].includes(key)){v=Number(v);if(['opacity','fillOpacity','borderOpacity','textOpacity','shadowOpacity'].includes(key))v=clamp(v,0,100);if(key==='fontSize')v=Math.max(1,v);if(key==='imgScale')v=Math.max(.01,v);if(key==='imgZoom')v=clamp(v,.05,20);if(key==='borderWidth')v=Math.max(0,v)}
  if(S.selected){
   // Changing sets invalidates the previous fixed-image choice, even when
   // both sets happen to contain identically named files.
@@ -180,16 +186,56 @@ $('#assetFiles').addEventListener('change',async e=>{if(e.target.files.length){a
  $('#fontFiles').addEventListener('change',async e=>{try{if(e.target.files?.length){const {added,skipped}=await importFontFiles(e.target.files);repaint();toast(`Embedded ${added} font file(s) in this project${skipped?' · '+skipped+' skipped':''}. Save the project to take them to other devices.`)}}catch(err){alert('Could not embed fonts: '+(err as Error).message)}finally{e.target.value=''}});
 $('#dialogHolder').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('[data-manager-name]')){e.preventDefault();imageManagerAction('manage-rename',Number(e.target.dataset.managerName))}});
 let drag: any = null;
-function clearSelection(){if(S.selected===null)return;S.selected=null;renderInspector();renderLeft();renderStage()}
+function clearSelection(){if(S.selected===null&&!repositionImageId())return;stopImageReposition();S.selected=null;renderInspector();renderLeft();renderStage()}
 const stage=$('#stage');
 // The card may be entirely covered by elements. Click the workspace to clear selection.
 // Use the event's original propagation path: renderStage() can replace the clicked
 // element before the event bubbles here, so target.closest('#stage') becomes false.
 $('#canvasOuter').addEventListener('pointerdown',e=>{if(!(e.pointerType==='touch'&&document.documentElement?.dataset.layout==='mobile')&&e.button===0&&!e.composedPath().includes(stage))clearSelection()});
-stage.addEventListener('pointerdown',e=>{if(e.button!==0||(e.pointerType==='touch'&&document.documentElement?.dataset.layout==='mobile'))return;const node=e.target.closest('.element');if(!node){clearSelection();return}const id=node.dataset.id;S.selected=id;renderInspector();renderLeft();const el=effective(templateEl(id)),rect=elementGeometry(templateEl(id));const handle=e.target.closest('[data-handle]')?.dataset.handle||null;renderStage();if(el.locked)return;drag={id,type:handle?'resize':'move',handle,initialX:e.clientX,initialY:e.clientY,x:rect.x,y:rect.y,w:rect.w,h:rect.h,visual:{...rect},lockAspect:locksImageCornerAspect(el.kind,el.imageFit,handle)};e.preventDefault()});
-document.addEventListener('pointermove',e=>{if(!drag)return;const {w,h}=sizePx(),dx=(e.clientX-drag.initialX)/S.zoom,dy=(e.clientY-drag.initialY)/S.zoom;let patch;if(drag.type==='resize'){const rect=resizedRect(drag.visual,drag.handle||'se',dx,dy,{w,h},drag.lockAspect);const handle=drag.handle||'se';patch={};if(handle.includes('w')||handle.includes('e'))Object.assign(patch,{x:rect.x,w:rect.w,autoWidth:false});if(handle.includes('n')||handle.includes('s'))Object.assign(patch,{y:rect.y,h:rect.h,autoHeight:false})}else patch={x:Math.round(clamp(drag.x+dx,-drag.w+4,w-4)),y:Math.round(clamp(drag.y+dy,-drag.h+4,h-4))};patchElement(drag.id,patch);renderStage();renderInspector()});
+stage.addEventListener('pointerdown',e=>{
+ if(e.button!==0||(e.pointerType==='touch'&&document.documentElement?.dataset.layout==='mobile'))return;
+ const node=e.target.closest('.element');if(!node){clearSelection();return}
+ const id=node.dataset.id;
+ if(repositionImageId()&&repositionImageId()!==id)stopImageReposition();
+ S.selected=id;renderInspector();renderLeft();
+ const el=effective(templateEl(id)),rect=elementGeometry(templateEl(id));
+ const isImageDrag=repositionImageId()===id&&el.kind==='image';
+ const handle=isImageDrag?null:e.target.closest('[data-handle]')?.dataset.handle||null;
+ renderStage();
+ if(el.locked&&!isImageDrag)return;
+ drag={id,type:isImageDrag?'image':handle?'resize':'move',handle,initialX:e.clientX,initialY:e.clientY,
+  x:rect.x,y:rect.y,w:rect.w,h:rect.h,visual:{...rect},
+  imageStart:{...el},lockAspect:locksImageCornerAspect(el.kind,el.imageFit,handle)};
+ e.preventDefault();
+});
+document.addEventListener('pointermove',e=>{if(!drag)return;const {w,h}=sizePx(),dx=(e.clientX-drag.initialX)/S.zoom,dy=(e.clientY-drag.initialY)/S.zoom;let patch;if(drag.type==='image'){patch=imageDragPatch(drag.imageStart,dx,dy)}else if(drag.type==='resize'){const rect=resizedRect(drag.visual,drag.handle||'se',dx,dy,{w,h},drag.lockAspect);const handle=drag.handle||'se';patch={};if(handle.includes('w')||handle.includes('e'))Object.assign(patch,{x:rect.x,w:rect.w,autoWidth:false});if(handle.includes('n')||handle.includes('s'))Object.assign(patch,{y:rect.y,h:rect.h,autoHeight:false})}else patch={x:Math.round(clamp(drag.x+dx,-drag.w+4,w-4)),y:Math.round(clamp(drag.y+dy,-drag.h+4,h-4))};patchElement(drag.id,patch);renderStage();renderInspector()});
 document.addEventListener('pointerup',()=>{if(drag){drag=null;checkpoint();refreshHistoryButtons();renderInspector();renderLeft();renderStage()}});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.querySelector('.image-manager')){closeImageManager();e.preventDefault();return}const active=document.activeElement,tag=active?.tagName;
+stage.addEventListener('dblclick',e=>{
+ if(document.documentElement?.dataset.layout==='mobile')return;
+ const raw=templateEl(S.selected);if(raw?.kind!=='image')return;
+ const rect=elementGeometry(raw),stageRect=stage.getBoundingClientRect();
+ const x=(e.clientX-stageRect.left)/S.zoom,y=(e.clientY-stageRect.top)/S.zoom;
+ if(x<rect.x||y<rect.y||x>rect.x+rect.w||y>rect.y+rect.h)return;
+ if(enterImageReposition(raw.id)){renderInspector();renderStage();e.preventDefault()}
+});
+let imageWheelTimer:ReturnType<typeof setTimeout>|null=null;
+$('#canvasOuter').addEventListener('wheel',(e:WheelEvent)=>{
+ const id=repositionImageId();if(!id)return;
+ const raw=templateEl(id);if(!raw)return;
+ const rect=elementGeometry(raw),stageRect=stage.getBoundingClientRect();
+ const point={x:(e.clientX-stageRect.left)/S.zoom-rect.x,y:(e.clientY-stageRect.top)/S.zoom-rect.y};
+ if(point.x<0||point.y<0||point.x>rect.w||point.y>rect.h)return;
+ e.preventDefault();
+ const el={...effective(raw),...rect};
+ const src=getImageData(raw,S.cardIndex,S.mode),cached=cacheImage(src);
+ const img=cached?.loaded?cached.im:null;
+ const factor=Math.exp(-Math.max(-300,Math.min(300,e.deltaY))*.0015);
+ patchElement(id,imageZoomPatch(el,img,(Number(el.imgZoom)||1)*factor,point));
+ renderStage();renderInspector();
+ if(imageWheelTimer!==null)clearTimeout(imageWheelTimer);
+ imageWheelTimer=setTimeout(()=>{imageWheelTimer=null;checkpoint();refreshHistoryButtons()},220);
+},{passive:false});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.querySelector('.image-manager')){closeImageManager();e.preventDefault();return}if(e.key==='Escape'&&repositionImageId()){stopImageReposition();renderStage();renderInspector();e.preventDefault();return}const active=document.activeElement,tag=active?.tagName;
 if(['INPUT','TEXTAREA','SELECT'].includes(tag)||(active as HTMLElement)?.isContentEditable)return;
  if((e.ctrlKey||e.metaKey)&&!e.altKey){const key=e.key.toLowerCase();if(key==='z'||key==='y'){e.preventDefault();mutateAction(key==='y'||e.shiftKey?'redo':'undo');return}}
 if((e.ctrlKey||e.metaKey)&&!e.altKey&&!e.shiftKey&&S.mode==='template'){
@@ -198,7 +244,9 @@ if((e.ctrlKey||e.metaKey)&&!e.altKey&&!e.shiftKey&&S.mode==='template'){
    e.preventDefault();mutateAction(action);return;
  }
 }
-if(e.ctrlKey||e.altKey||e.metaKey)return;if(!S.selected)return;if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();mutateAction('delete-element');return}const delta={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];if(delta){const el=effective(templateEl(S.selected)),rect=elementGeometry(templateEl(S.selected));if(el.locked)return;e.preventDefault();const step=e.shiftKey?10:1;patchElement(S.selected,{x:rect.x+delta[0]*step,y:rect.y+delta[1]*step});renderStage();renderInspector();checkpoint();refreshHistoryButtons()}});
+if(e.ctrlKey||e.altKey||e.metaKey)return;if(!S.selected)return;if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();mutateAction('delete-element');return}const delta={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];if(delta){const el=effective(templateEl(S.selected)),rect=elementGeometry(templateEl(S.selected));if(el.locked&&repositionImageId()!==S.selected)return;e.preventDefault();const step=e.shiftKey?10:1;
+ const patch=repositionImageId()===S.selected?imageDragPatch(el,delta[0]*step,delta[1]*step):{x:rect.x+delta[0]*step,y:rect.y+delta[1]*step};
+ patchElement(S.selected,patch);renderStage();renderInspector();checkpoint();refreshHistoryButtons()}});
 window.addEventListener('resize',()=>{});
 
 repaint();
