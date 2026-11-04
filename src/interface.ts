@@ -1,5 +1,6 @@
 import { S, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, clamp, px, fmt, sizePx, makeElement, textKinds, escapeHTML, unitFactor, exportPixels, templateExportSize, isExported, isDataExported, visibleOnCard, opacityFor } from './model';
-import {guidesFor,guideRects,displayedDistance} from './card-guides';
+import {guideRects} from './card-guides';
+import {guideSettingsHtml} from './guide-ui';
 import { $ } from './dom';
 import { renderStage } from './preview';
 import { layoutTextBox } from './text-layout';
@@ -213,9 +214,11 @@ export function renderInspector(){
   const out=inspectorHeader(S.template.name,'Card dimensions and project settings')+
    fold('setup-dimensions','Dimensions',
     field('Template name','template.name',S.template.name)+
-    `<div class="fields-two">${field('Width ('+S.template.unit+')','template.width',S.template.width,'number','min="0.01" step="any"')}${field('Height ('+S.template.unit+')','template.height',S.template.height,'number','min="0.01" step="any"')}</div>`+
+    `<div class="fields-two">${field('Canvas width ('+S.template.unit+')','template.width',S.template.width,'number','min="0.01" step="any"')}${field('Canvas height ('+S.template.unit+')','template.height',S.template.height,'number','min="0.01" step="any"')}</div>`+
     selectionField('Units','template.unit',[['mm','Millimetres (mm)'],['in','Inches (in)'],['px','Pixels (px)']],S.template.unit)+
-    `<div class="small" style="padding:4px 0 12px" id="templatePixelReadout">${sizeReadout()}</div>`,true)+
+    `<div class="small" style="padding:4px 0 12px" id="templatePixelReadout">${sizeReadout()}</div><div class="small">${guideReadout()}</div>`,true)+
+   fold('setup-guides','Trim and safe area guides',guideSettingsHtml(S.template,field,selectionField,checkbox))+
+
    fold('setup-background','Background',field('Background colour','template.background',S.template.background,'color'),true)+
    fold('setup-rendering','Rendering',
     selectionField('PNG resolution','template.dpi',[[150,'150 DPI'],[300,'300 DPI'],[450,'450 DPI'],[600,'600 DPI']],S.template.dpi)+
