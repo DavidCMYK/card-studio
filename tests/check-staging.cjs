@@ -1,6 +1,6 @@
 // Verify actual publicly deployed Cloudflare Pages content, not just a local build.
 const assert=require('node:assert/strict');
-const url=(process.env.CARD_STUDIO_URL||'').replace(/\\/?$/,'/');
+const url=(process.env.CARD_STUDIO_URL||'').replace(/\/?$/,'/');
 const expected=process.env.EXPECTED_SHA||'';
 if(!url.startsWith('https://'))throw new Error('CARD_STUDIO_URL must be HTTPS');
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -18,7 +18,7 @@ async function get(path) {
    if(marker.branch!=='feature/mobile-studio')throw new Error('Wrong deployed branch: '+marker.branch);
    if(expected&&marker.commit!==expected)throw new Error('Deployment is not yet at expected commit; got '+marker.commit);
    const html=await (await get('')).text();
-   assert.match(html,/mobile\\.css/,'mobile stylesheet included');
+   assert.match(html,/mobile\.css/,'mobile stylesheet included');
    const css=await (await get('mobile.css')).text();
    assert.match(css,/data-layout="mobile"/,'mobile layout styles deployed');
    const js=await (await get('dist/app.js')).text();
