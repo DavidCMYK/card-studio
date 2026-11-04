@@ -169,6 +169,55 @@ const server=http.createServer((req,res)=>{
   await dp.screenshot({path:'test-results/desktop.png'});
   await desktop.close();
 
+  // Independent text editing: linked shapes remain fixed through drag/resize,
+  // then resume following their text when normal editing returns.
+  const independentContext=await browser.newContext({viewport:{width:1440,height:900}});
+  const independent=await independentContext.newPage();
+  independent.on('pageerror',error=>errors.push('independent-text: '+error.message));
+  await independent.goto(url);
+  await independent.locator('#stage .element').first().waitFor();
+  const textId=await independent.locator('[data-layer]').filter({hasText:'Card Title'}).getAttribute('data-layer');
+  await independent.locator('.work-tools [data-action="add-shape"]').click();
+  const followerId=await independent.locator('#stage .element.selected').getAttribute('data-id');
+  await independent.locator('#inspector [data-inspector-tab="rules"]').click();
+  await independent.locator('#inspector [data-prop="linkedTextId"]').selectOption(textId);
+  await independent.locator('#inspector [data-inspector-tab="layout"]').click();
+  for(const edge of ['Left','Right','Top','Bottom']){
+   await independent.locator('#inspector [data-prop="anchor'+edge+'"]').check();
+  }
+  const follower=independent.locator('#stage .element[data-id="'+followerId+'"]');
+  const titleEl=independent.locator('#stage .element[data-id="'+textId+'"]');
+  const oldFollower=await follower.getAttribute('style');
+  await titleEl.dblclick({position:{x:16,y:16}});
+  assert.equal(await independent.locator('#stage .text-isolated[data-id="'+textId+'"]').count(),1,
+   'double-click enters independent text editing');
+  assert.equal(await independent.locator('#imageRepositionBar').isVisible(),true,'independent text toolbar appears');
+  const oldTitle=await titleEl.getAttribute('style');
+  const titleRect=await titleEl.boundingBox();
+  await independent.mouse.move(titleRect.x+30,titleRect.y+17);
+  await independent.mouse.down();
+  await independent.mouse.move(titleRect.x+52,titleRect.y+30,{steps:3});
+  await independent.mouse.up();
+  assert.notEqual(await titleEl.getAttribute('style'),oldTitle,'independent text drag moves text');
+  assert.equal(await follower.getAttribute('style'),oldFollower,'linked shape does not move with independent text');
+  const sizeBefore=await titleEl.evaluate(el=>el.style.width);
+  const resize=await titleEl.locator('[data-handle="e"]').boundingBox();
+  await independent.mouse.move(resize.x+resize.width/2,resize.y+resize.height/2);
+  await independent.mouse.down();
+  await independent.mouse.move(resize.x+resize.width/2+32,resize.y+resize.height/2,{steps:4});
+  await independent.mouse.up();
+  assert.notEqual(await titleEl.evaluate(el=>el.style.width),sizeBefore,'independent text resize changes text width');
+  assert.equal(await follower.getAttribute('style'),oldFollower,'linked shape does not stretch with text');
+  await independent.locator('#imageRepositionBar button').click();
+  assert.equal(await independent.locator('#stage .text-isolated').count(),0,'Done exits independent text mode');
+  const normalRect=await titleEl.boundingBox();
+  await independent.mouse.move(normalRect.x+20,normalRect.y+16);
+  await independent.mouse.down();
+  await independent.mouse.move(normalRect.x+39,normalRect.y+27,{steps:3});
+  await independent.mouse.up();
+  assert.notEqual(await follower.getAttribute('style'),oldFollower,'linked shape follows ordinary text drag');
+  await independentContext.close();
+
   const phone=await browser.newContext({...devices['Pixel 7'],acceptDownloads:true});
   const page=await phone.newPage();page.on('pageerror',e=>errors.push('mobile: '+e.message));
   await page.goto(url);
@@ -249,6 +298,22 @@ const server=http.createServer((req,res)=>{
   await page.locator('#imageRepositionBar button').tap();
   assert.equal(await page.locator('#imageRepositionBar').isVisible(),false,'mobile Done ends crop mode');
   assert.equal(await page.locator('.top').isVisible(),false,'desktop controls hidden on phone');
+  // Double-tap allows the same text-only editing mode on touch screens.
+  const mobileTitle=page.locator('#stage .element').nth(3);
+  await mobileTitle.tap();await mobileTitle.tap();
+  assert.equal(await page.locator('#stage .element.text-isolated').count(),1,'mobile double-tap isolates text');
+  assert.equal(await page.locator('#imageRepositionBar').isVisible(),true,'mobile independent text toolbar visible');
+  const mobileTextBefore=await page.locator('#stage .element.text-isolated').evaluate(el=>el.style.left);
+  const textPosition=await page.locator('#stage .element.text-isolated').boundingBox();
+  const touch=await page.context().newCDPSession(page);
+  await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{id:31,x:Math.round(textPosition.x+24),y:Math.round(textPosition.y+12)}]});
+  await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{id:31,x:Math.round(textPosition.x+44),y:Math.round(textPosition.y+12)}]});
+  await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  await touch.detach();
+  assert.notEqual(await page.locator('#stage .element.text-isolated').evaluate(el=>el.style.left),mobileTextBefore,
+   'mobile isolated text can be moved');
+  await page.locator('#imageRepositionBar button').tap();
+  assert.equal(await page.locator('#stage .text-isolated').count(),0,'Done exits independent text editing on mobile');
   await page.locator('.m-mode [data-action="mode-cards"]').click();
   await page.locator('#mobileCardNav').waitFor({state:'visible',timeout:5000});
   await page.locator('.m-dock [data-mobile="properties"]').click();
