@@ -38,6 +38,35 @@ const server=http.createServer((req,res)=>{
   });
   await dp.goto(url);
   await dp.locator('#stage .element').first().waitFor();
+  // Print-sheet workflow: quantities, preview, shared backs, duplex PDF.
+  await dp.locator('.top [data-action="print-sheets"]').click();
+  assert.equal(await dp.locator('#printModal').isVisible(),true,'print dialog opens');
+  await dp.locator('#printModal [data-pr-quantity="0"]').fill('2');
+  await dp.locator('#printModal [data-pr-quantity="0"]').press('Tab');
+  assert.match(await dp.locator('#prSummary').textContent(),/2 copies/,'copies update sheet count');
+  await dp.locator('#printModal [data-print="preview"]').click();
+  await dp.locator('#prPreview').waitFor({state:'visible',timeout:30000});
+  const backPng=await dp.evaluate(()=>{
+   const canvas=document.createElement('canvas');canvas.width=16;canvas.height=16;
+   const ctx=canvas.getContext('2d');ctx.fillStyle='#5c2ab5';ctx.fillRect(0,0,16,16);
+   return canvas.toDataURL('image/png').split(',')[1];
+  });
+  await dp.locator('#printModal [data-print-file="shared"]').setInputFiles({
+   name:'card-back.png',mimeType:'image/png',buffer:Buffer.from(backPng,'base64')
+  });
+  await dp.locator('#printModal select[name="duplex"]').selectOption('long');
+  assert.match(await dp.locator('#prSummary').textContent(),/2 PDF page/,'duplex doubles page count');
+  await dp.locator('#printModal [data-print="preview-back"]').click();
+  await dp.locator('#prPreviewInfo').waitFor({state:'visible'});
+  const printDownloadWait=dp.waitForEvent('download',{timeout:60000});
+  await dp.locator('#printModal [data-print="pdf"]').click();
+  const printDownload=await printDownloadWait;
+  assert.match(printDownload.suggestedFilename(),/_print_sheets\.pdf$/,'PDF filename');
+  const printedPdf=fs.readFileSync(await printDownload.path()).toString('latin1');
+  assert.ok(printedPdf.startsWith('%PDF-1.4'),'downloaded file is PDF');
+  assert.match(printedPdf,/\/Count 2\b/,'front and back pages exported');
+  await dp.locator('#printModal [data-print="close"]').click();
+  assert.equal(await dp.locator('#printModal').count(),0,'print dialog closes');
   assert.equal(await dp.locator('.top').isVisible(),true,'desktop toolbar visible');
   assert.equal(await dp.locator('#mobileShell').isVisible(),false,'mobile toolbar hidden on desktop');
   assert.equal(await dp.locator('#inspector .inspector-fold').count(),4,'card setup grouped into four collapsible sections');
