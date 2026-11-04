@@ -1,4 +1,5 @@
-import { S, safeFile, escapeHTML } from './model';
+import { S, safeFile, escapeHTML, assignedTemplate } from './model';
+import {checkSetSize} from './project-collections';
 import {trimDimensionsMm,guidesFor,guideRects} from './card-guides';
 import { download } from './dom';
 import { canvasCard } from './png-renderer';
@@ -15,8 +16,20 @@ function options():PrintOptions {
 }
 function selected(){return expandPrintCards(S.cards);}
 function layout():SheetLayout {
- const dims=trimDimensionsMm(S.template),g=guidesFor(S.template);
- const bleed=g.bleedMode==='bleed'?Math.max(...Object.values(g.bleed)):options().bleed;
+ const indices=selected(),first=indices.length?assignedTemplate(indices[0],'front')||S.template:S.template;
+ const dims=trimDimensionsMm(first);
+ let bleed=options().bleed;
+ for(const ci of indices){
+  const front=assignedTemplate(ci,'front')||first;
+  const size=trimDimensionsMm(front);
+  if(Math.abs(size.width-dims.width)>0.01||Math.abs(size.height-dims.height)>0.01)
+   throw Error('Selected card sets have different finished cut sizes. Print matching sizes in separate jobs.');
+  const templates=[front,assignedTemplate(ci,'back')].filter(Boolean);
+  for(const template of templates){
+   const g=guidesFor(template!);
+   if(g.bleedMode==='bleed')bleed=Math.max(bleed,...Object.values(g.bleed));
+  }
+ }
  return sheetLayout({...options(),bleed},dims.width,dims.height);
 }
 function mm(value:number){return String(Math.round(value*10)/10);}
@@ -79,7 +92,7 @@ function html():string {
  <label><span>Duplex</span><select name="duplex"><option value="none" ${o.duplex==='none'?'selected':''}>Fronts only</option><option value="long" ${o.duplex==='long'?'selected':''}>Fronts + backs (flip long edge)</option><option value="short" ${o.duplex==='short'?'selected':''}>Fronts + backs (flip short edge)</option></select></label>
  <label><span>Shared back image</span><input type="file" data-print-file="shared" accept="image/png,image/jpeg,image/webp,image/gif"></label>
  <div class="pr-row"><small id="prSharedStatus">${o.sharedBack?'Shared back loaded':'No shared back'}</small><button type="button" data-print="remove-shared">Remove</button></div>
- <p class="pr-small">Shared back applies unless a card has its own back. Back images fill each card, cropping to its dimensions. Duplex PDFs alternate front and back pages.</p>
+ <p class="pr-small">Assigned back templates render automatically. Per-card image backs override them; the shared image remains a fallback for sets without back templates. Duplex PDFs alternate front and back pages.</p>
  </div>
  <div>
  <h3>Cards to print</h3>
@@ -183,11 +196,14 @@ async function renderSheet(sheetIndex:number,side:'front'|'back',dpi:number,entr
    if(!fronts.has(ci))fronts.set(ci,await canvasCard(ci,'cards'));
    art=fronts.get(ci)!;
   }else{
-   const url=card.printBack||options().sharedBack;
-   if(!url)throw Error('Missing back for card: '+card.name);
-   art=await loadBack(url);
+   const backTemplate=assignedTemplate(ci,'back');
+   const url=card.printBack||(!backTemplate?options().sharedBack:undefined);
+   if(url)art=await loadBack(url);
+   else if(backTemplate)art=await canvasCard(ci,'cards','back');
+   else throw Error('Missing back for card: '+card.name);
   }
-  const guides=guideRects(S.template);
+  const template=side==='back'&&!card.printBack&&assignedTemplate(ci,'back')?assignedTemplate(ci,'back')!:assignedTemplate(ci,'front')||S.template;
+  const guides=guideRects(template);
   if(guides.settings.bleedMode==='bleed'){
    const b=guides.bleed,fullW=w+(b.left+b.right)*scale,fullH=h+(b.top+b.bottom)*scale;
    ctx.save();ctx.translate(x-b.left*scale,y-b.top*scale);
@@ -211,9 +227,13 @@ function assertReady(entries:number[]){
  if(!entries.length)throw Error('Select at least one card and set its copies to 1 or more');
  if(entries.length>5000)throw Error('Too many copies for one job (maximum 5000)');
  const l=layout();
+ for(const ci of entries){
+  const set=S.cardSets?.find(x=>x.id===S.cards[ci]?.setId);
+  if(set&&!checkSetSize(set))throw Error('Front and back templates in "'+set.name+'" must have matching cut sizes');
+ }
  if(options().duplex!=='none'){
-  const missing=entries.find(i=>!(S.cards[i] as PrintableCard).printBack&&!options().sharedBack);
-  if(missing!==undefined)throw Error('Add a shared back or an individual back for '+S.cards[missing].name);
+  const missing=entries.find(i=>!(S.cards[i] as PrintableCard).printBack&&!assignedTemplate(i,'back')&&!options().sharedBack);
+  if(missing!==undefined)throw Error('Assign a back template or back image for '+S.cards[missing].name);
  }
  return l;
 }
