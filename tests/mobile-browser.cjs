@@ -3,6 +3,7 @@ const assert=require('node:assert/strict');
 const http=require('node:http');
 const fs=require('node:fs');
 const path=require('node:path');
+const {execFileSync}=require('node:child_process');
 const {chromium,devices}=require('playwright');
 const root=path.resolve(__dirname,'../public');
 const mime={'.html':'text/html','.css':'text/css','.js':'text/javascript','.svg':'image/svg+xml','.json':'application/json','.png':'image/png'};
@@ -26,6 +27,15 @@ const server=http.createServer((req,res)=>{
   const errors=[];
   const desktop=await browser.newContext({viewport:{width:1440,height:900},acceptDownloads:true});
   const dp=await desktop.newPage();dp.on('pageerror',e=>errors.push('desktop: '+e.message));
+  await dp.addInitScript(()=>{
+   Object.defineProperty(window,'showSaveFilePicker',{configurable:true,value:async()=>({
+    name:'portable-test.cardstudio.json',
+    createWritable:async()=>({
+     write:async(value)=>{window.__savedPortableProject=String(value)},
+     close:async()=>{}
+    })
+   })});
+  });
   await dp.goto(url);
   await dp.locator('#stage .element').first().waitFor();
   assert.equal(await dp.locator('.top').isVisible(),true,'desktop toolbar visible');
@@ -37,6 +47,25 @@ const server=http.createServer((req,res)=>{
   assert.equal(await dp.locator('#stage .element').count(),desktopElements,'desktop undo');
   await dp.locator('.work-tools [data-action="redo"]').click();
   assert.equal(await dp.locator('#stage .element').count(),desktopElements+1,'desktop redo');
+  // Embed a real test-runner font, save a JSON project, and reopen it on mobile.
+  let portableProject=null;
+  let fontPath='';
+  try{fontPath=execFileSync('fc-match',['-f','%{file}\\n','DejaVu Sans'],{encoding:'utf8'}).trim().split('\\n')[0]}catch{}
+  if(fontPath&&fs.existsSync(fontPath)&&fs.statSync(fontPath).size<12*1024*1024){
+   dp.once('dialog',dialog=>dialog.accept('Portable Integration'));
+   await dp.locator('#fontFiles').setInputFiles({name:'Portable-Integration.ttf',mimeType:'font/ttf',buffer:fs.readFileSync(fontPath)});
+   await dp.waitForFunction(()=>[...document.fonts].some(f=>f.family==='Portable Integration'&&f.status==='loaded'),null,{timeout:12000});
+   await dp.locator('[data-layer]').filter({hasText:'Card Title'}).click();
+   await dp.locator('#inspector input[data-prop="font"]').fill('Portable Integration');
+   await dp.locator('#inspector input[data-prop="font"]').press('Tab');
+   await dp.locator('#fileMenu summary').click();
+   await dp.locator('#fileMenu [data-action="save-project"]').click();
+   await dp.waitForFunction(()=>Boolean(window.__savedPortableProject));
+   portableProject=await dp.evaluate(()=>window.__savedPortableProject);
+   const parsed=JSON.parse(portableProject);
+   assert.equal(parsed.fonts[0].family,'Portable Integration','font family bundled');
+   assert.ok(parsed.fonts[0].data.startsWith('data:'),'font file bytes saved in project');
+  }else console.warn('Skipping optional real font check: fontconfig unavailable');
   await dp.screenshot({path:'test-results/desktop.png'});
   await desktop.close();
 
@@ -44,6 +73,10 @@ const server=http.createServer((req,res)=>{
   const page=await phone.newPage();page.on('pageerror',e=>errors.push('mobile: '+e.message));
   await page.goto(url);
   await page.locator('#mobileShell').waitFor({state:'visible'});
+  if(portableProject){
+   await page.locator('#openProjectFile').setInputFiles({name:'portable-test.cardstudio.json',mimeType:'application/json',buffer:Buffer.from(portableProject)});
+   await page.waitForFunction(()=>[...document.fonts].some(f=>f.family==='Portable Integration'&&f.status==='loaded'),null,{timeout:12000});
+  }
   assert.equal(await page.locator('.top').isVisible(),false,'desktop controls hidden on phone');
   await page.locator('.m-mode [data-action="mode-cards"]').click();
   await page.locator('#mobileCardNav').waitFor({state:'visible',timeout:5000});
