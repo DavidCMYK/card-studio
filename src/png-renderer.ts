@@ -1,11 +1,13 @@
 import { S, sizePx, templateExportSize, visibleOnCard } from './model';
 import { getImageData, loadedImage } from './image-sets';
 import { elementGeometry } from './anchor-layout';
+import {waitForProjectFonts} from './project-fonts';
 import { paintElement } from './element-paint';
 import { makeShadow, makeElementAlpha, depthMergedShadowPasses } from './shadow';
 
 /** Paint each shadow immediately before its source. Stacking is normal source-over (additive). */
 export async function canvasCard(ci:number,mode:'template'|'cards'='cards'){
+ await waitForProjectFonts();
  const {w,h}=sizePx(),{w:W,h:H}=templateExportSize();
  if(W>12000||H>12000||W*H>75000000)throw Error('Export dimensions are too large. Lower the DPI or card size.');
  const cvs=document.createElement('canvas');cvs.width=W;cvs.height=H;
