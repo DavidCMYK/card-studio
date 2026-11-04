@@ -1,7 +1,7 @@
 /** Low-resolution card thumbnails use the same element painter as PNG export.
  * Render lazily only when card rows are near the visible area.
  */
-import {S,sizePx,visibleOnCard} from './model';
+import {S,px,visibleOnCard,assignedTemplate} from './model';
 import {getImageData,loadedImage} from './image-sets';
 import {elementGeometry} from './anchor-layout';
 import {paintElement} from './element-paint';
@@ -13,24 +13,25 @@ let observer:IntersectionObserver|null=null;
 let lastRevision=-1;
 async function thumbnail(ci:number,revision:number):Promise<string|null>{
  await waitForProjectFonts();
- const {w,h}=sizePx();
+ const template=assignedTemplate(ci,'front')||S.template;
+ const w=px(template.width,template.unit,template.dpi),h=px(template.height,template.unit,template.dpi);
  if(w<=0||h<=0)return null;
  const canvas=document.createElement('canvas');
  canvas.width=78;canvas.height=Math.max(48,Math.min(144,Math.round(78*h/w)));
  const ctx=canvas.getContext('2d');
  if(!ctx)return null;
  ctx.scale(canvas.width/w,canvas.height/h);
- ctx.fillStyle=S.template.background||'#ffffff';ctx.fillRect(0,0,w,h);
+ ctx.fillStyle=template.background||'#ffffff';ctx.fillRect(0,0,w,h);
  const staged=S.cards[ci];
  if(!staged)return null;
- const elements=[...S.template.elements,...(staged.extraElements||[])];
+ const elements=[...template.elements,...(staged.extraElements||[])];
  for(const raw of elements){
-  if(!visibleOnCard(raw,ci,'cards'))continue;
+  if(!visibleOnCard(raw,ci,'cards',template,'front'))continue;
   const e={...raw,...(staged.overrides?.[raw.id]||{})};
   const value=raw.kind==='text'&&Object.prototype.hasOwnProperty.call(staged.values||{},raw.id)?String(staged.values[raw.id]??''):e.text;
   const src=raw.kind==='image'?getImageData(raw,ci,'cards'):null;
   const image=src?await loadedImage(src):null;
-  const rect=elementGeometry(raw,ci,'cards');
+  const rect=elementGeometry(raw,ci,'cards',template,'front');
   paintElement(ctx,{...e,...rect},value||'',image);
  }
  if(revision!==historyRevision())return null;
