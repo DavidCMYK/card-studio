@@ -1,4 +1,4 @@
-import { S, initial, replaceState, safeFile,selectProjectTemplate,templateById,normalizeProject,uid } from './model';
+import { S, loadedProject, replaceState, safeFile,selectProjectTemplate,templateById,normalizeProject,uid } from './model';
 import {cloneTemplate,uniqueTemplateName} from './project-collections';
 import { $, jsonDownload, download, toast } from './dom';
 import { imageCache } from './image-sets';
@@ -194,7 +194,7 @@ export async function openJSON(file: {text: () => Promise<string>}, onlyTemplate
    toast('Template added: '+added.name);
   }else{
    if(!Array.isArray(obj.cards)||!Array.isArray(obj.sets))throw Error('Project does not contain cards and image sets');
-   replaceState({...initial(),...obj,fonts:Array.isArray(obj.fonts)?obj.fonts:[],mode:'template',selected:null,cardIndex:0});
+   replaceState(loadedProject({...obj,fonts:Array.isArray(obj.fonts)?obj.fonts:[],mode:'template',selected:null,cardIndex:0}));
    imageCache.clear();projectFileHandle=handle;templateFileHandles.clear();
    toast('Project loaded');
   }
