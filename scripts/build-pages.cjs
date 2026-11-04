@@ -1,6 +1,7 @@
 /** Prepare a minimal static website for Cloudflare Pages Git deployments. */
 const fs = require('node:fs');
 const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 
 const root = path.resolve(__dirname, '..');
 const output = path.join(root, 'public');
@@ -35,4 +36,9 @@ for (const file of assets) {
   fs.copyFileSync(path.join(root, file), destination);
 }
 
-console.log(`Cloudflare Pages: prepared ${assets.length} static files in public/`);
+const commit = process.env.CF_PAGES_COMMIT_SHA || process.env.GITHUB_SHA ||
+  execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim();
+const branch = process.env.CF_PAGES_BRANCH || process.env.GITHUB_REF_NAME ||
+  execFileSync('git',['branch','--show-current'],{cwd:root,encoding:'utf8'}).trim();
+fs.writeFileSync(path.join(output,'build-info.json'),JSON.stringify({commit,branch},null,2)+'\n');
+console.log(`Cloudflare Pages: prepared ${assets.length} static files in public/ (${branch} @ ${commit.slice(0,10)})`);
