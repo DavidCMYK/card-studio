@@ -7,7 +7,7 @@ export interface CardGuides {
   bleedMode:BleedMode;
   unit:Units;
   bleed:Edges; safe:Edges;
-  bleedLinked:boolean;safeLinked:boolean;
+  bleedLinked:boolean;safeLinked:boolean;modeChange?:'preserve'|'reinterpret';
   showTemplate:boolean;showCards:boolean;dimUnsafe:boolean;
 }
 export const DEFAULT_BLEED_MM=3, DEFAULT_SAFE_MM=4;
