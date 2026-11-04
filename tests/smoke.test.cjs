@@ -5,7 +5,7 @@ const document={querySelector:get,querySelectorAll(){return[]},createElement(tag
 const window={addEventListener(){},queryLocalFonts:null};
 const URL={createObjectURL(blob){lastBlob=blob;return 'blob:local'},revokeObjectURL(){}};
 const sandbox={document,window,URL,Blob,JSZip,console,Image:class{},setTimeout:(fn,ms)=>{const t=setTimeout(fn,ms);t.unref();return t},clearTimeout,confirm(){return true},alert:console.log,prompt(){return 'Set'},structuredClone,Math,Date};
-const source=fs.readFileSync(path.join(__dirname,'..','dist','app.js'),'utf8').replace("load('main');", "const m=load('model'),ui=load('interface'),sheet=load('spreadsheet'),png=load('png-export');window.__test={state:()=>m.S,exportXLSX:sheet.exportXLSX,applyTable:sheet.applyTable,patchElement:ui.patchElement,effective:m.effective,templateEl:m.templateEl,parseCSV:sheet.parseCSV,exportAll:png.exportAll};load('main');");
+const source=fs.readFileSync(path.join(__dirname,'..','dist','app.js'),'utf8').replace("load('main');", "const m=load('model'),ui=load('interface'),sheet=load('spreadsheet'),png=load('png-export');window.__test={state:()=>m.S,exportXLSX:sheet.exportXLSX,applyTable:sheet.applyTable,patchElement:ui.patchElement,effective:m.effective,templateEl:m.templateEl,parseCSV:sheet.parseCSV,exportAll:png.exportAll,selectInspectorTab:ui.selectInspectorTab};load('main');");
 vm.createContext(sandbox);vm.runInContext(source,sandbox,{timeout:15000});
 const t=window.__test;if(!t)throw Error('No test API');let state=t.state();if(state.template.elements.length!==6)throw Error('Bad default elements');if(!get('#stage').innerHTML.includes('THE HOLLOW GATE'))throw Error('Stage not rendered');
 // Full-card background elements can cover every pixel of the stage: clicking the workspace must still deselect.
@@ -101,7 +101,9 @@ const selectEdit=(el)=>{
 };
 selectEdit(editA);
 if(!get('#inspector').innerHTML.includes(`data-edit-owner="${editA.id}" data-edit-mode="template" data-edit-card="0" data-prop="x"`))throw Error('Inspector does not bind fields to their original element');
+t.selectInspectorTab('content');
 if(!get('#inspector').innerHTML.includes(`data-edit-owner="${editA.id}" data-edit-mode="template" data-edit-card="0" data-prop="text"`))throw Error('Default text field not bound to selected element');
+t.selectInspectorTab('layout');
 const staleX={dataset:{prop:'x',editOwner:editA.id,editMode:'template',editCard:'0'},type:'number',value:'17.5'};
 get('#inspector').emit('input',{target:staleX});
 const savedA=editA.x;
