@@ -152,3 +152,21 @@ test('legacy canvas corner radius is ignored and removed when guide metadata is 
  g.setGuideCornerRadius(t,'safe',3);
  assert.deepEqual(t.guides.radii,{cut:2,safe:3});
 });
+
+test('editor overlay rounds cut and safe guides only, including no-bleed cut line',()=>{
+ const {guideOverlay}=require('../.build/guide-overlay.js');
+ const {t}=doc();
+ g.setGuideCornerRadius(t,'cut',3);
+ g.setGuideCornerRadius(t,'safe',2);
+ let html=guideOverlay(t,'template',1);
+ assert.match(html,/guide-trim[^>]*border-radius:11\.33858[0-9]*px/);
+ assert.match(html,/guide-safe[^>]*border-radius:7\.55905[0-9]*px/);
+ assert.doesNotMatch(html,/guide-canvas/);
+ g.changeBleedMode(t,[],'trim');
+ html=guideOverlay(t,'template',1);
+ assert.match(html,/guide-trim/,'cut line still has rounded corners at the canvas edge');
+ assert.doesNotMatch(html,/guide-canvas/);
+ t.guides.dimUnsafe=true;
+ html=guideOverlay(t,'template',1);
+ assert.match(html,/guide-dim-rounded/,'unsafe mask follows safe-zone rounding');
+});
