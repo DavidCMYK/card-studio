@@ -38,7 +38,7 @@ function linkedDependents(id:string,mode:'template'|'cards',ci:number):Snapshot[
   isExtra:!!selected?.extraElements?.some(el=>el.id===raw.id)
  }));
 }
-const unchanged=(a:Rect,b:Rect)=>['x','y','w','h'].every(k=>Math.abs(a[k]-b[k])<1e-6);
+const unchanged=(a:Rect,b:Rect)=>Math.abs(a.x-b.x)<1e-6&&Math.abs(a.y-b.y)<1e-6&&Math.abs(a.w-b.w)<1e-6&&Math.abs(a.h-b.h)<1e-6;
 
 /**
  * Move/resize the text, then recapture each dependent's original rectangle
