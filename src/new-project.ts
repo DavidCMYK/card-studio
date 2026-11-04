@@ -3,7 +3,7 @@ import {initial,px} from './model';
 import {
  guidesFor,guideRects,validateGuides,canvasDimensionsMm,trimDimensionsMm,safeDimensionsMm,
  distanceMm,displayedDistance,changeBleedMode,setGuideDistance,setCutDimension,
- setCanvasDimension,setSafeZoneDimension,setGuideLinked
+ setCanvasDimension,setSafeZoneDimension,setGuideLinked,setGuideCornerRadius
 } from './card-guides';
 
 /** New projects use the same cut/canvas/bleed/safe-size invariants as Card Setup.
@@ -47,6 +47,13 @@ export function openNewProjectDialog(onCreate:(project:StudioProject)=>void){
     <div class="field"><label>Right buffer</label><input type="number" name="safeRight" min="0" step="any"></div>
     <div class="field"><label>Top buffer</label><input type="number" name="safeTop" min="0" step="any"></div>
     <div class="field"><label>Bottom buffer</label><input type="number" name="safeBottom" min="0" step="any"></div></div>
+   <div class="section-title">Guide corner rounding</div>
+   <div class="fields-two">
+    <div class="field"><label>Canvas edge radius</label><input type="number" name="radiusCanvas" min="0" step="any"></div>
+    <div class="field"><label>Cut line radius</label><input type="number" name="radiusCut" min="0" step="any"></div>
+    <div class="field"><label>Safe-zone radius</label><input type="number" name="radiusSafe" min="0" step="any"></div>
+   </div>
+   <div class="small">In selected units. Rounded guides do not crop the exported artwork.</div>
    <div class="small" id="newProjectDimensions" aria-live="polite" style="padding:8px 0"></div>
    <div id="newProjectError" role="alert" style="color:#bd293a;font-size:12px"></div>
    <p>Creating this project replaces the current unsaved workspace. Your saved project files are not overwritten.</p>
@@ -86,6 +93,10 @@ export function openNewProjectDialog(onCreate:(project:StudioProject)=>void){
    else if(name==='height')setCanvasDimension(draft,'height',numberValue(name));
    else if(name==='safeWidth')setSafeZoneDimension(draft,'width',numberValue(name));
    else if(name==='safeHeight')setSafeZoneDimension(draft,'height',numberValue(name));
+   else if(['radiusCanvas','radiusCut','radiusSafe'].includes(name)){
+    const boundary=name==='radiusCanvas'?'canvas':name==='radiusCut'?'cut':'safe';
+    setGuideCornerRadius(draft,boundary,distanceMm(numberValue(name),draft.unit,draft.dpi));
+   }
    else if(name==='bleedLinked'||name==='safeLinked')setGuideLinked(draft,name==='bleedLinked'?'bleed':'safe',(target as HTMLInputElement).checked);
    else {
     const match=/^(bleed|safe)(Left|Right|Top|Bottom)$/.exec(name);
@@ -102,6 +113,7 @@ export function openNewProjectDialog(onCreate:(project:StudioProject)=>void){
    unit:draft.unit,dpi:String(draft.dpi),mode:g.bleedMode,
    width:d(canvas.width),height:d(canvas.height),cutWidth:d(cut.width),cutHeight:d(cut.height),
    safeWidth:d(safe.width),safeHeight:d(safe.height),
+   radiusCanvas:d(g.radii!.canvas),radiusCut:d(g.radii!.cut),radiusSafe:d(g.radii!.safe),
    bleedLeft:d(g.bleed.left),bleedRight:d(g.bleed.right),bleedTop:d(g.bleed.top),bleedBottom:d(g.bleed.bottom),
    safeLeft:d(g.safe.left),safeRight:d(g.safe.right),safeTop:d(g.safe.top),safeBottom:d(g.safe.bottom)
   };
