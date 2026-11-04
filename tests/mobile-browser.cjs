@@ -39,7 +39,7 @@ const server=http.createServer((req,res)=>{
   await dp.goto(url);
   await dp.locator('#stage .element').first().waitFor();
   // Separate project: guide modes, physical size preservation and creation dialog.
-  const guideContext=await browser.newContext({viewport:{width:1360,height:900}});
+  const guideContext=await browser.newContext({viewport:{width:1360,height:900},acceptDownloads:true});
   const gp=await guideContext.newPage();gp.on('pageerror',e=>errors.push('guides: '+e.message));
   await gp.goto(url);
   await gp.locator('#stage .element').first().waitFor();
@@ -64,6 +64,17 @@ const server=http.createServer((req,res)=>{
   await gp.locator('#newProjectDialog').waitFor({state:'detached'});
   assert.equal(Number(await gp.locator('[data-prop="template.width"]').inputValue()),69,'new project's canvas size is explicit');
   assert.equal(await gp.locator('#stage .guide-trim').count(),1,'new project starts with trim guide');
+  await gp.locator('.top [data-action="print-sheets"]').click();
+  assert.match(await gp.locator('#prSummary').textContent(),/Cards: 63 × 88 mm/,'print sheet uses finished trim dimensions, not canvas');
+  assert.equal(await gp.locator('#printModal [name="bleed"]').isDisabled(),true,'no second edge-extension bleed on full-bleed canvas');
+  await gp.locator('#printModal [data-print="close"]').click();
+  const trimmedDownloadWait=gp.waitForEvent('download',{timeout:45000});
+  await gp.locator('#fileMenu summary').click();
+  await gp.locator('#fileMenu [data-action="export-trimmed"]').click();
+  const trimmedDownload=await trimmedDownloadWait;
+  const trimmedBytes=fs.readFileSync(await trimmedDownload.path());
+  assert.equal(trimmedBytes.subarray(1,4).toString(),'PNG','trimmed output is a PNG');
+  assert.equal(trimmedBytes.readUInt32BE(16),Math.round(63*300/25.4),'trimmed image has finished-card width in export pixels');
   await guideContext.close();
   // Print-sheet workflow: quantities, preview, shared backs, duplex PDF.
   await dp.locator('.top [data-action="print-sheets"]').click();
