@@ -4,7 +4,7 @@ import { $ , toast } from './dom';
 import { renderStage } from './preview';
 import { repaint, renderInspector, renderLeft, renderCardControl, chooseCard, patchElement, addElement, updateDimensionReadouts, setKnownFonts, baseFonts, refreshHistoryButtons, selectInspectorTab, filterCardData, showDiscoveredFonts, toggleFontBrowser, closeFontBrowser, filterFontBrowser } from './interface';
 import { imageCache, cacheImage, getImageData, setImageUpdateHandler, imageScreenOffset, imageOffsetPatch } from './image-sets';
-import { exportPNG, exportAll } from './png-export';
+import { exportPNG, exportAll, exportTrimmedPNG } from './png-export';
 import {guidesFor,changeBleedMode,setGuideDistance,distanceMm,validateGuides} from './card-guides';
 import { openPrintStudio } from './print-studio';
 import { exportXLSX, readSheet } from './spreadsheet';
@@ -113,7 +113,7 @@ case 'reset-card':if(card()&&confirm('Reset all element positions and styles for
 case 'reset-element':if(card()){if(isExtra(S.selected)){card().extraElements=card().extraElements.filter(e=>e.id!==S.selected);S.selected=null}else delete card().overrides[S.selected];repaint()}break;
 case 'prev-card':chooseCard(S.cardIndex-1);break;case 'next-card':chooseCard(S.cardIndex+1);break;
 case 'export-sheet':exportXLSX().catch(err=>alert(err.message));break;case 'import-sheet':$('#openSheetFile').click();break;
-case 'export-current':exportPNG();break;case 'export-all':exportAll();break;
+case 'export-current':exportPNG();break;case 'export-trimmed':exportTrimmedPNG();break;case 'export-all':exportAll();break;
 case 'print-sheets':openPrintStudio();break;
 case 'toggle-guides':{const g=guidesFor(S.template);if(S.mode==='template')g.showTemplate=!g.showTemplate;else g.showCards=!g.showCards;S.template.guides=g;repaint();break;}
 case 'reposition-image':{
