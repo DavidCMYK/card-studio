@@ -75,6 +75,11 @@ const server=http.createServer((req,res)=>{
    await dp.locator('[data-layer]').filter({hasText:'Card Title'}).click();
    await dp.locator('#inspector input[data-prop="font"]').fill('Portable Integration');
    await dp.locator('#inspector input[data-prop="font"]').press('Tab');
+   // A second default text element uses Georgia. Embed its actual font too:
+   // all used font faces must be portable for exact cross-device PNG output.
+   await dp.locator('[data-layer]').filter({hasText:'Description'}).click();
+   await dp.locator('#inspector input[data-prop="font"]').fill('Portable Integration');
+   await dp.locator('#inspector input[data-prop="font"]').press('Tab');
    await dp.locator('#fileMenu summary').click();
    await dp.locator('#fileMenu [data-action="save-project"]').click();
    await dp.waitForFunction(()=>Boolean(window.__savedPortableProject));

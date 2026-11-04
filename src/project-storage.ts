@@ -121,7 +121,9 @@ export async function openJSON(file: {text: () => Promise<string>}, onlyTemplate
   resetHistory();recordProjectReplaced();
   await activateProjectFonts();
   repaint();
-  const missing=unbundledFontFamilies().filter(f=>!['arial','georgia','times new roman','courier new','verdana','tahoma','trebuchet ms'].includes(f.toLowerCase()));
+  // Even familiar system fonts (Georgia, Arial, etc.) are not guaranteed to
+  // render identically on Android, iOS and desktop. Only packaged fonts travel.
+  const missing=unbundledFontFamilies();
   if(missing.length)toast('Project uses fonts not included in the file: '+missing.slice(0,3).join(', ')+(missing.length>3?'…':''));
   return true;
  }catch(err){alert('Could not open file: '+(err as Error).message);return false;}

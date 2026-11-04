@@ -66,3 +66,8 @@ test('installed font request happens before licensing confirmation',async()=>{
   if(oldConfirm===undefined)delete global.confirm;else global.confirm=oldConfirm;
  }
 });
+
+test('default system fonts are not considered portable without embedding',()=>{
+ model.replaceState(model.initial());
+ assert.ok(fonts.unbundledFontFamilies().includes('Georgia'));
+});
