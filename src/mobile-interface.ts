@@ -4,6 +4,7 @@ import {renderStage} from './preview';
 import {repaint,patchElement} from './interface';
 import {effective} from './model';
 import {elementGeometry} from './anchor-layout';
+import {getImageData,cacheImage} from './image-sets';
 import {repositionImageId,imageDragPatch} from './image-reposition';
 import {chooseEditorLayout,fitCardZoom,EditorLayout} from './mobile-mode';
 import {installMobileGestures} from './mobile-touch';
@@ -112,7 +113,8 @@ function start(){
      const rect=elementGeometry(raw);
      const dx=command==='nudge-left'?-nudgeStep:command==='nudge-right'?nudgeStep:0;
      const dy=command==='nudge-up'?-nudgeStep:command==='nudge-down'?nudgeStep:0;
-     patchElement(raw.id,repositionImageId()===raw.id?imageDragPatch(effective(raw),dx,dy):{x:rect.x+dx,y:rect.y+dy});repaint();
+     const src=getImageData(raw,S.cardIndex,S.mode),cached=src?cacheImage(src):null;
+     patchElement(raw.id,repositionImageId()===raw.id?imageDragPatch({...effective(raw),...rect},dx,dy,cached?.loaded?cached.im:null):{x:rect.x+dx,y:rect.y+dy});repaint();
     }
    }
    else if(['apply-text','assign-image','clear-image'].includes(command)){if(performQuickAction(command,control))closePanel()}
