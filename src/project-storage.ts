@@ -64,9 +64,22 @@ export async function saveAllTemplates():Promise<void>{
  const filenames=new Set<string>();
  const entries=contents.map(({t,data})=>{
   const stem=safeFile(t.name);let name=stem+'.template.json',index=2;
-  while(filenames.has(name.toLowerCase()))name=stem+'_'+index+++'.template.json';
+  while(filenames.has(name.toLowerCase()))name=stem+'_'+(index++)+'.template.json';
   filenames.add(name.toLowerCase());return {template:t,name,data};
  });
+ // Existing per-template file grants can all be reused without prompting.
+ if(entries.every(entry=>templateFileHandles.has(entry.template.id!))){
+  try{
+   for(const entry of entries){
+    const handle=templateFileHandles.get(entry.template.id!)!;
+    const writable=await handle.createWritable();
+    await writable.write(JSON.stringify(entry.data,null,2));
+    await writable.close();
+   }
+   toast('Saved '+entries.length+' templates to their existing files');
+   return;
+  }catch(error){alert('Could not update all template files: '+(error as Error).message);return;}
+ }
  const directoryPicker=(window as any).showDirectoryPicker;
  if(typeof directoryPicker==='function'){
   try{
