@@ -5,8 +5,8 @@ import {renderStage} from './preview';
 import {renderInspector,renderLeft,patchElement,refreshHistoryButtons} from './interface';
 import {checkpoint} from './history';
 import {elementGeometry} from './anchor-layout';
-import {getImageData,cacheImage} from './image-sets';
-import {enterImageReposition,stopImageReposition,repositionImageId,imageDragPatch,imageZoomPatch,screenToImageDelta} from './image-reposition';
+import {getImageData,cacheImage,imageScreenOffset,imageOffsetPatch} from './image-sets';
+import {enterImageReposition,stopImageReposition,repositionImageId,imageDragPatch,imageScalePatch} from './image-reposition';
 import {resizedRect,locksImageCornerAspect,ResizeHandle} from './resize';
 type P={x:number;y:number};
 type Drag={id:string;kind:'frame'|'image';handle:ResizeHandle|null;start:P;x:number;y:number;w:number;h:number;locked:boolean;lockAspect:boolean;moved:boolean;startElement:CardElement};
@@ -62,7 +62,7 @@ export function installMobileGestures(refresh:()=>void,manualZoom:()=>void){
    S.selected=raw.id;
    drag={id:raw.id,kind:isImage?'image':'frame',handle,start:p(e),x:g.x,y:g.y,w:g.w,h:g.h,
     locked:el.locked,lockAspect:locksImageCornerAspect(el.kind,el.imageFit,handle),
-    startElement:{...el},moved:false};
+    startElement:{...el,...g},moved:false};
    pan=wasSelected?null:{start:p(e),left:outer.scrollLeft,top:outer.scrollTop};
    if(!wasSelected)drag=null;
    repaintSelection();
@@ -79,11 +79,15 @@ export function installMobileGestures(refresh:()=>void,manualZoom:()=>void){
    if(pinchDistance>0){
     if(imagePinch&&repositionImageId()===imagePinch.id){
      const pinch=imagePinch;
-     const ratio=dist(pair[0],pair[1])/pinchDistance;
-     const patch=imageZoomPatch(pinch.start,pinch.image,(Number(pinch.start.imgZoom)||1)*ratio,pinch.focal);
-     const move=screenToImageDelta(pinch.start,(center.x-pinch.center.x)/S.zoom,(center.y-pinch.center.y)/S.zoom);
-     patch.imgOffsetX+=move.x;patch.imgOffsetY+=move.y;
-     patchElement(pinch.id,patch);renderStage();
+     const dx=(center.x-pinch.center.x)/S.zoom,dy=(center.y-pinch.center.y)/S.zoom;
+     if(pinch.start.imageFit==='free'){
+      const ratio=dist(pair[0],pair[1])/pinchDistance;
+      const scaled=imageScalePatch(pinch.start,pinch.image,(Number(pinch.start.imgScale)||1)*ratio,pinch.focal);
+      const next={...pinch.start,...scaled};
+      const shifted=imageScreenOffset(next,pinch.image);
+      patchElement(pinch.id,{...scaled,...imageOffsetPatch(next,shifted.x+dx,shifted.y+dy,pinch.image)});
+     }else patchElement(pinch.id,imageDragPatch(pinch.start,dx,dy,pinch.image));
+     renderStage();
     }else{zoomPinch(pinchZoom*dist(pair[0],pair[1])/pinchDistance,center);manualZoom()}
    }
    return;
@@ -94,7 +98,7 @@ export function installMobileGestures(refresh:()=>void,manualZoom:()=>void){
   const dx=(e.clientX-drag.start.x)/S.zoom,dy=(e.clientY-drag.start.y)/S.zoom;
   if(!drag.moved&&Math.hypot(e.clientX-drag.start.x,e.clientY-drag.start.y)<7)return;
   drag.moved=true;let patch:any;
-  if(drag.kind==='image'){patch=imageDragPatch(drag.startElement,dx,dy)}
+  if(drag.kind==='image'){const raw=templateEl(drag.id),src=raw?getImageData(raw,S.cardIndex,S.mode):null,cached=src?cacheImage(src):null;patch=imageDragPatch(drag.startElement,dx,dy,cached?.loaded?cached.im:null)}
   else if(drag.handle){
    const {w,h}=sizePx(),r=resizedRect({x:drag.x,y:drag.y,w:drag.w,h:drag.h},drag.handle,dx,dy,{w,h},drag.lockAspect);
    patch={};
