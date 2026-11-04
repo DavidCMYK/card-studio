@@ -1,4 +1,4 @@
-import { S, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, clamp, px, fmt, sizePx, makeElement, textKinds, escapeHTML, unitFactor, exportPixels, templateExportSize, isExported, isDataExported, visibleOnCard, opacityFor, cardSetFor, syncEditorTemplate, assignedTemplate } from './model';
+import { S, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, clamp, px, fmt, sizePx, makeElement, textKinds, escapeHTML, unitFactor, exportPixels, templateExportSize, isExported, isDataExported, visibleOnCard, opacityFor, cardSetFor, syncEditorTemplate, assignedTemplate, ensureCardExtras } from './model';
 import {guideRects,displayedDistance,guidesFor} from './card-guides';
 import {guideSettingsHtml} from './guide-ui';
 import { $ } from './dom';
@@ -453,12 +453,12 @@ export function patchElement(id,patch){
  }
  if(S.mode==='cards'){
   const c=card();if(!c)return;
-  if(isExtra(id))Object.assign(c.extraElements.find(e=>e.id===id),p);
+  if(isExtra(id))Object.assign(ensureCardExtras(c).find(e=>e.id===id),p);
   else{c.overrides??={};c.overrides[id]={...(c.overrides[id]||{}),...p}}
  }else Object.assign(raw,p);
 }
 export function chooseCard(i){S.mode='cards';S.cardIndex=clamp(i,0,S.cards.length-1);if(S.side==='back'&&!assignedTemplate(S.cardIndex,'back'))S.side='front';syncEditorTemplate();repaint()}
-export function addElement(kind){const {w,h}=sizePx(),n=S.template.elements.filter(e=>e.kind===kind).length+1;const e=makeElement(kind,{name:uniqName(kind==='text'?`Text ${n}`:kind==='image'?`Image ${n}`:`Shape ${n}`),x:Math.round(w*.15),y:Math.round(h*.15),w:Math.round(w*.7),h:kind==='image'?Math.round(h*.38):kind==='shape'?Math.round(h*.17):65,text:'New text',fontSize:18});if(S.mode==='cards'){card().extraElements??=[];card().extraElements.push(e)}else S.template.elements.push(e);S.selected=e.id;repaint()}
+export function addElement(kind){const {w,h}=sizePx(),n=S.template.elements.filter(e=>e.kind===kind).length+1;const e=makeElement(kind,{name:uniqName(kind==='text'?`Text ${n}`:kind==='image'?`Image ${n}`:`Shape ${n}`),x:Math.round(w*.15),y:Math.round(h*.15),w:Math.round(w*.7),h:kind==='image'?Math.round(h*.38):kind==='shape'?Math.round(h*.17):65,text:'New text',fontSize:18});if(S.mode==='cards')ensureCardExtras(card()).push(e);else S.template.elements.push(e);S.selected=e.id;repaint()}
 
 
 export function setKnownFonts(fonts: string[]) { knownFonts=[...new Set([...fontOptions,...knownFonts,...fonts])].sort((a,b)=>a.localeCompare(b)); }
