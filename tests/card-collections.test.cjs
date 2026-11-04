@@ -136,9 +136,10 @@ test('identical filenames in image sets resolve to the image attached to each te
  const s=reset(),front=s.templates[0];
  const other=collection.createTemplate(front);
  const set=collection.newCardSet('Other cards',other.id);
- const firstImages={id:'images-one',name:'First artwork',images:[{name:'portrait.png',data:'data:image/png;base64,Zmlyc3Q='}]};
- const secondImages={id:'images-two',name:'Second artwork',images:[{name:'portrait.png',data:'data:image/png;base64,c2Vjb25k'}]};
- s.sets=[firstImages,secondImages];
+ const firstImages={id:'images-one',name:'Shared artwork',images:[{name:'portrait.png',data:'data:image/png;base64,Zmlyc3Q='}]};
+ const secondImages={id:'images-two',name:'Shared artwork',images:[{name:'portrait.png',data:'data:image/png;base64,c2Vjb25k'}]};
+ const alternative={id:'images-other',name:'Alternative artwork',images:[{name:'portrait.png',data:'data:image/png;base64,dGhpcmQ='}]};
+ s.sets=[firstImages,secondImages,alternative];
  const frontImage=front.elements.find(e=>e.kind==='image');
  const otherImage=other.elements.find(e=>e.kind==='image');
  frontImage.autoSet=firstImages.id;
@@ -147,7 +148,10 @@ test('identical filenames in image sets resolve to the image attached to each te
  s.cards.push({id:'card-second',name:'Other',setId:set.id,values:{[otherImage.id]:'portrait.png'},overrides:{},extraElements:[]});
  assert.equal(getImageData(frontImage,0,'cards'),firstImages.images[0].data);
  assert.equal(getImageData(otherImage,1,'cards'),secondImages.images[0].data);
- // An explicitly qualified set/image entry may still select another set.
- s.cards[1].values[otherImage.id]='First artwork/portrait.png';
- assert.equal(getImageData(otherImage,1,'cards'),firstImages.images[0].data);
+ // Qualified values are still correctly scoped when imported sets share a name.
+ s.cards[1].values[otherImage.id]='Shared artwork/portrait.png';
+ assert.equal(getImageData(otherImage,1,'cards'),secondImages.images[0].data);
+ // An explicitly qualified *different* set may still be selected.
+ s.cards[1].values[otherImage.id]='Alternative artwork/portrait.png';
+ assert.equal(getImageData(otherImage,1,'cards'),alternative.images[0].data);
 });
