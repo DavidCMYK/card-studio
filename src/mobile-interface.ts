@@ -59,6 +59,9 @@ function showPanel(next:Panel){
   for(const [action,labelText] of menus[next]){
    const button=document.createElement('button');button.dataset.action=action;button.textContent=labelText;list.append(button);
   }
+  if(next==='file'){
+   const status=document.createElement('small');status.id='mobileRecoveryStatus';status.className='m-autosave-status';status.textContent=document.getElementById('recoveryStatus')?.textContent||'Local recovery ready';list.append(status);
+  }
   if(next==='file'&&root.dataset.appTarget!=='mobile'){
    const button=document.createElement('button');button.dataset.mobile='switch';button.textContent='Switch to desktop layout';list.append(button);
   }
