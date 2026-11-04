@@ -1,4 +1,4 @@
-import { S, initial, replaceState, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, px, unitFactor, sizePx, clamp, uid, templateById,selectProjectTemplate,syncEditorTemplate,setCardSide,cardSetFor } from './model';
+import { S, initial, replaceState, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, px, unitFactor, sizePx, clamp, uid, templateById,selectProjectTemplate,syncEditorTemplate,setCardSide,cardSetFor,cardExtras,ensureCardExtras } from './model';
 import {openNewProjectDialog} from './new-project';
 import {createTemplate,deleteTemplate,newCardSet,deleteCardSet,assignSetTemplate,moveCardToSet} from './project-collections';
 import { $ , toast } from './dom';
@@ -135,8 +135,8 @@ case 'undo':if(undo()){imageCache.clear();void activateProjectFonts();repaint()}
 case 'mode-template':case 'card-setup':S.mode='template';syncEditorTemplate();repaint();break;case 'mode-cards':S.mode='cards';syncEditorTemplate();repaint();break;
 case 'add-text':case 'add-image':case 'add-shape':addElement(action.slice(4));break;
 case 'copy-element':copyElement();break;case 'cut-element':copyElement(true);break;case 'paste-element':pasteElement();break;
-case 'delete-element':if(!S.selected)return;if(S.mode==='cards'){if(isExtra(S.selected)){card().extraElements=card().extraElements.filter(x=>x.id!==S.selected)}else patchElement(S.selected,{hidden:true});S.selected=null;repaint();toast('Removed from this card only')}else if(confirm('Delete this element from the template and all cards?')){S.template.elements=S.template.elements.filter(x=>x.id!==S.selected);S.selected=null;repaint()}break;
-case 'layer-up':case 'layer-down':{if(S.mode==='cards'&&!isExtra(S.selected)){toast('Shared layer order is changed in Template mode');return}const a=S.mode==='cards'?card().extraElements:S.template.elements;let ix=a.findIndex(e=>e.id===S.selected),delta=action==='layer-up'?1:-1;if(ix<0||ix+delta<0||ix+delta>=a.length)return;[a[ix],a[ix+delta]]=[a[ix+delta],a[ix]];repaint();break}
+case 'delete-element':if(!S.selected)return;if(S.mode==='cards'){if(isExtra(S.selected)){S.side==='back'?card().backExtraElements=cardExtras(card()).filter(x=>x.id!==S.selected):card().extraElements=cardExtras(card()).filter(x=>x.id!==S.selected)}else patchElement(S.selected,{hidden:true});S.selected=null;repaint();toast('Removed from this card only')}else if(confirm('Delete this element from the template and all cards?')){S.template.elements=S.template.elements.filter(x=>x.id!==S.selected);S.selected=null;repaint()}break;
+case 'layer-up':case 'layer-down':{if(S.mode==='cards'&&!isExtra(S.selected)){toast('Shared layer order is changed in Template mode');return}const a=S.mode==='cards'?ensureCardExtras(card()):S.template.elements;let ix=a.findIndex(e=>e.id===S.selected),delta=action==='layer-up'?1:-1;if(ix<0||ix+delta<0||ix+delta>=a.length)return;[a[ix],a[ix+delta]]=[a[ix+delta],a[ix]];repaint();break}
 case 'zoom-in':changeZoom(.1);break;
 case 'zoom-out':changeZoom(-.1);break;
 case 'add-set':{const name=prompt('Name this image set (e.g. Creature Artwork):');if(!name?.trim())return;const set={id:uid(),name:name.trim(),images:[]};S.sets.push(set);setTargetImageSet(set.id);$('#assetFiles').click();repaint();break}
@@ -147,8 +147,8 @@ case 'manage-rename':case 'manage-remove':imageManagerAction(action,Number(el.da
 case 'remove-set':{const id=el.dataset.set,set=S.sets.find(x=>x.id===id);if(set&&confirm(`Remove image set "${set.name}" and its ${set.images.length} images?`)){S.sets=S.sets.filter(x=>x.id!==id);imageCache.clear();repaint()}break}
 case 'add-card':newCard();break;case 'duplicate-card':newCard(S.cards[Number(el.dataset.cardindex)]);break;
 case 'delete-card':if(S.cards.length<=1){toast('At least one card must remain');return}if(confirm('Delete the selected card?')){S.cards.splice(S.cardIndex,1);chooseCard(Math.min(S.cardIndex,S.cards.length-1))}break;
-case 'reset-card':if(card()&&confirm('Reset all element positions and styles for this card?')){card().overrides={};card().extraElements=[];repaint()}break;
-case 'reset-element':if(card()){if(isExtra(S.selected)){card().extraElements=card().extraElements.filter(e=>e.id!==S.selected);S.selected=null}else delete card().overrides[S.selected];repaint()}break;
+case 'reset-card':if(card()&&confirm('Reset all element positions and styles for this card?')){card().overrides={};if(S.side==='back')card().backExtraElements=[];else card().extraElements=[];repaint()}break;
+case 'reset-element':if(card()){if(isExtra(S.selected)){if(S.side==='back')card().backExtraElements=cardExtras(card()).filter(e=>e.id!==S.selected);else card().extraElements=cardExtras(card()).filter(e=>e.id!==S.selected);S.selected=null}else delete card().overrides[S.selected];repaint()}break;
 case 'prev-card':chooseCard(S.cardIndex-1);break;case 'next-card':chooseCard(S.cardIndex+1);break;
 case 'export-sheet':exportXLSX().catch(err=>alert(err.message));break;case 'import-sheet':$('#openSheetFile').click();break;
 case 'export-current':exportPNG();break;case 'export-trimmed':exportTrimmedPNG();break;case 'export-all':exportAll();break;
