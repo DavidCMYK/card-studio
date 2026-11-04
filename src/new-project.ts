@@ -49,7 +49,6 @@ export function openNewProjectDialog(onCreate:(project:StudioProject)=>void){
     <div class="field"><label>Bottom buffer</label><input type="number" name="safeBottom" min="0" step="any"></div></div>
    <div class="section-title">Guide corner rounding</div>
    <div class="fields-two">
-    <div class="field"><label>Canvas edge radius</label><input type="number" name="radiusCanvas" min="0" step="any"></div>
     <div class="field"><label>Cut line radius</label><input type="number" name="radiusCut" min="0" step="any"></div>
     <div class="field"><label>Safe-zone radius</label><input type="number" name="radiusSafe" min="0" step="any"></div>
    </div>
@@ -93,8 +92,8 @@ export function openNewProjectDialog(onCreate:(project:StudioProject)=>void){
    else if(name==='height')setCanvasDimension(draft,'height',numberValue(name));
    else if(name==='safeWidth')setSafeZoneDimension(draft,'width',numberValue(name));
    else if(name==='safeHeight')setSafeZoneDimension(draft,'height',numberValue(name));
-   else if(['radiusCanvas','radiusCut','radiusSafe'].includes(name)){
-    const boundary=name==='radiusCanvas'?'canvas':name==='radiusCut'?'cut':'safe';
+   else if(['radiusCut','radiusSafe'].includes(name)){
+    const boundary=name==='radiusCut'?'cut':'safe';
     setGuideCornerRadius(draft,boundary,distanceMm(numberValue(name),draft.unit,draft.dpi));
    }
    else if(name==='bleedLinked'||name==='safeLinked')setGuideLinked(draft,name==='bleedLinked'?'bleed':'safe',(target as HTMLInputElement).checked);
@@ -113,7 +112,7 @@ export function openNewProjectDialog(onCreate:(project:StudioProject)=>void){
    unit:draft.unit,dpi:String(draft.dpi),mode:g.bleedMode,
    width:d(canvas.width),height:d(canvas.height),cutWidth:d(cut.width),cutHeight:d(cut.height),
    safeWidth:d(safe.width),safeHeight:d(safe.height),
-   radiusCanvas:d(g.radii!.canvas),radiusCut:d(g.radii!.cut),radiusSafe:d(g.radii!.safe),
+   radiusCut:d(g.radii!.cut),radiusSafe:d(g.radii!.safe),
    bleedLeft:d(g.bleed.left),bleedRight:d(g.bleed.right),bleedTop:d(g.bleed.top),bleedBottom:d(g.bleed.bottom),
    safeLeft:d(g.safe.left),safeRight:d(g.safe.right),safeTop:d(g.safe.top),safeBottom:d(g.safe.bottom)
   };
