@@ -1,5 +1,6 @@
-import { S, initial, replaceState, safeFile } from './model';
-import { $, jsonDownload, toast } from './dom';
+import { S, initial, replaceState, safeFile,selectProjectTemplate,templateById,normalizeProject } from './model';
+import {cloneTemplate} from './project-collections';
+import { $, jsonDownload, download, toast } from './dom';
 import { imageCache } from './image-sets';
 import { repaint } from './interface';
 import {activateProjectFonts,unbundledFontFamilies} from './project-fonts';
@@ -10,13 +11,13 @@ import {recordProjectSaved,recordProjectReplaced} from './recovery';
 // valid for the browser session and must be granted by the user via a picker.
 type SavedFileHandle = {name: string; createWritable: () => Promise<{write: (data: string) => Promise<void>; close: () => Promise<void>; abort?: () => Promise<void>}>; getFile?: () => Promise<File>};
 let projectFileHandle: SavedFileHandle | null = null;
-let templateFileHandle: SavedFileHandle | null = null;
-export function resetFileHandles() { projectFileHandle = null; templateFileHandle = null; }
+const templateFileHandles = new Map<string,SavedFileHandle>();
+export function resetFileHandles() { projectFileHandle = null; templateFileHandles.clear(); }
 
 const projectName = () => safeFile(S.projectName) + '.cardstudio.json';
 const templateName = () => safeFile(S.template.name) + '.template.json';
-const projectContents = () => ({...S, type:'cardstudio-project', version:2});
-const templateContents = () => ({type:'cardstudio-template', version:2, template:S.template,fonts:S.fonts||[]});
+const projectContents = () => ({...S, template:(S.templates||[S.template])[0],templates:S.templates||[S.template],cardSets:S.cardSets,type:'cardstudio-project',version:2});
+const templateContents = (template=S.template) => ({type:'cardstudio-template',version:2,template,fonts:S.fonts||[]});
 const filePicker = (type: 'project'|'template', name: string) => ({
  suggestedName: name,
  types:[{description: type==='project'?'Card Studio project':'Card Studio template',accept:{'application/json':['.json']}}]
@@ -25,7 +26,7 @@ function isCancel(error: any) { return error?.name === 'AbortError'; }
 
 async function saveDocument(type: 'project'|'template', saveAs = false): Promise<boolean> {
  const isProject=type==='project';
- const handle=isProject?projectFileHandle:templateFileHandle;
+ const handle=isProject?projectFileHandle:templateFileHandles.get(S.template.id||'')||null;
  const name=isProject?projectName():templateName();
  const data=isProject?projectContents():templateContents();
  const revisionWhenSaving=historyRevision();
@@ -42,7 +43,7 @@ async function saveDocument(type: 'project'|'template', saveAs = false): Promise
   const writable=await destination.createWritable();
   try { await writable.write(JSON.stringify(data,null,2)); await writable.close(); }
   catch(err) { try { await writable.abort?.(); } catch {} throw err; }
-  if(isProject)projectFileHandle=destination;else templateFileHandle=destination;
+  if(isProject)projectFileHandle=destination;else templateFileHandles.set(S.template.id!,destination);
   if(isProject)await recordProjectSaved(revisionWhenSaving);
   toast(`${isProject?'Project':'Template'} saved to ${destination.name}`);
   return true;
@@ -50,6 +51,37 @@ async function saveDocument(type: 'project'|'template', saveAs = false): Promise
   if (!isCancel(error)) alert('Could not save '+type+': '+(error as Error).message);
   return false;
  }
+}
+/** Save every template separately. Use a native directory where supported, or
+ * download one ZIP with independent template files everywhere else. */
+export async function saveAllTemplates():Promise<void>{
+ const templates=S.templates||[S.template],contents=templates.map(t=>({t,data:templateContents(t)}));
+ const filenames=new Set<string>();
+ const entries=contents.map(({t,data})=>{
+  const stem=safeFile(t.name);let name=stem+'.template.json',index=2;
+  while(filenames.has(name.toLowerCase()))name=stem+'_'+index+++'.template.json';
+  filenames.add(name.toLowerCase());return {template:t,name,data};
+ });
+ const directoryPicker=(window as any).showDirectoryPicker;
+ if(typeof directoryPicker==='function'){
+  try{
+   const directory=await directoryPicker.call(window,{mode:'readwrite'});
+   for(const entry of entries){
+    const handle=await directory.getFileHandle(entry.name,{create:true});
+    const writable=await handle.createWritable();
+    await writable.write(JSON.stringify(entry.data,null,2));
+    await writable.close();
+    templateFileHandles.set(entry.template.id!,handle);
+   }
+   toast('Saved '+entries.length+' individual templates into the selected folder');
+   return;
+  }catch(error){if(isCancel(error))return;alert('Could not save templates in folder: '+(error as Error).message);return;}
+ }
+ const zip=new JSZip();
+ for(const entry of entries)zip.file(entry.name,JSON.stringify(entry.data,null,2));
+ const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:4}});
+ download(blob,safeFile(S.projectName)+'_templates.zip');
+ toast('Downloaded '+entries.length+' separate template files in ZIP');
 }
 export const saveProject=()=>saveDocument('project');
 export const saveProjectAs=()=>saveDocument('project',true);
@@ -107,15 +139,25 @@ export async function openJSON(file: {text: () => Promise<string>}, onlyTemplate
   if(!obj.template?.elements||!Array.isArray(obj.template.elements))throw Error('Not a Card Studio project or template');
   if(onlyTemplate && obj.type==='cardstudio-project')throw Error('This is a project file, not a template. Use Open project instead.');
   if(onlyTemplate||obj.type==='cardstudio-template'){
-   S.template=obj.template;S.fonts=Array.isArray(obj.fonts)?obj.fonts:[];S.selected=null;
-   for(const e of S.template.elements)if(e.kind==='image'&&!S.sets.some(x=>x.id===e.autoSet))e.autoSet='';
-   for(const c of S.cards){c.overrides={};c.values={};c.extraElements=[]}
-   templateFileHandle=handle;
-   toast('Template loaded. Existing staged cards reset.');
+   // Importing a template adds a new independent template without replacing
+   // any existing template or clearing cards/data. Remap element IDs so a
+   // separately loaded template cannot accidentally share field IDs.
+   normalizeProject(S);
+   const added=cloneTemplate(obj.template,obj.template.name||'Imported template');
+   S.templates!.push(added);
+   const incoming=Array.isArray(obj.fonts)?obj.fonts:[];
+   S.fonts??=[];
+   for(const font of incoming){
+    if(!S.fonts.some(f=>f.family===font.family&&f.weight===font.weight&&f.style===font.style))
+     S.fonts.push(font);
+   }
+   selectProjectTemplate(added.id!);
+   if(handle)templateFileHandles.set(added.id!,handle);
+   toast('Template added: '+added.name);
   }else{
    if(!Array.isArray(obj.cards)||!Array.isArray(obj.sets))throw Error('Project does not contain cards and image sets');
    replaceState({...initial(),...obj,fonts:Array.isArray(obj.fonts)?obj.fonts:[],mode:'template',selected:null,cardIndex:0});
-   imageCache.clear();projectFileHandle=handle;templateFileHandle=null;
+   imageCache.clear();projectFileHandle=handle;templateFileHandles.clear();
    toast('Project loaded');
   }
   resetHistory();recordProjectReplaced();
