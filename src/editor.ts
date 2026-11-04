@@ -15,7 +15,7 @@ import {enterImageReposition,stopImageReposition,repositionImageId,imageDragPatc
 import {checkpoint,undo,redo,resetHistory} from './history';
 import {showRecovery,recordProjectReplaced,noteLiveEdit} from './recovery';
 import {importFontFiles,embedInstalledUsedFonts,activateProjectFonts,onFontsReady,bundledFontFamilies} from './project-fonts';
-setImageUpdateHandler(renderStage);
+setImageUpdateHandler(()=>{renderStage();if(S.selected&&templateEl(S.selected)?.kind==='image')renderInspector()});
 onFontsReady(()=>{setKnownFonts([...new Set([...baseFonts(),...bundledFontFamilies()])]);repaint()});
 
 
