@@ -1,84 +1,133 @@
-import type {StudioProject,Units} from './types';
-import {initial,px,unitFactor} from './model';
-import {DEFAULT_GUIDES,guideRects,validateGuides,distanceMm,distanceInUnit} from './card-guides';
-/** New project creation makes the definition of canvas dimensions explicit. */
+import type {StudioProject,Units,CardTemplate} from './types';
+import {initial,px} from './model';
+import {
+ guidesFor,guideRects,validateGuides,canvasDimensionsMm,trimDimensionsMm,safeDimensionsMm,
+ distanceMm,displayedDistance,changeBleedMode,setGuideDistance,setCutDimension,
+ setCanvasDimension,setSafeZoneDimension,setGuideLinked
+} from './card-guides';
+
+/** New projects use the same cut/canvas/bleed/safe-size invariants as Card Setup.
+ * No user artwork is modified by editing these controls. */
 export function openNewProjectDialog(onCreate:(project:StudioProject)=>void){
  const holder=document.querySelector('#dialogHolder') as HTMLElement|null;
  if(!holder)return;
  holder.innerHTML=`<div class="dialog-backdrop" id="newProjectDialog">
-  <form class="dialog" style="width:min(530px,95vw);max-height:92vh;overflow:auto">
+  <form class="dialog" style="width:min(570px,95vw);max-height:93vh;overflow:auto">
    <h3>New card project</h3>
-   <p>Choose whether canvas dimensions represent the finished card or include printing bleed. All measurements can be changed later in Card Setup.</p>
+   <p>Finished cut size is the reference: canvas = cut + bleed, and safe zone = cut minus safety buffers. The canvas edge is the artwork edge.</p>
    <div class="field"><label>Project name</label><input name="projectName" value="Untitled deck" required></div>
-   <div class="field"><label>Canvas dimensions mean</label><select name="mode">
-    <option value="trim">Finished card — no bleed in canvas</option>
-    <option value="bleed">Full artwork — canvas includes bleed</option>
+   <div class="field"><label>Artwork canvas</label><select name="mode">
+    <option value="trim">Canvas edge is finished cut (no bleed)</option>
+    <option value="bleed">Canvas includes printing bleed</option>
    </select></div>
-   <div class="fields-two"><div class="field"><label>Units</label><select name="unit"><option value="mm">Millimetres</option><option value="in">Inches</option><option value="px">Pixels</option></select></div>
-    <div class="field"><label>Resolution</label><select name="dpi"><option value="300">300 DPI</option><option value="150">150 DPI</option><option value="450">450 DPI</option><option value="600">600 DPI</option></select></div></div>
-   <div class="fields-two"><div class="field"><label>Canvas width</label><input name="width" type="number" step="any" min="0.01" value="63" required></div>
-    <div class="field"><label>Canvas height</label><input name="height" type="number" step="any" min="0.01" value="88" required></div></div>
-   <div class="fields-two"><div class="field"><label>Bleed per side</label><input name="bleed" type="number" step="any" min="0" value="3" required></div>
-    <div class="field"><label>Safe inset from trim</label><input name="safe" type="number" step="any" min="0" value="4" required></div></div>
-   <div id="newProjectDimensions" class="small" style="padding:8px 0"></div>
-   <div id="newProjectError" style="color:#bd293a;font-size:12px"></div>
-   <p>Unsaved changes in the current project will be lost when you create a new one.</p>
+   <div class="fields-two"><div class="field"><label>Units</label><select name="unit">
+    <option value="mm">Millimetres</option><option value="in">Inches</option><option value="px">Pixels at DPI</option></select></div>
+    <div class="field"><label>Resolution</label><select name="dpi">
+     <option value="300">300 DPI</option><option value="150">150 DPI</option><option value="450">450 DPI</option><option value="600">600 DPI</option></select></div></div>
+   <div class="section-title">Finished cut size</div>
+   <div class="fields-two"><div class="field"><label>Cut width</label><input name="cutWidth" type="number" min="0.01" step="any" required></div>
+    <div class="field"><label>Cut height</label><input name="cutHeight" type="number" min="0.01" step="any" required></div></div>
+   <div class="section-title">Canvas size (including bleed)</div>
+   <div class="fields-two"><div class="field"><label>Canvas width</label><input name="width" type="number" min="0.01" step="any" required></div>
+    <div class="field"><label>Canvas height</label><input name="height" type="number" min="0.01" step="any" required></div></div>
+   <div class="small">Changing canvas size adjusts bleed, not cut size. Canvas cannot be smaller than cut.</div>
+   <div class="section-title">Bleed</div>
+   <label class="toggle-line"><input type="checkbox" name="bleedLinked" checked> Same bleed on every side</label>
+   <div class="fields-two">
+    <div class="field"><label>Left</label><input type="number" name="bleedLeft" min="0" step="any"></div>
+    <div class="field"><label>Right</label><input type="number" name="bleedRight" min="0" step="any"></div>
+    <div class="field"><label>Top</label><input type="number" name="bleedTop" min="0" step="any"></div>
+    <div class="field"><label>Bottom</label><input type="number" name="bleedBottom" min="0" step="any"></div></div>
+   <div class="section-title">Safe zone</div>
+   <div class="fields-two"><div class="field"><label>Safe width</label><input type="number" name="safeWidth" min="0.01" step="any"></div>
+    <div class="field"><label>Safe height</label><input type="number" name="safeHeight" min="0.01" step="any"></div></div>
+   <label class="toggle-line"><input type="checkbox" name="safeLinked" checked> Same safety buffer on every side</label>
+   <div class="fields-two">
+    <div class="field"><label>Left buffer</label><input type="number" name="safeLeft" min="0" step="any"></div>
+    <div class="field"><label>Right buffer</label><input type="number" name="safeRight" min="0" step="any"></div>
+    <div class="field"><label>Top buffer</label><input type="number" name="safeTop" min="0" step="any"></div>
+    <div class="field"><label>Bottom buffer</label><input type="number" name="safeBottom" min="0" step="any"></div></div>
+   <div class="small" id="newProjectDimensions" aria-live="polite" style="padding:8px 0"></div>
+   <div id="newProjectError" role="alert" style="color:#bd293a;font-size:12px"></div>
+   <p>Creating this project replaces the current unsaved workspace. Your saved project files are not overwritten.</p>
    <div class="footer"><button type="button" data-new-project="cancel">Cancel</button><button class="primary" type="submit">Create project</button></div>
   </form></div>`;
  const root=holder.querySelector('#newProjectDialog') as HTMLElement;
  const form=root.querySelector('form') as HTMLFormElement;
- const input=(name:string)=>form.elements.namedItem(name) as HTMLInputElement;
- const select=(name:string)=>form.elements.namedItem(name) as HTMLSelectElement;
- const values=()=>({width:Number(input('width').value),height:Number(input('height').value),
-  bleed:Number(input('bleed').value),safe:Number(input('safe').value),unit:select('unit').value as Units,
-  dpi:Number(select('dpi').value),mode:select('mode').value as 'trim'|'bleed'});
- function refresh(){
-  const v=values(),mm=distanceMm(1,v.unit,v.dpi),b=v.mode==='bleed'?2*v.bleed:0;
-  const trimW=v.width-b,trimH=v.height-b;
-  const display=root.querySelector('#newProjectDimensions') as HTMLElement;
-  const error=root.querySelector('#newProjectError') as HTMLElement;
-  display.textContent='Canvas: '+v.width+' × '+v.height+' '+v.unit+' · Finished card: '+
-   Number(trimW.toFixed(5))+' × '+Number(trimH.toFixed(5))+' '+v.unit+
-   (v.mode==='bleed'?' · red trim line inside canvas':' · canvas edge is trim');
-  error.textContent=!Number.isFinite(mm)||trimW<=0||trimH<=0?'Bleed must leave a positive finished card.':
-   trimW<=2*v.safe||trimH<=2*v.safe?'Safe insets must leave an interior area.':'';
- }
- let old=values();
- form.addEventListener('change',e=>{
-  const target=e.target as HTMLInputElement;
-  if(target.name==='unit'||target.name==='dpi'){
-   const next=values(),oldMm=distanceMm(1,old.unit,old.dpi),newMm=distanceMm(1,next.unit,next.dpi);
-   for(const k of ['width','height','bleed','safe'] as const){
-    const source=k==='width'?old.width:k==='height'?old.height:k==='bleed'?old.bleed:old.safe;
-    input(k).value=String(Number((source*oldMm/newMm).toFixed(8)));
+ const element=(name:string)=>form.elements.namedItem(name) as HTMLInputElement|HTMLSelectElement;
+ const numberValue=(name:string)=>Number(element(name).value);
+ // Fresh draft: manipulating geometry never touches an open project.
+ let draft:CardTemplate=structuredClone(initial().template);
+ const edgeMap={Left:'left',Right:'right',Top:'top',Bottom:'bottom'} as const;
+ const err=root.querySelector('#newProjectError') as HTMLElement;
+ function apply(target:HTMLInputElement|HTMLSelectElement){
+  const name=target.name,value=target.value;
+  if(name==='projectName')return;
+  const prior=structuredClone(draft);
+  try{
+   if(name==='unit'||name==='dpi'){
+    const before=canvasDimensionsMm(draft);
+    if(name==='unit'){
+     if(!['mm','in','px'].includes(value))throw Error('Unsupported unit');
+     draft.unit=value as Units;
+    }else{
+     const dpi=Number(value);
+     if(!Number.isFinite(dpi)||dpi<=0)throw Error('Resolution must be positive');
+     draft.dpi=dpi;
+    }
+    draft.width=before.width/distanceMm(1,draft.unit,draft.dpi);
+    draft.height=before.height/distanceMm(1,draft.unit,draft.dpi);
+    draft.guides={...guidesFor(draft),unit:draft.unit};
+    validateGuides(draft);
+   }else if(name==='mode')changeBleedMode(draft,[],value as 'bleed'|'trim');
+   else if(name==='cutWidth')setCutDimension(draft,'width',numberValue(name));
+   else if(name==='cutHeight')setCutDimension(draft,'height',numberValue(name));
+   else if(name==='width')setCanvasDimension(draft,'width',numberValue(name));
+   else if(name==='height')setCanvasDimension(draft,'height',numberValue(name));
+   else if(name==='safeWidth')setSafeZoneDimension(draft,'width',numberValue(name));
+   else if(name==='safeHeight')setSafeZoneDimension(draft,'height',numberValue(name));
+   else if(name==='bleedLinked'||name==='safeLinked')setGuideLinked(draft,name==='bleedLinked'?'bleed':'safe',(target as HTMLInputElement).checked);
+   else {
+    const match=/^(bleed|safe)(Left|Right|Top|Bottom)$/.exec(name);
+    if(match)setGuideDistance(draft,[],match[1] as 'bleed'|'safe',edgeMap[match[2] as keyof typeof edgeMap],distanceMm(numberValue(name),draft.unit,draft.dpi));
    }
-  }else if(target.name==='mode'){
-   const v=values(),delta=2*v.bleed*(v.mode==='bleed'?1:-1);
-   input('width').value=String(Number((v.width+delta).toFixed(8)));
-   input('height').value=String(Number((v.height+delta).toFixed(8)));
-  }else if(target.name==='bleed'&&values().mode==='bleed'){
-   // New-project sizing keeps the proposed finished card size stable.
-   const v=values(),delta=2*(v.bleed-old.bleed);
-   input('width').value=String(Number((v.width+delta).toFixed(8)));
-   input('height').value=String(Number((v.height+delta).toFixed(8)));
+   err.textContent='';
+  }catch(e){draft=prior;err.textContent=(e as Error).message;}
+  updateFields(target);
+ }
+ function updateFields(active?:HTMLInputElement|HTMLSelectElement){
+  const g=guidesFor(draft),canvas=canvasDimensionsMm(draft),cut=trimDimensionsMm(draft),safe=safeDimensionsMm(draft);
+  const d=(mm:number)=>displayedDistance(mm,draft.unit,draft.dpi);
+  const fields:Record<string,string>={
+   unit:draft.unit,dpi:String(draft.dpi),mode:g.bleedMode,
+   width:d(canvas.width),height:d(canvas.height),cutWidth:d(cut.width),cutHeight:d(cut.height),
+   safeWidth:d(safe.width),safeHeight:d(safe.height),
+   bleedLeft:d(g.bleed.left),bleedRight:d(g.bleed.right),bleedTop:d(g.bleed.top),bleedBottom:d(g.bleed.bottom),
+   safeLeft:d(g.safe.left),safeRight:d(g.safe.right),safeTop:d(g.safe.top),safeBottom:d(g.safe.bottom)
+  };
+  for(const [name,val] of Object.entries(fields)){
+   const input=element(name);
+   if(input&&input!==active)input.value=val;
   }
-  old=values();refresh();
- });
- form.addEventListener('input',refresh);
+  (element('bleedLinked') as HTMLInputElement).checked=g.bleedLinked;
+  (element('safeLinked') as HTMLInputElement).checked=g.safeLinked;
+  (root.querySelector('#newProjectDimensions') as HTMLElement).textContent=
+   'Canvas '+fields.width+' × '+fields.height+' '+draft.unit+' · Cut '+fields.cutWidth+' × '+fields.cutHeight+
+   ' '+draft.unit+' · Safe '+fields.safeWidth+' × '+fields.safeHeight+' '+draft.unit;
+ }
+ form.addEventListener('input',e=>apply(e.target as HTMLInputElement));
+ form.addEventListener('change',e=>apply(e.target as HTMLInputElement));
  root.querySelector('[data-new-project="cancel"]')?.addEventListener('click',()=>{holder.innerHTML='';});
  form.addEventListener('submit',e=>{
   e.preventDefault();
-  const v=values(),error=root.querySelector('#newProjectError') as HTMLElement;
-  if(error.textContent||!Number.isFinite(v.width)||!Number.isFinite(v.height)||v.width<=0||v.height<=0)return;
-  const project=initial();
-  project.projectName=input('projectName').value.trim()||'Untitled deck';
-  const t=project.template;
-  t.unit=v.unit;t.dpi=v.dpi;t.width=v.width;t.height=v.height;
-  const bleedMm=distanceMm(v.bleed,v.unit,v.dpi),safeMm=distanceMm(v.safe,v.unit,v.dpi);
-  t.guides={...structuredClone(DEFAULT_GUIDES),unit:v.unit,bleedMode:v.mode,
-   bleed:{top:bleedMm,right:bleedMm,bottom:bleedMm,left:bleedMm},
-   safe:{top:safeMm,right:safeMm,bottom:safeMm,left:safeMm}};
-  try{validateGuides(t)}catch(err){error.textContent=(err as Error).message;return;}
+  if(err.textContent)return;
+  try{validateGuides(draft)}catch(e){err.textContent=(e as Error).message;return;}
+  const project=initial(),t=project.template;
+  const p=structuredClone(draft);
+  t.unit=p.unit;t.dpi=p.dpi;t.width=p.width;t.height=p.height;t.guides=p.guides;
+  project.projectName=String(element('projectName').value||'').trim()||'Untitled deck';
+  // The initial example art is laid out against the finished card. This is
+  // creation of a new project, not a transformation of existing user elements.
   const r=guideRects(t),baseW=px(63,'mm'),baseH=px(88,'mm');
   const x0=r.trim.x*96/25.4,y0=r.trim.y*96/25.4;
   const innerW=r.trim.w*96/25.4,innerH=r.trim.h*96/25.4;
@@ -93,5 +142,5 @@ export function openNewProjectDialog(onCreate:(project:StudioProject)=>void){
   }
   holder.innerHTML='';onCreate(project);
  });
- refresh();
+ updateFields();
 }
