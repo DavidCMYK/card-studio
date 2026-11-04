@@ -67,6 +67,7 @@ type InspectorTab='layout'|'content'|'style'|'rules';
 const inspectorTabs:InspectorTab[]=['layout','content','style','rules'];
 let inspectorTab:InspectorTab='layout';
 let cardDataSearch='';
+let lastInspectorOwner='';
 const inspectorFolds=new Map<string,boolean>();
 function rememberFolds(box:HTMLElement){
  box.querySelectorAll?.('details[data-inspector-fold]').forEach((node:HTMLDetailsElement)=>{
@@ -90,6 +91,10 @@ function fieldIdentifier(node:HTMLElement|null){
 }
 function writeInspector(box:HTMLElement,html:string){
  // Repaint must not steal focus, reset the caret or jump a long panel to top.
+ // A different element/card, however, starts at the beginning of its panel.
+ const owner=`${S.mode}:${S.cardIndex}:${S.selected||''}`;
+ const resetScroll=owner!==lastInspectorOwner;
+ lastInspectorOwner=owner;
  const prior=document.activeElement as HTMLElement|null;
  const within=!!prior&&!!box.contains?.(prior);
  const identity=within?fieldIdentifier(prior):null;
@@ -97,9 +102,9 @@ function writeInspector(box:HTMLElement,html:string){
   (prior as HTMLInputElement).selectionStart:null;
  const end=within&&typeof (prior as HTMLInputElement).selectionEnd==='number'?
   (prior as HTMLInputElement).selectionEnd:null;
- const inspectorScroll=box.scrollTop;
+ const inspectorScroll=resetScroll?0:box.scrollTop;
  const right=box.closest?.('.side-right') as HTMLElement|null;
- const outerScroll=right?.scrollTop||0;
+ const outerScroll=resetScroll?0:right?.scrollTop||0;
  box.innerHTML=html;
  if(identity){
   const next=identity.key==='fold'?box.querySelector?.<HTMLElement>(`details[data-inspector-fold="${identity.value}"] > summary`):
@@ -221,7 +226,7 @@ export function renderInspector(){
   }
   panes.content+=`<div class="section-title">Image framing</div>`+
    selectionField('Fit inside frame','imageFit',[['cover','Cover frame (crop)'],['contain','Fit whole image'],['width','Fit to frame width'],['height','Fit to frame height'],['stretch','Stretch to frame'],['free','Free / original size']],e.imageFit)+
-   `<div class="fields-two">${field('Image zoom (×)','imgZoom',e.imgZoom??1,'number','min="0.05" max="20" step="0.1"')}${field('Free resize scale','imgScale',e.imgScale,'number','min="0.01" step="0.1"')}${field('Offset X (px)','imgOffsetX',e.imgOffsetX,'number','step="1"')}${field('Offset Y (px)','imgOffsetY',e.imgOffsetY,'number','step="1"')}</div>`+
+   `<div class="fields-two">${field('Image zoom (×)','imgZoom',e.imgZoom??1,'number','min="0.05" max="20" step="0.1"')}${(e.imageFit==='free'?field('Free resize scale','imgScale',e.imgScale,'number','min="0.01" step="0.1"'):'')}${field('Offset X (px)','imgOffsetX',e.imgOffsetX,'number','step="1"')}${field('Offset Y (px)','imgOffsetY',e.imgOffsetY,'number','step="1"')}</div>`+
    `<div class="inspector-action"><button class="secondary" data-action="${repositionImageId()===raw.id?'finish-reposition-image':'reposition-image'}">${repositionImageId()===raw.id?'Done repositioning':'Reposition image'}</button></div><div class="small" style="padding:0 0 12px">Double-click (double-tap on mobile) to reposition. Drag to pan; wheel or pinch to zoom. Escape or Done to finish.</div>`;
   panes.content+=fold('image-transforms','Image transforms',
    checkbox('Flip horizontally','imgFlipX',e.imgFlipX===true)+
