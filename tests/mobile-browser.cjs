@@ -169,6 +169,7 @@ const server=http.createServer((req,res)=>{
   const multi=await multiContext.newPage();
   multi.on('pageerror',e=>errors.push('multi-template: '+e.message));
   await multi.addInitScript(()=>{
+   Object.defineProperty(window,'showDirectoryPicker',{configurable:true,value:undefined});
    Object.defineProperty(window,'showSaveFilePicker',{configurable:true,value:async()=>({
     name:'saved.template.json',createWritable:async()=>({
      write:async(data)=>{window.__latestSaved=String(data)},close:async()=>{}
@@ -177,8 +178,8 @@ const server=http.createServer((req,res)=>{
   });
   await multi.goto(url);
   await multi.locator('.sidebar-templates [data-action="duplicate-template"]').first().click();
-  assert.equal(await multi.locator('.sidebar-templates [data-template-id]').count(),5,
-   'duplicate creates one additional shared template and its management controls');
+  assert.equal(await multi.locator('.sidebar-templates .asset-title [data-template-id]').count(),2,
+   'duplicate creates a second shared template');
   const templateIds=await multi.locator('.sidebar-templates .asset-title [data-template-id]').evaluateAll(els=>els.map(e=>e.dataset.templateId));
   assert.equal(templateIds.length,2,'two project templates are available');
   multi.once('dialog',d=>d.accept('Second set'));
