@@ -168,6 +168,30 @@ const server=http.createServer((req,res)=>{
   await mobileImage.tap();await mobileImage.tap();
   assert.equal(await page.locator('#imageRepositionBar').isVisible(),true,'double-tap enters image reposition mode');
   assert.equal(await page.locator('#stage .element.repositioning').count(),1,'mobile crop frame marked');
+  const mobileBeforeFrame=await page.locator('#stage .element.repositioning').evaluate(el=>el.style.left);
+  const mobileBeforeOffset=Number(await page.locator('#inspector [data-prop="imgOffsetX"]').inputValue());
+  const mobileBeforeZoom=Number(await page.locator('#inspector [data-prop="imgZoom"]').inputValue());
+  const mobileBeforeStageWidth=await page.locator('#stage').evaluate(el=>el.style.width);
+  const imageRect=await page.locator('#stage .element.repositioning').boundingBox();
+  const midX=Math.round(imageRect.x+imageRect.width*.50),midY=Math.round(imageRect.y+imageRect.height*.52);
+  const client=await page.context().newCDPSession(page);
+  const finger=(id,x,y)=>({id,x,y});
+  await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[finger(11,midX,midY)]});
+  await client.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[finger(11,midX+24,midY+13)]});
+  await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  assert.notEqual(Number(await page.locator('#inspector [data-prop="imgOffsetX"]').inputValue()),mobileBeforeOffset,
+    'touch drag updates image offset');
+  assert.equal(await page.locator('#stage .element.repositioning').evaluate(el=>el.style.left),mobileBeforeFrame,
+    'touch drag leaves frame stationary');
+  await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[finger(21,midX-25,midY)]});
+  await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[finger(21,midX-25,midY),finger(22,midX+25,midY)]});
+  await client.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[finger(21,midX-43,midY),finger(22,midX+43,midY)]});
+  await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  assert.ok(Number(await page.locator('#inspector [data-prop="imgZoom"]').inputValue())>mobileBeforeZoom,
+    'two-finger pinch increases image zoom');
+  assert.equal(await page.locator('#stage').evaluate(el=>el.style.width),mobileBeforeStageWidth,
+    'image pinch must not zoom the whole card');
+  await client.detach();
   await page.locator('#imageRepositionBar button').tap();
   assert.equal(await page.locator('#imageRepositionBar').isVisible(),false,'mobile Done ends crop mode');
   assert.equal(await page.locator('.top').isVisible(),false,'desktop controls hidden on phone');
