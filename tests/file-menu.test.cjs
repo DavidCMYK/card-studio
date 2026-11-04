@@ -5,6 +5,7 @@ const path = require('node:path');
 const model = require('../.build/model.js');
 const storage = require('../.build/project-storage.js');
 const collection = require('../.build/project-collections.js');
+const {getImageData} = require('../.build/image-sets.js');
 
 function makeHandle(name, content = '') {
  let value = content, writes = 0;
@@ -188,6 +189,57 @@ test('whole-project save and open retain shared front/back template assignments 
  assert.equal(loaded.cards[0].values[field.id],'Retained card title');
  assert.equal(loaded.cards[0].overrides[field.id].fontSize,27);
  assert.strictEqual(loaded.template,loaded.templates.find(t=>t.id===loaded.selectedTemplateId));
+ storage.resetFileHandles();
+});
+
+test('legacy project file imports its real template, embedded images and card overrides, then round-trips',async()=>{
+ fakeDOM();
+ model.replaceState(model.initial());
+ storage.resetFileHandles();
+ const legacy=model.initial();
+ legacy.version=1;
+ legacy.projectName='Original deck';
+ legacy.template.name='Original design';
+ legacy.template.elements[0].fill1='#123456';
+ const picture=legacy.template.elements.find(e=>e.kind==='image');
+ picture.autoSet='legacy-art';
+ picture.autoMode='single';
+ picture.singleImage='hero.png';
+ const imageData='data:image/png;base64,aGVybw==';
+ legacy.sets=[{id:'legacy-art',name:'Original artwork',images:[{name:'hero.png',data:imageData}]}];
+ const title=legacy.template.elements.find(e=>e.kind==='text');
+ legacy.cards[0].values[title.id]='Saved character name';
+ legacy.cards[0].overrides[title.id]={fontSize:31};
+ delete legacy.templates;
+ delete legacy.cardSets;
+ delete legacy.selectedTemplateId;
+ delete legacy.side;
+ delete legacy.cards[0].setId;
+ global.window={};
+ assert.equal(await storage.openJSON({text:async()=>JSON.stringify(legacy)}),true);
+ assert.equal(model.S.projectName,'Original deck');
+ assert.equal(model.S.templates.length,1);
+ assert.equal(model.S.template.name,'Original design');
+ assert.strictEqual(model.S.template,model.S.templates[0]);
+ assert.deepEqual(model.S.template.elements,legacy.template.elements,'Saved artwork layers survive migration');
+ assert.equal(model.S.cardSets.length,1);
+ assert.equal(model.S.cardSets[0].frontTemplateId,model.S.template.id);
+ assert.equal(model.S.cards[0].setId,model.S.cardSets[0].id);
+ assert.equal(model.S.cards[0].values[title.id],'Saved character name');
+ assert.equal(model.S.cards[0].overrides[title.id].fontSize,31);
+ assert.equal(model.S.sets[0].images[0].data,imageData);
+ assert.equal(getImageData(model.S.template.elements.find(e=>e.id===picture.id),0,'cards'),imageData);
+
+ // The migrated deck must also remain intact after saving in the new format.
+ const saved=makeHandle('migrated.cardstudio.json');
+ window.showSaveFilePicker=async()=>saved;
+ assert.equal(await storage.saveProject(),true);
+ assert.equal(JSON.parse(saved.content).templates[0].name,'Original design');
+ model.replaceState(model.initial());
+ assert.equal(await storage.openJSON({text:async()=>saved.content}),true);
+ assert.equal(model.S.template.name,'Original design');
+ assert.equal(model.S.cards[0].values[title.id],'Saved character name');
+ assert.equal(getImageData(model.S.template.elements.find(e=>e.id===picture.id),0,'cards'),imageData);
  storage.resetFileHandles();
 });
 
