@@ -4,6 +4,7 @@ import { renderStage } from './preview';
 import { repaint, renderInspector, renderLeft, renderCardControl, chooseCard, patchElement, addElement, updateDimensionReadouts, setKnownFonts, baseFonts, refreshHistoryButtons, selectInspectorTab, filterCardData, showDiscoveredFonts, toggleFontBrowser, closeFontBrowser, filterFontBrowser } from './interface';
 import { imageCache, cacheImage, getImageData, setImageUpdateHandler, imageScreenOffset, imageOffsetPatch } from './image-sets';
 import { exportPNG, exportAll } from './png-export';
+import { openPrintStudio } from './print-studio';
 import { exportXLSX, readSheet } from './spreadsheet';
 import { saveProject, saveProjectAs, saveTemplate, saveTemplateAs, openFromDisk, openJSON, resetFileHandles } from './project-storage';
 import { importImages, setTargetImageSet } from './assets';
@@ -111,6 +112,7 @@ case 'reset-element':if(card()){if(isExtra(S.selected)){card().extraElements=car
 case 'prev-card':chooseCard(S.cardIndex-1);break;case 'next-card':chooseCard(S.cardIndex+1);break;
 case 'export-sheet':exportXLSX().catch(err=>alert(err.message));break;case 'import-sheet':$('#openSheetFile').click();break;
 case 'export-current':exportPNG();break;case 'export-all':exportAll();break;
+case 'print-sheets':openPrintStudio();break;
 case 'reposition-image':{
  const raw=templateEl(S.selected);if(raw?.kind==='image'&&enterImageReposition(raw.id))repaint();
  break;
