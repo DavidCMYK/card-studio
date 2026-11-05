@@ -109,3 +109,21 @@ test('preflight is available in the desktop and mobile export workflows',()=>{
  assert.match(mobile,/\['check-deck','Check deck for print'\]/);
  assert.match(editor,/case 'check-deck':openPreflight\(\)/);
 });
+
+
+test('duplicate names and intentionally visible empty text are reported without false mandatory-field assumptions',async()=>{
+ const state=model.initial();model.replaceState(state);
+ const template=state.template;
+ const art=template.elements.find(e=>e.kind==='image'),title=template.elements.find(e=>e.name==='Card Title');
+ art.hidden=true;
+ title.invisibleIfEmpty=false;
+ state.cards[0].name='Duplicate';
+ state.cards[0].values[title.id]='';
+ state.cards.push({id:'two',name:'Duplicate',setId:state.cardSets[0].id,
+  values:{[title.id]:''},overrides:{},extraElements:[]});
+ const report=await scanDeck(async()=>{throw Error('Images are hidden')});
+ assert.equal(report.findings.filter(f=>f.code==='duplicate-card-name').length,1);
+ assert.equal(report.findings.filter(f=>f.code==='empty-visible-text'&&f.elementName==='Card Title').length,2);
+ assert.ok(!report.findings.some(f=>f.code==='missing-artwork'));
+ assert.ok(!report.findings.some(f=>f.code==='text-overflow'&&f.elementName==='Card Title'));
+});
