@@ -8,6 +8,7 @@ import { imageCache, cacheImage, getImageData, setImageUpdateHandler, imageScree
 import { exportPNG, exportAll, exportTrimmedPNG,exportBacks,exportFrontsAndBacks } from './png-export';
 import {guidesFor,changeBleedMode,setGuideDistance,distanceMm,validateGuides,setCutDimension,setCanvasDimension,setSafeZoneDimension,setGuideLinked,setGuideUnit,setGuideCornerRadius} from './card-guides';
 import { openPrintStudio } from './print-studio';
+import {openPreflight} from './preflight-ui';
 import { exportXLSX, readSheet } from './spreadsheet';
 import { saveProject, saveProjectAs, saveTemplate, saveTemplateAs, saveAllTemplates, openFromDisk, openJSON, resetFileHandles } from './project-storage';
 import { importImages, setTargetImageSet } from './assets';
@@ -176,6 +177,7 @@ case 'import-set-sheet':{
  else alert('Card set not found');
  break;
 }
+case 'check-deck':openPreflight();break;
 case 'export-current':exportPNG();break;case 'export-trimmed':exportTrimmedPNG();break;case 'export-all':exportAll();break;case 'export-backs':exportBacks();break;case 'export-both':exportFrontsAndBacks();break;
 case 'print-sheets':openPrintStudio();break;
 case 'toggle-guides':{const g=guidesFor(S.template);if(S.mode==='template')g.showTemplate=!g.showTemplate;else g.showCards=!g.showCards;S.template.guides=g;repaint();break;}
