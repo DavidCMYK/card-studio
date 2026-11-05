@@ -93,6 +93,13 @@ function newCard(copy=null,setId?:string){
   {id:uid(),setId:fallback,name:'Card '+String(S.cards.length+1).padStart(3,'0'),values:{},overrides:{},extraElements:[]};
  S.cards.push(c);S.mode='cards';S.cardIndex=S.cards.length-1;S.side='front';syncEditorTemplate();repaint();return c;
 }
+let importSheetSetId:string|null=null;
+function chooseSheetForImport(setId?:string){
+ importSheetSetId=setId||null;
+ const picker=$('#openSheetFile') as HTMLInputElement;
+ picker.value=''; // Choosing the same file twice must still fire change.
+ picker.click();
+}
 function mutateAction(action,el: any = null){switch(action){case 'new-project':openNewProjectDialog(project=>{replaceState(project);resetFileHandles();imageCache.clear();resetHistory();recordProjectReplaced();void activateProjectFonts();repaint()});break;
 case 'undo':if(undo()){imageCache.clear();void activateProjectFonts();repaint()}break;
  case 'redo':if(redo()){imageCache.clear();void activateProjectFonts();repaint()}break;
@@ -155,7 +162,15 @@ case 'reset-card':if(card()&&confirm('Reset layout edits for the '+(S.side==='ba
 }break;
 case 'reset-element':if(card()){if(isExtra(S.selected)){if(S.side==='back')card().backExtraElements=cardExtras(card()).filter(e=>e.id!==S.selected);else card().extraElements=cardExtras(card()).filter(e=>e.id!==S.selected);S.selected=null}else delete card().overrides[S.selected];repaint()}break;
 case 'prev-card':chooseCard(S.cardIndex-1);break;case 'next-card':chooseCard(S.cardIndex+1);break;
-case 'export-sheet':exportXLSX().catch(err=>alert(err.message));break;case 'import-sheet':$('#openSheetFile').click();break;
+case 'export-sheet':exportXLSX().catch(err=>alert(err.message));break;
+case 'import-sheet':chooseSheetForImport();break;
+case 'export-set-sheet':exportXLSX(el?.dataset.setId).catch(err=>alert(err.message));break;
+case 'import-set-sheet':{
+ const setId=el?.dataset.setId;
+ if(S.cardSets?.some(set=>set.id===setId))chooseSheetForImport(setId);
+ else alert('Card set not found');
+ break;
+}
 case 'export-current':exportPNG();break;case 'export-trimmed':exportTrimmedPNG();break;case 'export-all':exportAll();break;case 'export-backs':exportBacks();break;case 'export-both':exportFrontsAndBacks();break;
 case 'print-sheets':openPrintStudio();break;
 case 'toggle-guides':{const g=guidesFor(S.template);if(S.mode==='template')g.showTemplate=!g.showTemplate;else g.showCards=!g.showCards;S.template.guides=g;repaint();break;}
@@ -344,7 +359,13 @@ document.addEventListener('change',e=>{
 });
 $('#openProjectFile').addEventListener('change',async e=>{if(e.target.files[0])await openJSON(e.target.files[0]);e.target.value=''});
 $('#openTemplateFile').addEventListener('change',async e=>{if(e.target.files[0])await openJSON(e.target.files[0],true);e.target.value=''});
-$('#openSheetFile').addEventListener('change',async e=>{if(e.target.files[0])await readSheet(e.target.files[0]);e.target.value=''});
+$('#openSheetFile').addEventListener('change',async e=>{
+ const file=e.target.files?.[0],setId=importSheetSetId;
+ importSheetSetId=null;
+ try{if(file)await readSheet(file,setId||undefined)}
+ finally{e.target.value=''}
+});
+$('#openSheetFile').addEventListener('cancel',()=>{importSheetSetId=null});
 $('#assetFiles').addEventListener('change',async e=>{if(e.target.files.length){await importImages(e.target.files);renderImageManager()}e.target.value=''});
  $('#fontFiles').addEventListener('change',async e=>{try{if(e.target.files?.length){const {added,skipped}=await importFontFiles(e.target.files);repaint();toast(`Embedded ${added} font file(s) in this project${skipped?' · '+skipped+' skipped':''}. Save the project to take them to other devices.`)}}catch(err){alert('Could not embed fonts: '+(err as Error).message)}finally{e.target.value=''}});
 $('#dialogHolder').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('[data-manager-name]')){e.preventDefault();imageManagerAction('manage-rename',Number(e.target.dataset.managerName))}});
