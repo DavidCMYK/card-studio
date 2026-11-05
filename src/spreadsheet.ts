@@ -48,7 +48,8 @@ export function workbookTables(setId?:string):SheetTable[]{
  // Generate sheet names across the whole project, even for a one-set export.
  // A set's tab name is identical in both output formats, including collisions.
  const names=new Set<string>();
- const namesById=new Map(sets.map(set=>[set.id,uniqueSheetName(set.name,names)]));
+ const namesById=new Map<string,string>();
+ for(const set of sets)namesById.set(set.id,uniqueSheetName(set.name,names));
  return sets.filter(set=>!setId||set.id===setId).map(set=>({
   name:namesById.get(set.id)!,setId:set.id,...sheetTable(set.id)
  }));
@@ -213,7 +214,8 @@ function planTable(rows:string[][],setId:string):PlannedImport{
  * logic. Validate all tabs first so an invalid later tab cannot half-import. */
 export function applyWorkbookTables(sheets:ImportedSheet[],setId?:string){
  if(!sheets.length)throw Error('No worksheets to import');
- const all=workbookTables(),byName=new Map(all.map(t=>[t.name.toLowerCase(),t.setId]));
+ const all=workbookTables(),byName=new Map<string,string>();
+ for(const table of all)byName.set(table.name.toLowerCase(),table.setId);
  let inputs:{setId:string;rows:string[][]}[]=[];
  if(setId){
   if(!S.cardSets?.some(set=>set.id===setId))throw Error('Card set not found');
