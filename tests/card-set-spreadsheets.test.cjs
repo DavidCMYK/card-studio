@@ -48,6 +48,9 @@ test('a card-set XLSX includes only its own rows and front/back layer fields',()
  back.name='Back';
  const otherTemplate=collections.createTemplate(front);
  otherTemplate.name='Other design';
+ otherTemplate.elements.find(e=>e.name==='Description').name='Durability';
+ otherTemplate.elements.find(e=>e.name==='Card Title').name='Item Name';
+ otherTemplate.elements.find(e=>e.name==='Artwork').name='Item Picture';
  const setOne=state.cardSets[0];
  setOne.name='Characters';
  collections.assignSetTemplate(setOne.id,'back',back.id);
@@ -67,7 +70,7 @@ test('a card-set XLSX includes only its own rows and front/back layer fields',()
  assert.deepEqual(workbookTables(setOne.id)[0].heads,heads);
  assert.equal(rows[0][heads.indexOf('Front / Description')],front.elements.find(e=>e.name==='Description').text);
  assert.equal(rows[0][heads.indexOf('Back / Description')],back.elements.find(e=>e.name==='Description').text);
- assert.deepEqual(sheetTable(setTwo.id).heads,['Card Name','Description','Card Title','Artwork']);
+ assert.deepEqual(sheetTable(setTwo.id).heads,['Card Name','Durability','Item Name','Item Picture']);
  assert.deepEqual(sheetTable(setTwo.id).rows.map(r=>r[0]),['Shield']);
  const all=workbookTables();
  assert.deepEqual(all.map(t=>t.name),['Characters','Equipment']);
