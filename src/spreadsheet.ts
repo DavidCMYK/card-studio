@@ -165,13 +165,13 @@ export async function parseXLSXWorkbook(file):Promise<ImportedSheet[]>{
 export async function parseXLSX(file){return (await parseXLSXWorkbook(file))[0].rows}
 type PlannedImport={setId:string;name:string;cards:typeof S.cards;removed:typeof S.cards};
 /** Prepare an entire card set before touching project state. */
-function planTable(rows:string[][],setId:string):PlannedImport{
+function planTable(rows:string[][],setId:string,legacy=false):PlannedImport{
  const set=S.cardSets?.find(s=>s.id===setId);
  if(!set)throw Error('Card set not found');
  rows=rows.filter(r=>r.some(x=>String(x).trim()!==''));
  if(rows.length<2)throw Error('No card rows found for '+set.name);
  const headers=rows[0].map(x=>String(x).trim().toLowerCase());
- const nameIdx=headers.indexOf('card name'),setIdx=headers.indexOf('card set');
+ const nameIdx=headers.indexOf('card name'),setIdx=legacy?headers.indexOf('card set'):-1;
  if(nameIdx<0)throw Error('Missing Card Name column for '+set.name);
  const stage=rows.slice(1);
  const elementColumns:{id:string;idx:number}[]=[];
@@ -216,7 +216,7 @@ export function applyWorkbookTables(sheets:ImportedSheet[],setId?:string){
  if(!sheets.length)throw Error('No worksheets to import');
  const all=workbookTables(),byName=new Map<string,string>();
  for(const table of all)byName.set(table.name.toLowerCase(),table.setId);
- let inputs:{setId:string;rows:string[][]}[]=[];
+ let inputs:{setId:string;rows:string[][];legacy?:boolean}[]=[];
  if(setId){
   if(!S.cardSets?.some(set=>set.id===setId))throw Error('Card set not found');
   // A one-tab file is unambiguous when imported explicitly into a set.
@@ -231,7 +231,8 @@ export function applyWorkbookTables(sheets:ImportedSheet[],setId?:string){
    if(!match)throw Error('No worksheet found for '+chosen!.name);
    inputs=[{setId,rows:match.rows}];
   }
- }else if(sheets.length===1&&sheets[0].rows[0]?.some(h=>String(h).toLowerCase().trim()==='card set')){
+ }else if(sheets.length===1&&!byName.has(sheets[0].name.toLowerCase())&&
+  sheets[0].rows[0]?.some(h=>String(h).toLowerCase().trim()==='card set')){
   // Older flat exports: split their Card Set rows into normal per-set inputs.
   const rows=sheets[0].rows,headers=rows[0].map(h=>String(h).trim().toLowerCase()),setColumn=headers.indexOf('card set');
   const groups=new Map<string,string[][]>();
@@ -243,7 +244,7 @@ export function applyWorkbookTables(sheets:ImportedSheet[],setId?:string){
    if(!groups.has(set.id))groups.set(set.id,[rows[0]]);
    groups.get(set.id)!.push(row);
   }
-  inputs=[...groups].map(([id,rows])=>({setId:id,rows}));
+  inputs=[...groups].map(([id,rows])=>({setId:id,rows,legacy:true}));
  }else if(sheets.length===1&&(S.cardSets?.length||0)===1){
   inputs=[{setId:S.cardSets![0].id,rows:sheets[0].rows}];
  }else{
@@ -255,7 +256,7 @@ export function applyWorkbookTables(sheets:ImportedSheet[],setId?:string){
  }
  if(!inputs.length)throw Error('No card rows found');
  if(new Set(inputs.map(x=>x.setId)).size!==inputs.length)throw Error('Duplicate card set worksheet');
- const planned=inputs.map(entry=>planTable(entry.rows,entry.setId));
+ const planned=inputs.map(entry=>planTable(entry.rows,entry.setId,entry.legacy));
  const unsafe=planned.flatMap(x=>x.removed).some(c=>
   Object.keys(c.overrides||{}).length||c.extraElements?.length||c.backExtraElements?.length);
  if(unsafe&&!confirm('This import removes cards absent from the spreadsheet, including their individual layout edits. Continue?'))return;
