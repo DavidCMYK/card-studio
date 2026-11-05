@@ -16,7 +16,7 @@ test('XLSX columns omit only explicitly excluded text and image elements', () =>
   assert.equal(title.includeInDataExport, true);
   state.cards[0].values[title.id] = 'Unique title data';
   state.cards[0].values[description.id] = 'Keep this description';
-  assert.deepEqual(sheetTable().heads, ['Card Name','Artwork','Card Title','Description']);
+  assert.deepEqual(sheetTable().heads, ['Card Name','Description','Card Title','Artwork']);
 
   image.includeInDataExport = false;
   title.includeInDataExport = false;
@@ -30,13 +30,13 @@ test('XLSX columns omit only explicitly excluded text and image elements', () =>
 
   delete title.includeInDataExport;
   delete image.includeInDataExport;
-  assert.deepEqual(sheetTable().heads, ['Card Name','Artwork','Card Title','Description'],
+  assert.deepEqual(sheetTable().heads, ['Card Name','Description','Card Title','Artwork'],
     'legacy elements without the setting default to included');
 
   // Shapes have no spreadsheet-driven values or columns, but retain the
   // property so every element offers the same settings in the editor.
   shape.includeInDataExport = false;
-  assert.deepEqual(sheetTable().heads, ['Card Name','Artwork','Card Title','Description']);
+  assert.deepEqual(sheetTable().heads, ['Card Name','Description','Card Title','Artwork']);
 });
 
 test('desktop and mobile share the data-export toggle in element properties', () => {
