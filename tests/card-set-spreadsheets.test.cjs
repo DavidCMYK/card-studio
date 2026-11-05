@@ -162,7 +162,10 @@ test('single-set table import uses the same per-set data replacement rules',()=>
 
 
 test('workbook export uses named per-set tabs, and the one-set export is the same format',async()=>{
- const before={document:global.document,URL:global.URL,JSZip:global.JSZip};
+ const before={document:global.document,URL:global.URL,JSZip:global.JSZip,setTimeout:global.setTimeout};
+ // Browser download cleanup uses a 30-second timer; don't hold the Node
+ // test process open when testing ZIP contents.
+ global.setTimeout=(fn,ms,...args)=>{const timer=before.setTimeout(fn,ms,...args);timer.unref?.();return timer};
  let blob=null,downloadName='';
  const ZIP=require('../vendor/jszip.min.js');
  const nodes=new Map();
