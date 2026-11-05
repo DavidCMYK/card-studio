@@ -280,7 +280,9 @@ test('a template element literally named Card Set is treated as data, not an old
   state.cardSets[0].name='Characters';
   const el=model.makeElement('text',{name:'Card Set',text:'Example'});
   state.template.elements.push(el);
-  const other=collections.newCardSet('Equipment');
+  const otherTemplate=collections.createTemplate(state.template);
+  otherTemplate.elements=otherTemplate.elements.filter(item=>item.name!=='Card Set');
+  const other=collections.newCardSet('Equipment',otherTemplate.id);
   state.cards[0].values[el.id]='Different kind of card';
   const table=workbookTables()[0];
   assert.equal(table.name,'Characters');
