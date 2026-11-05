@@ -6,7 +6,7 @@ import { canvasCard } from './png-renderer';
 import { checkpoint } from './history';
 import { noteLiveEdit } from './recovery';
 import { buildPrintPdf, PdfJpegPage } from './print-pdf';
-import { PrintOptions, Duplex, DEFAULT_PRINT_OPTIONS, sheetLayout, printSlot, calibrationScale, cardDimensionsMm, expandPrintCards, SheetLayout } from './print-layout';
+import { PrintOptions, Duplex, DEFAULT_PRINT_OPTIONS, sheetLayout, paperDimensions, printSlot, calibrationScale, cardDimensionsMm, expandPrintCards, SheetLayout } from './print-layout';
 
 type PrintableCard = typeof S.cards[number] & {printEnabled?:boolean;printQuantity?:number;printBack?:string};
 let busy=false;
@@ -233,7 +233,7 @@ async function renderSheet(sheetIndex:number,side:'front'|'back',dpi:number,entr
  * lines on the BACK. The ruler marks account for duplex flip orientation and
  * currently saved offsets. Reading a back line through the paper yields the
  * absolute correction value, never an incremental change. */
-function renderCalibrationPage(side:'front'|'back',dpi:number,l:SheetLayout):HTMLCanvasElement{
+function renderCalibrationPage(side:'front'|'back',dpi:number,l:{width:number;height:number}):HTMLCanvasElement{
  const scale=dpi/25.4,canvas=document.createElement('canvas');
  canvas.width=Math.round(l.width*scale);canvas.height=Math.round(l.height*scale);
  if(canvas.width>10000||canvas.height>10000||canvas.width*canvas.height>40000000)
@@ -281,7 +281,7 @@ function renderCalibrationPage(side:'front'|'back',dpi:number,l:SheetLayout):HTM
    }
   }
   ctx.stroke();
-  ctx.font=Math.max(8,1.95*scale)+'px sans-serif';
+  ctx.font=Math.max(8,1.75*scale)+'px sans-serif';
   for(const tick of ticks.filter(t=>t.labeled)){
    const label=tick.value>0?'+'+tick.value:String(tick.value);
    const odd=Math.abs(tick.value/2)%2===1;
@@ -305,7 +305,7 @@ function renderCalibrationPage(side:'front'|'back',dpi:number,l:SheetLayout):HTM
 }
 /** The calibration job has two small measured axes, independent of project card
  * count, dimensions and image assets. It always emits two PDF pages. */
-export function buildDuplexCalibrationPdf(l:SheetLayout,dpi:number):Blob{
+export function buildDuplexCalibrationPdf(l:{width:number;height:number},dpi:number):Blob{
  if(options().duplex==='none')throw Error('Choose long-edge or short-edge duplex to calibrate');
  const pages:PdfJpegPage[]=[];
  for(const side of ['front','back'] as const){
@@ -344,7 +344,7 @@ async function runPrint(previewSide?:'front'|'back',calibration=false){
  try{
   if(calibration){
    status.textContent='Building duplex registration targets…';
-   download(buildDuplexCalibrationPdf(layout(),options().dpi),safeFile(S.projectName)+'_duplex_calibration.pdf');
+   download(buildDuplexCalibrationPdf(paperDimensions(options()),options().dpi),safeFile(S.projectName)+'_duplex_calibration.pdf');
    status.textContent='Two-page calibration PDF downloaded';
    return;
   }
