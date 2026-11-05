@@ -22,6 +22,7 @@ export function renderCardControl(){
 type SidebarSection='layers'|'templates'|'cardsets'|'cards'|'images';
 const sidebarScroll=new Map<string,number>();
 let activeSidebarSection:SidebarSection='layers';
+let renderedSidebarSection:SidebarSection='layers';
 const scrollForSection:Record<SidebarSection,string>={
  layers:'layersScroll',templates:'templatesScroll',cardsets:'cardSetsScroll',cards:'cardsScroll',images:'setsScroll'
 };
@@ -48,7 +49,7 @@ export function renderLeft(){
  // Repaint on selection changes should never jump a toolbox back to its top.
  const mobile=document.documentElement?.dataset?.layout==='mobile';
  for(const [section,id] of Object.entries(scrollForSection)){
-  if(mobile||section===activeSidebarSection){
+  if(mobile||section===renderedSidebarSection){
    const scroll=document.querySelector<HTMLElement>('#'+id);
    if(scroll)sidebarScroll.set(id,scroll.scrollTop);
   }
@@ -92,6 +93,7 @@ export function renderLeft(){
  for(const [id,offset] of sidebarScroll){
   const panel=document.querySelector<HTMLElement>('#'+id);if(panel)panel.scrollTop=offset;
  }
+ renderedSidebarSection=activeSidebarSection;
  renderCardThumbnails();
 }
 // Record the selection and card to which a control belongs when it is created.
