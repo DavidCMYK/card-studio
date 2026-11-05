@@ -24,7 +24,7 @@ test('data headers match named text and image elements', () => {
   const model = require('../.build/model.js');
   model.replaceState(initial());
   const {heads, rows} = sheetTable();
-  assert.deepEqual(heads, ['Card Name', 'Artwork', 'Card Title', 'Description']);
+  assert.deepEqual(heads, ['Card Name', 'Description', 'Card Title', 'Artwork']);
   assert.equal(rows.length, 1);
 });
 
