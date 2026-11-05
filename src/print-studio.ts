@@ -6,7 +6,7 @@ import { canvasCard } from './png-renderer';
 import { checkpoint } from './history';
 import { noteLiveEdit } from './recovery';
 import { buildPrintPdf, PdfJpegPage } from './print-pdf';
-import { PrintOptions, Duplex, DEFAULT_PRINT_OPTIONS, sheetLayout, printSlot, cardDimensionsMm, expandPrintCards, SheetLayout } from './print-layout';
+import { PrintOptions, Duplex, DEFAULT_PRINT_OPTIONS, sheetLayout, printSlot, calibrationScale, cardDimensionsMm, expandPrintCards, SheetLayout } from './print-layout';
 
 type PrintableCard = typeof S.cards[number] & {printEnabled?:boolean;printQuantity?:number;printBack?:string};
 let busy=false;
@@ -94,7 +94,7 @@ function html():string {
  <label><span>Back horizontal offset (mm)</span><input type="number" name="backOffsetX" min="-20" max="20" step="0.1" value="${o.backOffsetX??0}"></label>
  <label><span>Back vertical offset (mm)</span><input type="number" name="backOffsetY" min="-20" max="20" step="0.1" value="${o.backOffsetY??0}"></label>
  <div class="pr-row"><button type="button" data-print="calibration">Export calibration PDF</button><button type="button" data-print="reset-calibration">Reset offsets</button></div>
- <p class="pr-small">Print the two-page calibration PDF double-sided at <b>actual size</b>, using the selected flip mode. Hold the sheet against the light: the front and back alignment marks should coincide. Positive horizontal shifts backs right; positive vertical shifts backs down, as viewed on the back PDF page. Adjust by the measured misalignment and try again. Calibration affects backs only, including bleed and crop marks.</p>
+ <p class="pr-small">Print the two-page calibration PDF double-sided at <b>actual size</b>, using the selected flip mode. Look at the <b>FRONT</b> side against the light. On the numbered X and Y scales, read where the black lines printed on the back cross. Enter those numbers <b>directly</b> as the back offsets (not as adjustments to the previous values). The scale accounts for the duplex flip and any offsets already entered. Calibration moves back artwork, bleed and crop marks together.</p>
  <label><span>Shared back image</span><input type="file" data-print-file="shared" accept="image/png,image/jpeg,image/webp,image/gif"></label>
  <div class="pr-row"><small id="prSharedStatus">${o.sharedBack?'Shared back loaded':'No shared back'}</small><button type="button" data-print="remove-shared">Remove</button></div>
  <p class="pr-small">Assigned back templates render automatically. Per-card image backs override them; the shared image remains a fallback for sets without back templates. Duplex PDFs alternate front and back pages.</p>
@@ -229,6 +229,10 @@ async function renderSheet(sheetIndex:number,side:'front'|'back',dpi:number,entr
 }
 /** Print a two-page target grid without any card assets. Matching crosses and
  * trim outlines are imposed with the exact geometry used for real prints. */
+/** Two compact numbered rulers on the FRONT, and perpendicular reference
+ * lines on the BACK. The ruler marks account for duplex flip orientation and
+ * currently saved offsets. Reading a back line through the paper yields the
+ * absolute correction value, never an incremental change. */
 function renderCalibrationPage(side:'front'|'back',dpi:number,l:SheetLayout):HTMLCanvasElement{
  const scale=dpi/25.4,canvas=document.createElement('canvas');
  canvas.width=Math.round(l.width*scale);canvas.height=Math.round(l.height*scale);
@@ -236,34 +240,71 @@ function renderCalibrationPage(side:'front'|'back',dpi:number,l:SheetLayout):HTM
   throw Error('Paper size or resolution is too large');
  const ctx=canvas.getContext('2d');if(!ctx)throw Error('2D drawing is not supported');
  ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
- const colour=side==='front'?'#202b3b':'#bd174c';
- ctx.strokeStyle=colour;ctx.fillStyle=colour;
- ctx.font=Math.max(10,2.8*scale)+'px sans-serif';
- ctx.fillText(side==='front'?'FRONT — duplex alignment':'BACK — duplex alignment',5*scale,7*scale);
- for(const slot of l.slots){
-  const at=printSlot(l,slot,side,options());
-  const x=at.x*scale,y=at.y*scale,w=l.cardWidth*scale,h=l.cardHeight*scale;
-  ctx.lineWidth=Math.max(.7,.15*scale);
-  ctx.strokeRect(x,y,w,h);
-  // A centre target and four inset targets make skew and paper drift visible.
-  const targets=[
-   [x+w/2,y+h/2],
-   [x+8*scale,y+8*scale],[x+w-8*scale,y+8*scale],
-   [x+8*scale,y+h-8*scale],[x+w-8*scale,y+h-8*scale]
-  ];
+ const rulerX=calibrationScale(l,options(),'x'),rulerY=calibrationScale(l,options(),'y');
+ ctx.fillStyle='#202b3b';ctx.font=Math.max(10,3.1*scale)+'px sans-serif';
+ ctx.fillText(side==='front'?'FRONT — read numbered scales':'BACK — reference lines',5*scale,8*scale);
+ if(side==='back'){
+  // Each black line crosses its associated front-page ruler. X has a vertical
+  // indicator; Y has a horizontal indicator. Use a heavy line so it is
+  // visible through ordinary printing paper held against a light.
+  ctx.strokeStyle='#111';ctx.lineWidth=Math.max(2,.65*scale);
   ctx.beginPath();
-  for(const [cx,cy] of targets){
-   const arm=4*scale,r=1.4*scale;
-   ctx.moveTo(cx-arm,cy);ctx.lineTo(cx+arm,cy);
-   ctx.moveTo(cx,cy-arm);ctx.lineTo(cx,cy+arm);
-   ctx.moveTo(cx+r,cy);ctx.arc(cx,cy,r,0,Math.PI*2);
+  ctx.moveTo(rulerX.backReference.x*scale,(rulerX.backReference.y-13)*scale);
+  ctx.lineTo(rulerX.backReference.x*scale,(rulerX.backReference.y+13)*scale);
+  ctx.moveTo((rulerY.backReference.x-13)*scale,rulerY.backReference.y*scale);
+  ctx.lineTo((rulerY.backReference.x+13)*scale,rulerY.backReference.y*scale);
+  ctx.stroke();
+  return canvas;
+ }
+ ctx.fillStyle='#202b3b';ctx.strokeStyle='#202b3b';
+ ctx.textBaseline='middle';
+ for(const ruler of [rulerX,rulerY]){
+  const ticks=ruler.ticks;
+  ctx.lineWidth=Math.max(.7,.15*scale);
+  ctx.beginPath();
+  if(ruler.axis==='x'){
+   ctx.moveTo(ticks[0].x*scale,ruler.origin.y*scale);
+   ctx.lineTo(ticks[ticks.length-1].x*scale,ruler.origin.y*scale);
+  }else{
+   ctx.moveTo(ruler.origin.x*scale,ticks[0].y*scale);
+   ctx.lineTo(ruler.origin.x*scale,ticks[ticks.length-1].y*scale);
+  }
+  for(const tick of ticks){
+   const major=tick.labeled,half=tick.value%1===0;
+   const h=(major?1.6:half?1.0:.55)*scale;
+   if(ruler.axis==='x'){
+    ctx.moveTo(tick.x*scale,tick.y*scale-h);
+    ctx.lineTo(tick.x*scale,tick.y*scale+h);
+   }else{
+    ctx.moveTo(tick.x*scale-h,tick.y*scale);
+    ctx.lineTo(tick.x*scale+h,tick.y*scale);
+   }
   }
   ctx.stroke();
+  ctx.font=Math.max(8,1.95*scale)+'px sans-serif';
+  for(const tick of ticks.filter(t=>t.labeled)){
+   const label=tick.value>0?'+'+tick.value:String(tick.value);
+   const odd=Math.abs(tick.value/2)%2===1;
+   if(ruler.axis==='x'){
+    ctx.textAlign='center';
+    ctx.fillText(label,tick.x*scale,(tick.y+(odd?-5.3:5.3))*scale);
+   }else{
+    ctx.textAlign=odd?'right':'left';
+    ctx.fillText(label,(tick.x+(odd?-3:3))*scale,tick.y*scale);
+   }
+  }
+  ctx.font=Math.max(10,2.5*scale)+'px sans-serif';
+  ctx.textAlign='center';
+  ctx.fillText(ruler.axis==='x'?'X offset (mm)':'Y offset (mm)',
+   ruler.origin.x*scale,(ruler.origin.y-18)*scale);
  }
+ ctx.textAlign='left';ctx.textBaseline='alphabetic';
+ ctx.font=Math.max(10,2.6*scale)+'px sans-serif';
+ ctx.fillText('Hold to light, FRONT facing you. Enter the numbers crossed by the BACK lines.',5*scale,14*scale);
  return canvas;
 }
-/** The calibration job is independent of card images; it prints the same
- * physical card grid as a normal duplex job and exactly two PDF pages. */
+/** The calibration job has two small measured axes, independent of project card
+ * count, dimensions and image assets. It always emits two PDF pages. */
 export function buildDuplexCalibrationPdf(l:SheetLayout,dpi:number):Blob{
  if(options().duplex==='none')throw Error('Choose long-edge or short-edge duplex to calibrate');
  const pages:PdfJpegPage[]=[];
