@@ -2,7 +2,7 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const model=require('../.build/model.js');
 const collections=require('../.build/project-collections.js');
-const {sheetTable,applyTable}=require('../.build/spreadsheet.js');
+const {sheetTable,workbookTables,applyTable,applyWorkbookTables,exportXLSX}=require('../.build/spreadsheet.js');
 
 function fakeDOM(){
  const nodes=new Map();
@@ -57,19 +57,23 @@ test('a card-set XLSX includes only its own rows and front/back layer fields',()
  state.cards.push({id:'equipment-card',name:'Shield',setId:setTwo.id,values:{},overrides:{},extraElements:[]});
  const {heads,rows}=sheetTable(setOne.id);
  assert.deepEqual(heads,[
-  'Card Name','Card Set',
+  'Card Name',
   'Front / Description','Front / Card Title','Front / Artwork',
   'Back / Description','Back / Card Title','Back / Artwork'
  ]);
  assert.equal(rows.length,1);
  assert.equal(rows[0][0],'Knight');
- assert.equal(rows[0][1],'Characters');
+ assert.ok(!heads.includes('Card Set'));
+ assert.deepEqual(workbookTables(setOne.id)[0].heads,heads);
  assert.equal(rows[0][heads.indexOf('Front / Description')],front.elements.find(e=>e.name==='Description').text);
  assert.equal(rows[0][heads.indexOf('Back / Description')],back.elements.find(e=>e.name==='Description').text);
- assert.deepEqual(sheetTable(setTwo.id).heads,['Card Name','Card Set',
-  'Other design / Description','Other design / Card Title','Other design / Artwork']);
+ assert.deepEqual(sheetTable(setTwo.id).heads,['Card Name','Description','Card Title','Artwork']);
  assert.deepEqual(sheetTable(setTwo.id).rows.map(r=>r[0]),['Shield']);
- assert.equal(sheetTable().rows.length,2,'All-cards export still includes both sets');
+ const all=workbookTables();
+ assert.deepEqual(all.map(t=>t.name),['Characters','Equipment']);
+ assert.deepEqual(all.map(t=>t.rows.length),[1,1]);
+ assert.deepEqual(all[0].heads,workbookTables(setOne.id)[0].heads);
+ assert.deepEqual(all[1].heads,workbookTables(setTwo.id)[0].heads);
  assert.strictEqual(first,state.cards[0]);
  assert.throws(()=>sheetTable('unknown'),/Card set not found/);
 });
@@ -105,14 +109,12 @@ test('importing one set updates card details while preserving other sets and nam
   assert.equal(rows.length,1);
   assert.ok(!heads.some(h=>h.includes('Card Title')));
   const revised=rows[0].slice();
-  revised[heads.indexOf(front.name+' / Description')]='Updated details';
+  revised[heads.indexOf('Description')]='Updated details';
   const added=rows[0].slice();
   added[0]='Mage';
-  added[heads.indexOf(front.name+' / Description')]='New card details';
-  // Card Set labels are verified before any state is modified.
-  const incorrect=revised.slice();
-  incorrect[heads.indexOf('Card Set')]='Equipment';
-  assert.throws(()=>applyTable([heads,incorrect],firstSet.id),/Spreadsheet belongs to/);
+  added[heads.indexOf('Description')]='New card details';
+  // A named tab from a different set cannot be silently imported here.
+  assert.throws(()=>applyWorkbookTables([{name:'Equipment',rows:[heads,revised]}],firstSet.id),/different card set/);
   assert.strictEqual(state.cards[1],different);
   applyTable([heads,revised,added],firstSet.id);
   assert.equal(state.cards.length,3);
@@ -137,7 +139,7 @@ test('importing one set updates card details while preserving other sets and nam
  }
 });
 
-test('the existing all-cards spreadsheet import still replaces staged cards',()=>{
+test('single-set table import uses the same per-set data replacement rules',()=>{
  const previousDoc=global.document,previousAlert=global.alert;
  fakeDOM();
  try{
@@ -156,4 +158,112 @@ test('the existing all-cards spreadsheet import still replaces staged cards',()=
   if(previousDoc===undefined)delete global.document;else global.document=previousDoc;
   if(previousAlert===undefined)delete global.alert;else global.alert=previousAlert;
  }
+});
+
+
+test('workbook export uses named per-set tabs, and the one-set export is the same format',async()=>{
+ const before={document:global.document,URL:global.URL,JSZip:global.JSZip};
+ let blob=null,downloadName='';
+ const ZIP=require('../vendor/jszip.min.js');
+ const nodes=new Map();
+ global.JSZip=ZIP;
+ global.URL={createObjectURL(value){blob=value;return 'blob:local'},revokeObjectURL(){}};
+ global.document={
+  querySelector(id){
+   if(!nodes.has(id))nodes.set(id,{textContent:'',classList:{add(){},remove(){}}});
+   return nodes.get(id);
+  },
+  createElement(){return {set download(v){downloadName=v},click(){},remove(){}}},
+  body:{append(){}}
+ };
+ try{
+  const state=model.initial();
+  model.replaceState(state);
+  const second=collections.newCardSet('Items');
+  const third=collections.newCardSet('Wands');
+  state.cards.push({id:'new',name:'Wand',setId:third.id,values:{},overrides:{},extraElements:[]});
+  const read=async()=>{
+   const zip=await ZIP.loadAsync(await blob.arrayBuffer());
+   return {
+    zip,workbook:await zip.file('xl/workbook.xml').async('string'),
+    rels:await zip.file('xl/_rels/workbook.xml.rels').async('string'),
+    files:Object.keys(zip.files).filter(p=>/^xl\/worksheets\/sheet\d+\.xml$/.test(p)).sort()
+   };
+  };
+  await exportXLSX();
+  const all=await read();
+  assert.equal(all.files.length,3);
+  assert.match(all.workbook,/name="Default set"/);
+  assert.match(all.workbook,/name="Items"/);
+  assert.match(all.workbook,/name="Wands"/);
+  for(let i=0;i<3;i++){
+   const xml=await all.zip.file('xl/worksheets/sheet'+(i+1)+'.xml').async('string');
+   assert.doesNotMatch(xml,/>Card Set</);
+   assert.match(xml,/>Card Name</);
+   assert.match(all.rels,new RegExp('Id="rId'+(i+1)+'"'));
+  }
+  assert.ok(downloadName.endsWith('_card_data.xlsx'));
+  await exportXLSX(third.id);
+  const single=await read();
+  assert.equal(single.files.length,1);
+  assert.match(single.workbook,/name="Wands"/);
+  assert.doesNotMatch(single.workbook,/name="Items"/);
+  assert.equal(await single.zip.file('xl/worksheets/sheet1.xml').async('string'),
+   await all.zip.file('xl/worksheets/sheet3.xml').async('string'),
+   'The set worksheet is identical in whole-workbook and single-set exports');
+ }finally{
+  for(const key of Object.keys(before)){
+   if(before[key]===undefined)delete global[key];else global[key]=before[key];
+  }
+ }
+});
+
+test('all-card workbook import matches tabs by name and updates both sets transactionally',()=>{
+ const previousDoc=global.document,previousAlert=global.alert;
+ fakeDOM();
+ try{
+  const state=model.initial();
+  model.replaceState(state);
+  state.cardSets[0].name='Characters';
+  const other=collections.createTemplate(state.template);
+  other.name='Gear';
+  const second=collections.newCardSet('Equipment',other.id);
+  const title=state.template.elements.find(e=>e.name==='Card Title');
+  const secondTitle=other.elements.find(e=>e.name==='Card Title');
+  state.cards[0].name='Knight';
+  const gear={id:'gear-id',setId:second.id,name:'Shield',values:{},overrides:{},extraElements:[]};
+  state.cards.push(gear);
+  const tabs=workbookTables().map(table=>({name:table.name,rows:[table.heads,...table.rows.map(row=>row.slice())]}));
+  tabs[0].rows[1][tabs[0].rows[0].indexOf('Card Title')]='Paladin';
+  tabs[1].rows[1][tabs[1].rows[0].indexOf('Card Title')]='Aegis';
+  const before=JSON.stringify(state.cards);
+  assert.throws(()=>applyWorkbookTables([tabs[0],{name:'Unknown set',rows:tabs[1].rows}]),/Unknown card set worksheet/);
+  assert.equal(JSON.stringify(state.cards),before,'A bad later sheet must not half-import the first');
+  applyWorkbookTables(tabs);
+  assert.equal(state.cards.length,2);
+  assert.equal(state.cards[0].name,'Knight');
+  assert.equal(state.cards[0].values[title.id],'Paladin');
+  assert.equal(state.cards[1].values[secondTitle.id],'Aegis');
+  assert.equal(state.cards[1].id,gear.id);
+  // Import just the Equipment tab from a multi-sheet file, with the same replacement rules.
+  const revised=tabs[1].rows.map(row=>row.slice());
+  revised[1][revised[0].indexOf('Card Title')]='Tower shield';
+  applyWorkbookTables([{name:tabs[0].name,rows:tabs[0].rows},{name:tabs[1].name,rows:revised}],second.id);
+  assert.equal(state.cards[0].values[title.id],'Paladin');
+  assert.equal(state.cards[1].values[secondTitle.id],'Tower shield');
+ }finally{
+  if(previousDoc===undefined)delete global.document;else global.document=previousDoc;
+  if(previousAlert===undefined)delete global.alert;else global.alert=previousAlert;
+ }
+});
+
+test('Excel tab names are safe, unique, and limited to 31 characters',()=>{
+ const state=model.initial();model.replaceState(state);
+ state.cardSets[0].name='Very long invalid [set/name]:*? 00000000000000';
+ const second=collections.newCardSet('Very long invalid [set/name]:*? 00000000000000');
+ const names=workbookTables().map(t=>t.name);
+ assert.equal(names.length,2);
+ assert.ok(names.every(name=>name.length<=31&&!/[\[\]:*?/\\]/.test(name)));
+ assert.notEqual(names[0].toLowerCase(),names[1].toLowerCase());
+ assert.equal(workbookTables(second.id).length,1);
 });
