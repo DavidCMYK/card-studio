@@ -1,6 +1,6 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {DEFAULT_PRINT_OPTIONS,sheetLayout,cardDimensionsMm,expandPrintCards,backSlot}=require('../.build/print-layout.js');
+const {DEFAULT_PRINT_OPTIONS,sheetLayout,cardDimensionsMm,expandPrintCards,backSlot,printSlot}=require('../.build/print-layout.js');
 const {buildPrintPdf}=require('../.build/print-pdf.js');
 test('A4 portrait lays out standard cards with correct physical coordinates',()=>{
  const l=sheetLayout(DEFAULT_PRINT_OPTIONS,63,88);
@@ -21,6 +21,38 @@ test('landscape long-edge and portrait long-edge backs mirror the correct axis',
  const b2=backSlot(landscape,p2,'long');
  assert.equal(b2.x,p2.x);
  assert.ok(Math.abs(b2.y-(landscape.height-p2.y-88))<1e-8);
+});
+
+test('duplex calibration moves only the back PDF page after flip mirroring',()=>{
+ for(const landscape of [false,true]){
+  for(const duplex of ['long','short']){
+   const opts={...DEFAULT_PRINT_OPTIONS,landscape,duplex,backOffsetX:1.25,backOffsetY:-0.75};
+   const layout=sheetLayout(opts,63,88),slot=layout.slots[0];
+   const mirrored=backSlot(layout,slot,duplex);
+   const front=printSlot(layout,slot,'front',opts);
+   const back=printSlot(layout,slot,'back',opts);
+   assert.deepEqual(front,slot);
+   assert.notStrictEqual(front,slot,'The original slot object must not be mutated');
+   assert.equal(back.x,mirrored.x+1.25);
+   assert.equal(back.y,mirrored.y-.75);
+   assert.equal(back.col,slot.col);
+   assert.equal(back.row,slot.row);
+   assert.deepEqual(slot,layout.slots[0],'Calibration must not modify the imposition grid');
+  }
+ }
+});
+
+test('missing calibration settings in older projects are treated as zero, with bounded inputs',()=>{
+ const opts={...DEFAULT_PRINT_OPTIONS,duplex:'long'};
+ delete opts.backOffsetX;delete opts.backOffsetY;
+ const l=sheetLayout(opts,63,88),first=l.slots[0];
+ assert.deepEqual(printSlot(l,first,'back',opts),backSlot(l,first,'long'));
+ for(const [x,y] of [[Number.NaN,0],[0,Infinity],[20.001,0],[0,-20.001]])
+  assert.throws(()=>printSlot(l,first,'back',{...opts,backOffsetX:x,backOffsetY:y}),/offsets must be between/);
+ assert.deepEqual(printSlot(l,first,'front',{...opts,backOffsetX:Infinity}),first,
+  'A bad back offset must not interfere with front-only printing');
+ assert.equal(DEFAULT_PRINT_OPTIONS.backOffsetX,0);
+ assert.equal(DEFAULT_PRINT_OPTIONS.backOffsetY,0);
 });
 test('no-fit page rejects rather than emitting an empty PDF',()=>{
  assert.throws(()=>sheetLayout({...DEFAULT_PRINT_OPTIONS,margin:40},180,250),/No cards fit/);
