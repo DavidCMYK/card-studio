@@ -75,6 +75,51 @@ export function printSlot(layout:SheetLayout,front:Slot,side:'front'|'back',opts
  const slot=backSlot(layout,front,opts.duplex);
  return {...slot,x:slot.x+x,y:slot.y+y};
 }
+/** The calibration ruler is read from the FRONT of a duplex-printed sheet,
+ * held against the light. Its labels are absolute back-page offsets in mm:
+ * where the back indicator crosses the ruler is the value to enter directly.
+ * The scale compensates for both the duplex flip and an existing saved offset.
+ */
+export type CalibrationAxis='x'|'y';
+export interface CalibrationTick {
+ value:number; x:number; y:number; labeled:boolean;
+}
+export interface CalibrationScale {
+ axis:CalibrationAxis;
+ origin:{x:number;y:number};
+ ticks:CalibrationTick[];
+ /** Reference mark coordinates on the BACK PDF page (not the front view). */
+ backReference:{x:number;y:number};
+}
+export function calibrationScale(l:SheetLayout,opts:PrintOptions,axis:CalibrationAxis):CalibrationScale {
+ if(opts.duplex==='none')throw Error('Select duplex printing before calibration');
+ const xOffset=opts.backOffsetX??0,yOffset=opts.backOffsetY??0;
+ if(!Number.isFinite(xOffset)||!Number.isFinite(yOffset)||
+  Math.abs(xOffset)>20||Math.abs(yOffset)>20)throw Error('Back calibration offsets must be between -20 and 20 mm');
+ const mirrorX=(opts.duplex==='long')!==(l.width>l.height);
+ const signX=mirrorX?-1:1,signY=mirrorX?1:-1;
+ const origin={x:l.width/2,y:l.height/2+(axis==='x'?-24:24)};
+ const offset=axis==='x'?xOffset:yOffset,sign=axis==='x'?signX:signY;
+ const ticks:CalibrationTick[]=[];
+ // 0.5 mm subdivisions; a labelled 2 mm mark appears every fourth tick.
+ for(let i=-20;i<=20;i++){
+  const value=i/2,delta=sign*(offset-value);
+  ticks.push({
+   value,x:origin.x+(axis==='x'?delta:0),
+   y:origin.y+(axis==='y'?delta:0),
+   labeled:i%4===0
+  });
+ }
+ // Isolate X and Y: the perpendicular correction is deliberately not applied
+ // to each reference mark, so its ruler still crosses after large changes to
+ // the other axis. Actual card backs still receive BOTH offsets.
+ const backReference=axis==='x'?
+  {x:(mirrorX?l.width-origin.x:origin.x)+xOffset,
+   y:mirrorX?origin.y:l.height-origin.y}:
+  {x:mirrorX?l.width-origin.x:origin.x,
+   y:(mirrorX?origin.y:l.height-origin.y)+yOffset};
+ return {axis,origin,ticks,backReference};
+}
 export function expandPrintCards(cards:ReadonlyArray<{printEnabled?:boolean;printQuantity?:number}>):number[]{
   const result:number[]=[];
   cards.forEach((card,index)=>{
