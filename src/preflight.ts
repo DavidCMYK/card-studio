@@ -9,7 +9,8 @@ import type {CardElement,CardSide} from './types';
 
 export type PreflightSeverity='error'|'warning';
 export type PreflightCode='missing-artwork'|'unreadable-artwork'|'low-resolution'|'text-overflow'|
- 'unsafe-text'|'unbundled-font'|'font-variant'|'invalid-guides'|'no-bleed';
+ 'unsafe-text'|'unbundled-font'|'font-variant'|'invalid-guides'|'no-bleed'|
+ 'empty-visible-text'|'duplicate-card-name'|'unnamed-card';
 export interface PreflightFinding {
  severity:PreflightSeverity;
  code:PreflightCode;
@@ -48,9 +49,18 @@ export async function scanDeck(measure:ImageMeasure=defaultMeasure):Promise<Pref
  const checkedTemplates=new Set<string>();
  const checkedFonts=new Set<string>();
  const images=new Map<string,Promise<ImageDimensions|null>>();
+ const seenNames=new Map<string,number>();
  let checkedSides=0;
  for(let ci=0;ci<S.cards.length;ci++){
   const card=S.cards[ci],set=cardSetFor(card);
+  const cardName=String(card.name||'').trim(),nameKey=cardName.toLowerCase();
+  if(!cardName)add('error','unnamed-card',ci,null,'Card name',
+   'This card has no name; it needs an identifiable export filename.');
+  else if(seenNames.has(nameKey)){
+   add('warning','duplicate-card-name',ci,null,'Card name',
+    'This name is also used by card '+(seenNames.get(nameKey)!+1)+
+    '. Batch export will append a suffix to one of the files.');
+  }else seenNames.set(nameKey,ci);
   for(const side of ['front','back'] as CardSide[]){
    const template=assignedTemplate(ci,side);
    if(!template)continue;
@@ -104,7 +114,12 @@ export async function scanDeck(measure:ImageMeasure=defaultMeasure):Promise<Pref
     }else if(e.kind==='text'){
      const value=Object.prototype.hasOwnProperty.call(card.values||{},raw.id)?
       String(card.values[raw.id]??''):String(raw.text??'');
-     if(!value.trim())continue;
+     if(!value.trim()){
+      if(e.invisibleIfEmpty===false)
+       add('warning','empty-visible-text',ci,side,raw.name,
+        'This field is blank, but the element is configured to stay visible when empty.');
+      continue;
+     }
      const textBox=layoutTextBox({...e,autoWidth:false,autoHeight:false},value);
      if(textBox.textHeight>textBox.innerH+.75){
       add('error','text-overflow',ci,side,raw.name,
