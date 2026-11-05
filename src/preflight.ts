@@ -39,6 +39,8 @@ const keyFor=(font:string,weight:number,style:string)=>
 /** Scans all cards and their assigned sides, without modifying the project.
  * Image size reads are cached once per unique artwork source. */
 export async function scanDeck(measure:ImageMeasure=defaultMeasure):Promise<PreflightReport>{
+ // A project replacement during a long image scan must not mix two decks.
+ const project=S;
  const findings:PreflightFinding[]=[];
  const add=(severity:PreflightSeverity,code:PreflightCode,ci:number|null,
   side:CardSide|null,elementName:string,message:string,setName?:string)=>{
@@ -51,7 +53,11 @@ export async function scanDeck(measure:ImageMeasure=defaultMeasure):Promise<Pref
  const images=new Map<string,Promise<ImageDimensions|null>>();
  const seenNames=new Map<string,number>();
  let checkedSides=0;
- for(let ci=0;ci<S.cards.length;ci++){
+ for(let ci=0;ci<project.cards.length;ci++){
+  if(S!==project)throw Error('The project changed during the deck check; run it again.');
+  // Yield periodically for very large decks without losing the open dialog.
+  if(ci>0&&ci%40===0)await new Promise<void>(resolve=>setTimeout(resolve,0));
+  if(S!==project)throw Error('The project changed during the deck check; run it again.');
   const card=S.cards[ci],set=cardSetFor(card);
   const cardName=String(card.name||'').trim(),nameKey=cardName.toLowerCase();
   if(!cardName)add('error','unnamed-card',ci,null,'Card name',
@@ -97,6 +103,7 @@ export async function scanDeck(measure:ImageMeasure=defaultMeasure):Promise<Pref
      if(!images.has(asset.data))images.set(asset.data,Promise.resolve()
       .then(()=>measure(asset.data)).catch(()=>null));
      const size=await images.get(asset.data)!;
+     if(S!==project)throw Error('The project changed during the deck check; run it again.');
      if(!size||size.naturalWidth<=0||size.naturalHeight<=0){
       add('error','unreadable-artwork',ci,side,raw.name,
        'The assigned artwork could not be decoded.');
