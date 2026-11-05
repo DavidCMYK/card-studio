@@ -1,4 +1,4 @@
-import { S, uid, escapeXML, textKinds, safeFile, isDataExported,cardSetFor,assignedTemplate,syncEditorTemplate } from './model';
+import { S, uid, escapeXML, textKinds, safeFile, isDataExported,cardSetFor,syncEditorTemplate } from './model';
 import { download, toast } from './dom';
 import { repaint } from './interface';
 export const columnName=n=>{let s='';for(n++;n;n=Math.floor((n-1)/26))s=String.fromCharCode(65+(n-1)%26)+s;return s};
@@ -42,11 +42,15 @@ function uniqueSheetName(value:string,used:Set<string>){
  return name;
 }
 export function workbookTables(setId?:string):SheetTable[]{
- const sets=setId?S.cardSets?.filter(s=>s.id===setId):S.cardSets;
- if(!sets?.length)throw Error(setId?'Card set not found':'No card sets in project');
+ const sets=S.cardSets||[];
+ if(!sets.length||setId&&!sets.some(set=>set.id===setId))
+  throw Error(setId?'Card set not found':'No card sets in project');
+ // Generate sheet names across the whole project, even for a one-set export.
+ // A set's tab name is identical in both output formats, including collisions.
  const names=new Set<string>();
- return sets.map(set=>({
-  name:uniqueSheetName(set.name,names),setId:set.id,...sheetTable(set.id)
+ const namesById=new Map(sets.map(set=>[set.id,uniqueSheetName(set.name,names)]));
+ return sets.filter(set=>!setId||set.id===setId).map(set=>({
+  name:namesById.get(set.id)!,setId:set.id,...sheetTable(set.id)
  }));
 }
 function sheetXML({heads,rows}:SheetTable){
@@ -268,7 +272,9 @@ export function applyWorkbookTables(sheets:ImportedSheet[],setId?:string){
 }
 /** Retain direct table import for CSV and earlier single-set callers. */
 export function applyTable(rows:string[][],setId?:string){
- applyWorkbookTables([{name:'Cards',rows}],setId);
+ const name=setId||S.cardSets?.length===1?
+  workbookTables().find(sheet=>sheet.setId===(setId||S.cardSets![0].id))!.name:'Cards';
+ applyWorkbookTables([{name,rows}],setId);
 }
 export async function readSheet(file,setId?:string){
  try{
