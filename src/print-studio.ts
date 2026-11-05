@@ -262,6 +262,17 @@ function renderCalibrationPage(side:'front'|'back',dpi:number,l:SheetLayout):HTM
  }
  return canvas;
 }
+/** The calibration job is independent of card images; it prints the same
+ * physical card grid as a normal duplex job and exactly two PDF pages. */
+export function buildDuplexCalibrationPdf(l:SheetLayout,dpi:number):Blob{
+ if(options().duplex==='none')throw Error('Choose long-edge or short-edge duplex to calibrate');
+ const pages:PdfJpegPage[]=[];
+ for(const side of ['front','back'] as const){
+  const sheet=renderCalibrationPage(side,dpi,l);
+  pages.push({jpeg:jpegBytes(sheet),pixelWidth:sheet.width,pixelHeight:sheet.height,widthMm:l.width,heightMm:l.height});
+ }
+ return buildPrintPdf(pages);
+}
 function jpegBytes(canvas:HTMLCanvasElement):Uint8Array{
  const b64=canvas.toDataURL('image/jpeg',.96).split(',')[1];
  const binary=atob(b64),arr=new Uint8Array(binary.length);
@@ -291,14 +302,8 @@ async function runPrint(previewSide?:'front'|'back',calibration=false){
  busy=true;buttons.forEach(b=>b.disabled=true);inputs.forEach(i=>i.disabled=true);
  try{
   if(calibration){
-   if(options().duplex==='none')throw Error('Choose long-edge or short-edge duplex to calibrate');
-   const l=layout(),pages:PdfJpegPage[]=[];
-   for(const side of ['front','back'] as const){
-    status.textContent='Rendering '+side+' calibration targets…';
-    const sheet=renderCalibrationPage(side,options().dpi,l);
-    pages.push({jpeg:jpegBytes(sheet),pixelWidth:sheet.width,pixelHeight:sheet.height,widthMm:l.width,heightMm:l.height});
-   }
-   download(buildPrintPdf(pages),safeFile(S.projectName)+'_duplex_calibration.pdf');
+   status.textContent='Building duplex registration targets…';
+   download(buildDuplexCalibrationPdf(layout(),options().dpi),safeFile(S.projectName)+'_duplex_calibration.pdf');
    status.textContent='Two-page calibration PDF downloaded';
    return;
   }
