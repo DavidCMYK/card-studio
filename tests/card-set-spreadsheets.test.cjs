@@ -96,6 +96,9 @@ test('importing one set updates card details while preserving other sets and nam
   original.overrides[description.id]={fontSize:25};
   original.extraElements.push(model.makeElement('shape',{name:'Unique marker'}));
   original.printQuantity=3;
+  original.printEnabled=false;
+  original.printBack='back-art.png';
+  original.backExtraElements=[model.makeElement('shape',{name:'Back-only marker'})];
   const different={id:'other-id',name:'Shield',setId:secondSet.id,values:{saved:'untouched'},overrides:{},extraElements:[]};
   state.cards.push(different);
   const {heads,rows}=sheetTable(firstSet.id);
@@ -120,6 +123,9 @@ test('importing one set updates card details while preserving other sets and nam
   assert.equal(state.cards[0].overrides[description.id].fontSize,25);
   assert.equal(state.cards[0].extraElements.length,1);
   assert.equal(state.cards[0].printQuantity,3);
+  assert.equal(state.cards[0].printEnabled,false);
+  assert.equal(state.cards[0].printBack,'back-art.png');
+  assert.equal(state.cards[0].backExtraElements.length,1);
   assert.equal(state.cards[1].setId,firstSet.id);
   assert.equal(state.cards[1].name,'Mage');
   assert.equal(state.cards[1].values[description.id],'New card details');
