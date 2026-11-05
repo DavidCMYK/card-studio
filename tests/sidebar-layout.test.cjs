@@ -41,6 +41,8 @@ test('Desktop sidebar expands one section at a time, preserves lists and remembe
   assert.match(markup,/CARD SETS/);
   assert.match(markup,/Front template/);
   assert.match(markup,/Back template/);
+  assert.match(markup,/data-action="export-set-sheet" data-set-id=/);
+  assert.match(markup,/data-action="import-set-sheet" data-set-id=/);
   assert.match(markup,/STAGED CARDS/);
   assert.match(markup,/Illustrations/);
   assert.match(markup,/Manage images/);
