@@ -6,7 +6,7 @@ import { canvasCard } from './png-renderer';
 import { checkpoint } from './history';
 import { noteLiveEdit } from './recovery';
 import { buildPrintPdf, PdfJpegPage } from './print-pdf';
-import { PrintOptions, Duplex, DEFAULT_PRINT_OPTIONS, sheetLayout, backSlot, cardDimensionsMm, expandPrintCards, SheetLayout } from './print-layout';
+import { PrintOptions, Duplex, DEFAULT_PRINT_OPTIONS, sheetLayout, printSlot, cardDimensionsMm, expandPrintCards, SheetLayout } from './print-layout';
 
 type PrintableCard = typeof S.cards[number] & {printEnabled?:boolean;printQuantity?:number;printBack?:string};
 let busy=false;
@@ -90,6 +90,11 @@ function html():string {
  <hr class="pr-rule">
  <h3>Card backs</h3>
  <label><span>Duplex</span><select name="duplex"><option value="none" ${o.duplex==='none'?'selected':''}>Fronts only</option><option value="long" ${o.duplex==='long'?'selected':''}>Fronts + backs (flip long edge)</option><option value="short" ${o.duplex==='short'?'selected':''}>Fronts + backs (flip short edge)</option></select></label>
+ <h3>Duplex calibration</h3>
+ <label><span>Back horizontal offset (mm)</span><input type="number" name="backOffsetX" min="-20" max="20" step="0.1" value="${o.backOffsetX??0}"></label>
+ <label><span>Back vertical offset (mm)</span><input type="number" name="backOffsetY" min="-20" max="20" step="0.1" value="${o.backOffsetY??0}"></label>
+ <div class="pr-row"><button type="button" data-print="calibration">Export calibration PDF</button><button type="button" data-print="reset-calibration">Reset offsets</button></div>
+ <p class="pr-small">Print the two-page calibration PDF double-sided at <b>actual size</b>, using the selected flip mode. Hold the sheet against the light: the front and back alignment marks should coincide. Positive horizontal shifts backs right; positive vertical shifts backs down, as viewed on the back PDF page. Adjust by the measured misalignment and try again. Calibration affects backs only, including bleed and crop marks.</p>
  <label><span>Shared back image</span><input type="file" data-print-file="shared" accept="image/png,image/jpeg,image/webp,image/gif"></label>
  <div class="pr-row"><small id="prSharedStatus">${o.sharedBack?'Shared back loaded':'No shared back'}</small><button type="button" data-print="remove-shared">Remove</button></div>
  <p class="pr-small">Assigned back templates render automatically. Per-card image backs override them; the shared image remains a fallback for sets without back templates. Duplex PDFs alternate front and back pages.</p>
@@ -127,6 +132,11 @@ function updateField(target:HTMLInputElement|HTMLSelectElement){
  else if(name==='landscape'||name==='cropMarks')o[name]=Boolean(value);
  else if(name==='duplex'&&['none','long','short'].includes(String(value)))o.duplex=value as Duplex;
  else if(name==='dpi')o.dpi=Number(value)===150?150:300;
+ else if(name==='backOffsetX'||name==='backOffsetY'){
+  const n=Number(value);if(!Number.isFinite(n))return;
+  o[name]=Math.round(Math.max(-20,Math.min(20,n))*100)/100;
+  target.value=String(o[name]);
+ }
  else if(['customWidth','customHeight','margin','gap','bleed'].includes(name)){
   const n=Number(value);if(!Number.isFinite(n))return;
   (o as any)[name]=Math.max(name.startsWith('custom')?50:0,Math.min(1000,n));
@@ -189,7 +199,7 @@ async function renderSheet(sheetIndex:number,side:'front'|'back',dpi:number,entr
  const start=sheetIndex*l.perPage;
  for(let i=0;i<l.perPage&&start+i<entries.length;i++){
   const ci=entries[start+i],card=S.cards[ci] as PrintableCard;
-  const original=l.slots[i];const position=side==='back'?backSlot(l,original,options().duplex):original;
+  const original=l.slots[i];const position=printSlot(l,original,side,options());
   const x=position.x*scale,y=position.y*scale,w=l.cardWidth*scale,h=l.cardHeight*scale;
   let art:CanvasImageSource;
   if(side==='front'){
@@ -217,6 +227,41 @@ async function renderSheet(sheetIndex:number,side:'front'|'back',dpi:number,entr
  }
  return canvas;
 }
+/** Print a two-page target grid without any card assets. Matching crosses and
+ * trim outlines are imposed with the exact geometry used for real prints. */
+function renderCalibrationPage(side:'front'|'back',dpi:number,l:SheetLayout):HTMLCanvasElement{
+ const scale=dpi/25.4,canvas=document.createElement('canvas');
+ canvas.width=Math.round(l.width*scale);canvas.height=Math.round(l.height*scale);
+ if(canvas.width>10000||canvas.height>10000||canvas.width*canvas.height>40000000)
+  throw Error('Paper size or resolution is too large');
+ const ctx=canvas.getContext('2d');if(!ctx)throw Error('2D drawing is not supported');
+ ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+ const colour=side==='front'?'#202b3b':'#bd174c';
+ ctx.strokeStyle=colour;ctx.fillStyle=colour;
+ ctx.font=Math.max(10,2.8*scale)+'px sans-serif';
+ ctx.fillText(side==='front'?'FRONT — duplex alignment':'BACK — duplex alignment',5*scale,7*scale);
+ for(const slot of l.slots){
+  const at=printSlot(l,slot,side,options());
+  const x=at.x*scale,y=at.y*scale,w=l.cardWidth*scale,h=l.cardHeight*scale;
+  ctx.lineWidth=Math.max(.7,.15*scale);
+  ctx.strokeRect(x,y,w,h);
+  // A centre target and four inset targets make skew and paper drift visible.
+  const targets=[
+   [x+w/2,y+h/2],
+   [x+8*scale,y+8*scale],[x+w-8*scale,y+8*scale],
+   [x+8*scale,y+h-8*scale],[x+w-8*scale,y+h-8*scale]
+  ];
+  ctx.beginPath();
+  for(const [cx,cy] of targets){
+   const arm=4*scale,r=1.4*scale;
+   ctx.moveTo(cx-arm,cy);ctx.lineTo(cx+arm,cy);
+   ctx.moveTo(cx,cy-arm);ctx.lineTo(cx,cy+arm);
+   ctx.moveTo(cx+r,cy);ctx.arc(cx,cy,r,0,Math.PI*2);
+  }
+  ctx.stroke();
+ }
+ return canvas;
+}
 function jpegBytes(canvas:HTMLCanvasElement):Uint8Array{
  const b64=canvas.toDataURL('image/jpeg',.96).split(',')[1];
  const binary=atob(b64),arr=new Uint8Array(binary.length);
@@ -237,7 +282,7 @@ function assertReady(entries:number[]){
  }
  return l;
 }
-async function runPrint(previewSide?:'front'|'back'){
+async function runPrint(previewSide?:'front'|'back',calibration=false){
  if(busy)return;
  const root=document.querySelector('#printModal') as HTMLElement|null;if(!root)return;
  const status=root.querySelector('#prStatus') as HTMLElement;
@@ -245,6 +290,18 @@ async function runPrint(previewSide?:'front'|'back'){
  const inputs=root.querySelectorAll<HTMLInputElement|HTMLSelectElement>('input,select');
  busy=true;buttons.forEach(b=>b.disabled=true);inputs.forEach(i=>i.disabled=true);
  try{
+  if(calibration){
+   if(options().duplex==='none')throw Error('Choose long-edge or short-edge duplex to calibrate');
+   const l=layout(),pages:PdfJpegPage[]=[];
+   for(const side of ['front','back'] as const){
+    status.textContent='Rendering '+side+' calibration targets…';
+    const sheet=renderCalibrationPage(side,options().dpi,l);
+    pages.push({jpeg:jpegBytes(sheet),pixelWidth:sheet.width,pixelHeight:sheet.height,widthMm:l.width,heightMm:l.height});
+   }
+   download(buildPrintPdf(pages),safeFile(S.projectName)+'_duplex_calibration.pdf');
+   status.textContent='Two-page calibration PDF downloaded';
+   return;
+  }
   const entries=selected(),l=assertReady(entries);
   if(previewSide==='back'&&options().duplex==='none')throw Error('Choose a duplex mode to preview backs');
   const fronts=new Map<number,HTMLCanvasElement>();
@@ -253,7 +310,7 @@ async function runPrint(previewSide?:'front'|'back'){
    const sheet=await renderSheet(0,previewSide,90,entries,l,fronts);
    const img=root.querySelector('#prPreview') as HTMLImageElement;
    img.src=sheet.toDataURL('image/jpeg',.85);img.style.display='block';
-   (root.querySelector('#prPreviewInfo') as HTMLElement).textContent=previewSide==='front'?'Front sheet 1':'Back sheet 1 (as viewed from reverse side)';
+   (root.querySelector('#prPreviewInfo') as HTMLElement).textContent=previewSide==='front'?'Front sheet 1':'Back sheet 1 (back PDF page; calibration applied)';
   }else{
    const pages:PdfJpegPage[]=[],numSheets=Math.ceil(entries.length/l.perPage);
    for(let index=0;index<numSheets;index++){
@@ -286,11 +343,18 @@ export function openPrintStudio(){
   if(!act)return;
   if(act==='close'){if(!busy)holder.innerHTML='';return;}
   if(act==='remove-shared'){options().sharedBack=undefined;changed();return;}
+  if(act==='reset-calibration'){
+   options().backOffsetX=0;options().backOffsetY=0;
+   (root.querySelector('[name="backOffsetX"]') as HTMLInputElement).value='0';
+   (root.querySelector('[name="backOffsetY"]') as HTMLInputElement).value='0';
+   changed();return;
+  }
   if(act==='all'||act==='none'){
    S.cards.forEach(c=>(c as PrintableCard).printEnabled=act==='all');
    root.querySelectorAll<HTMLInputElement>('[data-pr-enabled]').forEach(el=>el.checked=act==='all');changed();return;
   }
-  if(act==='pdf'||act==='preview'||act==='preview-back')void runPrint(act==='pdf'?undefined:act==='preview'?'front':'back');
+  if(act==='pdf'||act==='preview'||act==='preview-back'||act==='calibration')
+   void runPrint(act==='preview'?'front':act==='preview-back'?'back':undefined,act==='calibration');
  });
  root.addEventListener('change',async e=>{
   const t=e.target as HTMLInputElement;
