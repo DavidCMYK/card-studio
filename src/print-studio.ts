@@ -298,8 +298,12 @@ function renderCalibrationPage(side:'front'|'back',dpi:number,l:{width:number;he
   if(ruler.axis==='x')
    ctx.fillText('X offset (mm)',ruler.origin.x*scale,(ruler.origin.y-18)*scale);
   else{
-   ctx.textAlign='left';
-   ctx.fillText('Y offset (mm)',(ruler.origin.x+27)*scale,ruler.origin.y*scale);
+   // Keep the heading on the page even for narrow custom paper sizes.
+   const narrow=l.width<160;
+   ctx.textAlign=narrow?'right':'left';
+   ctx.fillText('Y offset (mm)',
+    (ruler.origin.x+(narrow?Math.min(27,l.width/2-5):27))*scale,
+    ruler.origin.y*scale);
   }
  }
  ctx.textAlign='left';ctx.textBaseline='alphabetic';
