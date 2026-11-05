@@ -101,7 +101,11 @@ export function applyTable(rows,setId?:string){
    const prior=byName.get(c.name.trim().toLowerCase())?.shift();
    // The spreadsheet changes card details, not card-only artwork, layout or
    // printing options. Fields excluded from the sheet also retain their data.
-   return prior?{...prior,...c,id:prior.id,values:{...prior.values,...c.values}}:c;
+   return prior?{
+    ...prior, // Preserve per-card geometry, artwork and print settings.
+    name:c.name,setId:c.setId,
+    values:{...prior.values,...c.values}
+   }:c;
   });
   const removed=[...byName.values()].flat();
   const hasUnsavedLayout=removed.some(c=>Object.keys(c.overrides||{}).length||
