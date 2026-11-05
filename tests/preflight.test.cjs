@@ -82,7 +82,7 @@ test('card-only changes to art scale and text geometry are checked independently
  state.cards[0].overrides[title.id]={h:1};
  state.cards[0].values[title.id]='Fitted differently';
  state.cards.push({id:'second',name:'Large',setId:state.cardSets[0].id,values:{[title.id]:'Okay'},overrides:{},extraElements:[]});
- const report=await scanDeck(async()=>({naturalWidth:600,naturalHeight:600}));
+ const report=await scanDeck(async()=>({naturalWidth:900,naturalHeight:900}));
  assert.ok(report.findings.some(f=>f.cardName==='Small'&&f.code==='text-overflow'));
  assert.ok(!report.findings.some(f=>f.cardName==='Large'&&f.elementName==='Card Title'&&f.code==='text-overflow'));
  assert.ok(report.findings.some(f=>f.cardName==='Small'&&f.code==='low-resolution'));
