@@ -76,6 +76,7 @@ export function renderLeft(){
   <div class="asset-title"><strong>${escapeHTML(set.name)}</strong><span class="count">${S.cards.filter(c=>c.setId===set.id).length} cards</span></div>
   <div class="field"><label>Front template</label><select data-set-side="front" data-set-id="${escapeHTML(set.id)}">${templateChoices(set.frontTemplateId)}</select></div>
   <div class="field"><label>Back template</label><select data-set-side="back" data-set-id="${escapeHTML(set.id)}">${templateChoices(set.backTemplateId,true)}</select></div>
+  <div class="asset-actions"><button data-action="export-set-sheet" data-set-id="${escapeHTML(set.id)}">Export XLSX</button><button data-action="import-set-sheet" data-set-id="${escapeHTML(set.id)}">Import XLSX / CSV</button></div>
   <div class="asset-actions"><button data-action="add-card-to-set" data-set-id="${escapeHTML(set.id)}">＋ Card</button><button data-action="rename-card-set" data-set-id="${escapeHTML(set.id)}">Rename</button><button data-action="delete-card-set" data-set-id="${escapeHTML(set.id)}">Delete</button></div>
  </div>`).join('')}
  </div></section>`;
