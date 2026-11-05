@@ -270,3 +270,53 @@ test('Excel tab names are safe, unique, and limited to 31 characters',()=>{
  assert.notEqual(names[0].toLowerCase(),names[1].toLowerCase());
  assert.equal(workbookTables(second.id).length,1);
 });
+
+
+test('a template element literally named Card Set is treated as data, not an old metadata column',()=>{
+ const previousDoc=global.document,previousAlert=global.alert;
+ fakeDOM();
+ try{
+  const state=model.initial();model.replaceState(state);
+  state.cardSets[0].name='Characters';
+  const el=model.makeElement('text',{name:'Card Set',text:'Example'});
+  state.template.elements.push(el);
+  const other=collections.newCardSet('Equipment');
+  state.cards[0].values[el.id]='Different kind of card';
+  const table=workbookTables()[0];
+  assert.equal(table.name,'Characters');
+  assert.ok(table.heads.includes('Card Set'));
+  const row=table.rows[0].slice();
+  row[table.heads.indexOf('Card Set')]='Updated value';
+  applyWorkbookTables([{name:table.name,rows:[table.heads,row]}]);
+  assert.equal(state.cards[0].values[el.id],'Updated value');
+  assert.equal(state.cards[0].setId,state.cardSets[0].id);
+  assert.ok(!workbookTables(other.id)[0].heads.includes('Card Set'));
+ }finally{
+  if(previousDoc===undefined)delete global.document;else global.document=previousDoc;
+  if(previousAlert===undefined)delete global.alert;else global.alert=previousAlert;
+ }
+});
+
+test('older all-cards files with a Card Set column still import into their respective sets',()=>{
+ const previousDoc=global.document,previousAlert=global.alert;
+ fakeDOM();
+ try{
+  const state=model.initial();model.replaceState(state);
+  state.cardSets[0].name='Characters';
+  const second=collections.newCardSet('Equipment');
+  const title=state.template.elements.find(el=>el.name==='Card Title');
+  applyWorkbookTables([{name:'Cards',rows:[
+   ['Card Name','Card Set','Card Title'],
+   ['Knight','Characters','Sir Rael'],
+   ['Shield','Equipment','Wall shield']
+  ]}]);
+  assert.equal(state.cards.length,2);
+  assert.equal(state.cards[0].setId,state.cardSets[0].id);
+  assert.equal(state.cards[0].values[title.id],'Sir Rael');
+  assert.equal(state.cards[1].setId,second.id);
+  assert.equal(state.cards[1].values[title.id],'Wall shield');
+ }finally{
+  if(previousDoc===undefined)delete global.document;else global.document=previousDoc;
+  if(previousAlert===undefined)delete global.alert;else global.alert=previousAlert;
+ }
+});
