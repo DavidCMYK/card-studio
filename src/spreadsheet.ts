@@ -231,7 +231,8 @@ export function applyWorkbookTables(sheets:ImportedSheet[],setId?:string){
    if(!match)throw Error('No worksheet found for '+chosen!.name);
    inputs=[{setId,rows:match.rows}];
   }
- }else if(sheets.length===1&&!byName.has(sheets[0].name.toLowerCase())&&
+ }else if(sheets.length===1&&sheets[0].name.toLowerCase()==='cards'&&
+  !byName.has(sheets[0].name.toLowerCase())&&
   sheets[0].rows[0]?.some(h=>String(h).toLowerCase().trim()==='card set')){
   // Older flat exports: split their Card Set rows into normal per-set inputs.
   const rows=sheets[0].rows,headers=rows[0].map(h=>String(h).trim().toLowerCase()),setColumn=headers.indexOf('card set');
