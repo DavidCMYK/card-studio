@@ -12,6 +12,9 @@ export interface PrintOptions {
   cropMarks: boolean;
   dpi: 150 | 300;
   duplex: Duplex;
+  /** Signed offset applied to the back PDF page after duplex mirroring (millimetres). */
+  backOffsetX?: number;
+  backOffsetY?: number;
   sharedBack?: string;
 }
 export interface Slot { x: number; y: number; col: number; row: number; }
@@ -28,7 +31,7 @@ export interface SheetLayout {
 }
 export const DEFAULT_PRINT_OPTIONS: PrintOptions = {
   paper:'a4', landscape:false, customWidth:210,customHeight:297,
-  margin:4,gap:1,bleed:0,cropMarks:true,dpi:300,duplex:'none'
+  margin:4,gap:1,bleed:0,cropMarks:true,dpi:300,duplex:'none',backOffsetX:0,backOffsetY:0
 };
 export function cardDimensionsMm(template:{width:number;height:number;unit:string;dpi:number}) {
   const factor=template.unit==='mm'?1:template.unit==='in'?25.4:25.4/template.dpi;
@@ -60,6 +63,17 @@ export function backSlot(layout:SheetLayout,front:Slot,duplex:Duplex):Slot {
   const mirrorX=(duplex==='long')!== (layout.width>layout.height);
   return {...front,x:mirrorX?layout.width-front.x-layout.cardWidth:front.x,
     y:mirrorX?front.y:layout.height-front.y-layout.cardHeight};
+}
+/** Final position on a PDF page. Positive X moves right; positive Y moves down
+ * when viewed on the BACK PDF page (after the printer's chosen flip). Fronts
+ * and page layout are never changed by duplex calibration. */
+export function printSlot(layout:SheetLayout,front:Slot,side:'front'|'back',opts:PrintOptions):Slot{
+ if(side==='front')return {...front};
+ const x=opts.backOffsetX??0,y=opts.backOffsetY??0;
+ if(!Number.isFinite(x)||!Number.isFinite(y)||Math.abs(x)>20||Math.abs(y)>20)
+  throw Error('Back calibration offsets must be between -20 and 20 mm');
+ const slot=backSlot(layout,front,opts.duplex);
+ return {...slot,x:slot.x+x,y:slot.y+y};
 }
 export function expandPrintCards(cards:ReadonlyArray<{printEnabled?:boolean;printQuantity?:number}>):number[]{
   const result:number[]=[];
