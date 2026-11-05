@@ -234,8 +234,12 @@ test('all-card workbook import matches tabs by name and updates both sets transa
   const other=collections.createTemplate(state.template);
   other.name='Gear';
   const second=collections.newCardSet('Equipment',other.id);
-  const title=state.template.elements.find(e=>e.name==='Card Title');
+  // Creating a template selects it in the editor. The first set still uses
+  // its original front template; assert against that template's element IDs.
+  const firstTemplate=state.templates.find(t=>t.id===state.cardSets[0].frontTemplateId);
+  const title=firstTemplate.elements.find(e=>e.name==='Card Title');
   const secondTitle=other.elements.find(e=>e.name==='Card Title');
+  assert.notEqual(title.id,secondTitle.id,'Independent templates must not share field IDs');
   state.cards[0].name='Knight';
   const gear={id:'gear-id',setId:second.id,name:'Shield',values:{},overrides:{},extraElements:[]};
   state.cards.push(gear);
