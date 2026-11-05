@@ -19,6 +19,25 @@ export function renderCardControl(){
   <label class="small">Side <select id="cardSideSelector" aria-label="Card side"><option value="front" ${S.side!=='back'?'selected':''}>Front</option>${set?.backTemplateId?`<option value="back" ${S.side==='back'?'selected':''}>Back</option>`:''}</select></label>
   <span style="color:#8a98a9;margin-left:auto">${S.cardIndex+1} / ${S.cards.length}</span>`;
 }
+type SidebarSection='layers'|'templates'|'cardsets'|'cards'|'images';
+const sidebarScroll=new Map<string,number>();
+let activeSidebarSection:SidebarSection='layers';
+const scrollForSection:Record<SidebarSection,string>={
+ layers:'layersScroll',templates:'templatesScroll',cardsets:'cardSetsScroll',cards:'cardsScroll',images:'setsScroll'
+};
+export function openSidebarSection(section:string){
+ if(!Object.prototype.hasOwnProperty.call(scrollForSection,section))return;
+ activeSidebarSection=section as SidebarSection;
+ renderLeft();
+ const button=document.querySelector<HTMLButtonElement>('[data-sidebar-toggle="'+section+'"]');
+ button?.focus?.({preventScroll:true});
+}
+function sidebarHeading(section:SidebarSection,label:string,count:number){
+ const expanded=activeSidebarSection===section;
+ return `<button type="button" class="sidebar-section-toggle" data-sidebar-toggle="${section}" aria-expanded="${expanded}" aria-controls="${scrollForSection[section]}" title="${expanded?'Viewing':'Show'} ${label.toLowerCase()}">
+  <span class="sidebar-label">${label}</span><span class="pill">${count}</span><span class="sidebar-chevron" aria-hidden="true">▾</span>
+ </button>`;
+}
 export function renderLeft(){
  const v=$('#leftBody');
  const templateButton=$('#btnTemplate'),cardsButton=$('#btnCards');
@@ -27,15 +46,21 @@ export function renderLeft(){
  templateButton.setAttribute?.('aria-pressed',String(S.mode==='template'));
  cardsButton.setAttribute?.('aria-pressed',String(S.mode==='cards'));
  // Repaint on selection changes should never jump a toolbox back to its top.
- const previousScroll=Object.fromEntries(['layersScroll','templatesScroll','cardSetsScroll','cardsScroll','setsScroll'].map(id=>[id,document.querySelector('#'+id)?.scrollTop||0]));
+ const mobile=document.documentElement?.dataset?.layout==='mobile';
+ for(const [section,id] of Object.entries(scrollForSection)){
+  if(mobile||section===activeSidebarSection){
+   const scroll=document.querySelector<HTMLElement>('#'+id);
+   if(scroll)sidebarScroll.set(id,scroll.scrollTop);
+  }
+ }
  const layers=[...layerEls()].filter(e=>S.mode==='template'||visibleOnCard(e,S.cardIndex,'cards')).reverse();
- let out=`<section class="sidebar-panel sidebar-layers" aria-label="Layers toolbox">
-  <div class="side-head"><h2>LAYERS</h2><span class="pill">${layers.length}</span></div>
+ let out=`<section class="sidebar-panel sidebar-layers ${activeSidebarSection==='layers'?'expanded':''}" aria-label="Layers toolbox">
+  <div class="side-head">${sidebarHeading('layers','LAYERS',layers.length)}</div>
   <div class="sidebar-panel-scroll" id="layersScroll"><div class="small">Topmost layers are shown first. Select an element to edit it.</div>
   <div class="layer-list">${layers.map(e=>`<div class="layer-row ${e.id===S.selected?'active':''}" data-layer="${e.id}"><span style="font-size:15px;color:#7b91ad">${e.kind==='text'?'T':e.kind==='image'?'▧':'◇'}</span><span class="name">${escapeHTML(e.name)}<span class="sub">${e.kind}${e.locked?' · locked':''}${!isExported(e)?' · editor only':''}</span></span></div>`).join('')}</div></div>
  </section>`;
- out+=`<section class="sidebar-panel sidebar-templates" aria-label="Templates toolbox">
- <div class="side-head"><h2>TEMPLATES</h2><button data-action="new-template" title="Create empty template">＋ New</button></div>
+ out+=`<section class="sidebar-panel sidebar-templates ${activeSidebarSection==='templates'?'expanded':''}" aria-label="Templates toolbox">
+ <div class="side-head">${sidebarHeading('templates','TEMPLATES',(S.templates||[S.template]).length)}<button data-action="new-template" title="Create empty template">＋ New</button></div>
  <div class="sidebar-panel-scroll" id="templatesScroll">
  ${(S.templates||[S.template]).map(t=>`<div class="asset-row ${S.mode==='template'&&S.selectedTemplateId===t.id?'active':''}">
   <div class="asset-title"><button class="secondary" data-template-id="${escapeHTML(t.id||'')}" title="Edit shared template">${escapeHTML(t.name)}</button></div>
@@ -43,8 +68,8 @@ export function renderLeft(){
  </div>`).join('')}
  </div></section>`;
  const templateChoices=(selected?:string,none=false)=>`${none?'<option value="">None</option>':''}${(S.templates||[]).map(t=>`<option value="${escapeHTML(t.id||'')}" ${selected===t.id?'selected':''}>${escapeHTML(t.name)}</option>`).join('')}`;
- out+=`<section class="sidebar-panel sidebar-cardsets" aria-label="Card sets toolbox">
- <div class="side-head"><h2>CARD SETS</h2><button data-action="new-card-set">＋ Set</button></div>
+ out+=`<section class="sidebar-panel sidebar-cardsets ${activeSidebarSection==='cardsets'?'expanded':''}" aria-label="Card sets toolbox">
+ <div class="side-head">${sidebarHeading('cardsets','CARD SETS',(S.cardSets||[]).length)}<button data-action="new-card-set">＋ Set</button></div>
  <div class="sidebar-panel-scroll" id="cardSetsScroll">
  ${(S.cardSets||[]).map(set=>`<div class="asset-row">
   <div class="asset-title"><strong>${escapeHTML(set.name)}</strong><span class="count">${S.cards.filter(c=>c.setId===set.id).length} cards</span></div>
@@ -53,19 +78,19 @@ export function renderLeft(){
   <div class="asset-actions"><button data-action="add-card-to-set" data-set-id="${escapeHTML(set.id)}">＋ Card</button><button data-action="rename-card-set" data-set-id="${escapeHTML(set.id)}">Rename</button><button data-action="delete-card-set" data-set-id="${escapeHTML(set.id)}">Delete</button></div>
  </div>`).join('')}
  </div></section>`;
- out+=`<section class="sidebar-panel sidebar-cards" aria-label="Staged cards toolbox">
-  <div class="side-head"><h2>STAGED CARDS</h2><button data-action="add-card">＋ Add card</button></div>
+ out+=`<section class="sidebar-panel sidebar-cards ${activeSidebarSection==='cards'?'expanded':''}" aria-label="Staged cards toolbox">
+  <div class="side-head">${sidebarHeading('cards','STAGED CARDS',S.cards.length)}<button data-action="add-card">＋ Add card</button></div>
   <div class="sidebar-panel-scroll" id="cardsScroll"><div class="card-list">${S.cards.map((c,i)=>`<div class="card-row ${S.mode==='cards'&&i===S.cardIndex?'active':''}" data-cardindex="${i}"><span class="mini-art"><img data-card-thumb="${i}" alt="Preview of ${escapeHTML(c.name)}" loading="lazy"><span class="thumb-number">${String(i+1).padStart(2,'0')}</span></span><span class="name">${escapeHTML(c.name)}<span class="sub">${escapeHTML(cardSetFor(c)?.name||'Default set')} · ${Object.keys(c.overrides||{}).length?'Custom layout':'Template layout'}</span></span><button class="small-btn" data-action="duplicate-card" data-cardindex="${i}" title="Duplicate card">⧉</button></div>`).join('')}</div></div>
   ${S.mode==='cards'?'<div class="sidebar-panel-footer actionbar"><button class="secondary" data-action="delete-card">Delete card</button><button class="secondary" data-action="reset-card">Reset layout edits</button></div>':''}
  </section>`;
- out+=`<section class="sidebar-panel sidebar-sets" aria-label="Image sets toolbox">
-  <div class="side-head"><h2>IMAGE SETS</h2><button data-action="add-set">＋ Load set</button></div>
+ out+=`<section class="sidebar-panel sidebar-sets ${activeSidebarSection==='images'?'expanded':''}" aria-label="Image sets toolbox">
+  <div class="side-head">${sidebarHeading('images','IMAGE SETS',S.sets.length)}<button data-action="add-set">＋ Load set</button></div>
   <div class="sidebar-panel-scroll" id="setsScroll"><div class="small">Load images into sets. Assign a set or a single image to an image frame.</div>
   <div class="set-list">${S.sets.map(set=>`<div class="asset-row"><div class="asset-title"><span>▧</span><span style="overflow:hidden;text-overflow:ellipsis">${escapeHTML(set.name)}</span><span class="count">${set.images.length} files</span></div><div class="asset-thumbs">${set.images.slice(0,6).map(x=>`<img alt="${escapeHTML(x.name)}" title="${escapeHTML(x.name)}" src="${x.data}">`).join('')}</div><div class="asset-actions"><button data-action="manage-images" data-set="${set.id}">Manage images</button><button data-action="remove-set" data-set="${set.id}">Delete set</button></div></div>`).join('')}</div></div>
  </section>`;
  v.innerHTML=out;
- for(const [id,offset] of Object.entries(previousScroll)){
-  const panel=document.querySelector('#'+id);if(panel)panel.scrollTop=offset;
+ for(const [id,offset] of sidebarScroll){
+  const panel=document.querySelector<HTMLElement>('#'+id);if(panel)panel.scrollTop=offset;
  }
  renderCardThumbnails();
 }
