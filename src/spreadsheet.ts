@@ -31,7 +31,7 @@ export function sheetTable(setId?:string){
  return {heads,rows};
 }
 function uniqueSheetName(value:string,used:Set<string>){
- let base=String(value||'Cards').replace(/[\[\]:*?/\\\x00-\x1f]/g,'_')
+ let base=String(value||'Cards').replace(/[\[\]:*?\/\\\x00-\x1f]/g,'_')
   .replace(/^'+|'+$/g,'').trim().slice(0,31)||'Cards';
  if(base.toLowerCase()==='history')base='History_';
  let name=base;
