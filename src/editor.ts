@@ -164,7 +164,12 @@ case 'reset-element':if(card()){if(isExtra(S.selected)){if(S.side==='back')card(
 case 'prev-card':chooseCard(S.cardIndex-1);break;case 'next-card':chooseCard(S.cardIndex+1);break;
 case 'export-sheet':exportXLSX().catch(err=>alert(err.message));break;
 case 'import-sheet':chooseSheetForImport();break;
-case 'export-set-sheet':exportXLSX(el?.dataset.setId).catch(err=>alert(err.message));break;
+case 'export-set-sheet':{
+ const setId=el?.dataset.setId;
+ if(S.cardSets?.some(set=>set.id===setId))exportXLSX(setId).catch(err=>alert(err.message));
+ else alert('Card set not found');
+ break;
+}
 case 'import-set-sheet':{
  const setId=el?.dataset.setId;
  if(S.cardSets?.some(set=>set.id===setId))chooseSheetForImport(setId);
