@@ -249,10 +249,10 @@ function renderCalibrationPage(side:'front'|'back',dpi:number,l:{width:number;he
   // visible through ordinary printing paper held against a light.
   ctx.strokeStyle='#111';ctx.lineWidth=Math.max(2,.65*scale);
   ctx.beginPath();
-  ctx.moveTo(rulerX.backReference.x*scale,(rulerX.backReference.y-13)*scale);
-  ctx.lineTo(rulerX.backReference.x*scale,(rulerX.backReference.y+13)*scale);
-  ctx.moveTo((rulerY.backReference.x-13)*scale,rulerY.backReference.y*scale);
-  ctx.lineTo((rulerY.backReference.x+13)*scale,rulerY.backReference.y*scale);
+  ctx.moveTo(rulerX.backReference.x*scale,(rulerX.backReference.y-24)*scale);
+  ctx.lineTo(rulerX.backReference.x*scale,(rulerX.backReference.y+24)*scale);
+  ctx.moveTo((rulerY.backReference.x-24)*scale,rulerY.backReference.y*scale);
+  ctx.lineTo((rulerY.backReference.x+24)*scale,rulerY.backReference.y*scale);
   ctx.stroke();
   return canvas;
  }
@@ -295,8 +295,12 @@ function renderCalibrationPage(side:'front'|'back',dpi:number,l:{width:number;he
   }
   ctx.font=Math.max(10,2.5*scale)+'px sans-serif';
   ctx.textAlign='center';
-  ctx.fillText(ruler.axis==='x'?'X offset (mm)':'Y offset (mm)',
-   ruler.origin.x*scale,(ruler.origin.y-18)*scale);
+  if(ruler.axis==='x')
+   ctx.fillText('X offset (mm)',ruler.origin.x*scale,(ruler.origin.y-18)*scale);
+  else{
+   ctx.textAlign='left';
+   ctx.fillText('Y offset (mm)',(ruler.origin.x+27)*scale,ruler.origin.y*scale);
+  }
  }
  ctx.textAlign='left';ctx.textBaseline='alphabetic';
  ctx.font=Math.max(10,2.6*scale)+'px sans-serif';
