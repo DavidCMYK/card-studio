@@ -37,9 +37,15 @@ export function cardDimensionsMm(template:{width:number;height:number;unit:strin
   const factor=template.unit==='mm'?1:template.unit==='in'?25.4:25.4/template.dpi;
   return {width:template.width*factor,height:template.height*factor};
 }
+export function paperDimensions(opts:PrintOptions):{width:number;height:number}{
+ const paper=opts.paper==='a4'?[210,297]:opts.paper==='letter'?[215.9,279.4]:[opts.customWidth,opts.customHeight];
+ const width=opts.landscape?paper[1]:paper[0],height=opts.landscape?paper[0]:paper[1];
+ if(!Number.isFinite(width)||!Number.isFinite(height)||width<=0||height<=0)
+  throw Error('Invalid paper dimensions');
+ return {width,height};
+}
 export function sheetLayout(opts:PrintOptions, cardWidth:number, cardHeight:number):SheetLayout {
-  const paper=opts.paper==='a4'?[210,297]:opts.paper==='letter'?[215.9,279.4]:[opts.customWidth,opts.customHeight];
-  const width=opts.landscape?paper[1]:paper[0],height=opts.landscape?paper[0]:paper[1];
+  const {width,height}=paperDimensions(opts);
   const valid=[width,height,cardWidth,cardHeight,opts.margin,opts.gap,opts.bleed].every(Number.isFinite);
   if(!valid||width<=0||height<=0||cardWidth<=0||cardHeight<=0||opts.margin<0||opts.gap<0||opts.bleed<0)throw Error('Invalid paper or spacing dimensions');
   // Reserve enough space for marks beyond the edge-extended bleed.
@@ -58,9 +64,12 @@ export function sheetLayout(opts:PrintOptions, cardWidth:number, cardHeight:numb
   return {width,height,columns,rows,perPage:columns*rows,pad,cardWidth,cardHeight,slots};
 }
 /** Coordinate of the matching back when the printed sheet is flipped over. */
+function duplexMirrorsX(layout:{width:number;height:number},duplex:Duplex):boolean {
+ return duplex!=='none'&&(duplex==='long')!==(layout.width>layout.height);
+}
 export function backSlot(layout:SheetLayout,front:Slot,duplex:Duplex):Slot {
   if(duplex==='none')return front;
-  const mirrorX=(duplex==='long')!== (layout.width>layout.height);
+  const mirrorX=duplexMirrorsX(layout,duplex);
   return {...front,x:mirrorX?layout.width-front.x-layout.cardWidth:front.x,
     y:mirrorX?front.y:layout.height-front.y-layout.cardHeight};
 }
@@ -91,18 +100,19 @@ export interface CalibrationScale {
  /** Reference mark coordinates on the BACK PDF page (not the front view). */
  backReference:{x:number;y:number};
 }
-export function calibrationScale(l:SheetLayout,opts:PrintOptions,axis:CalibrationAxis):CalibrationScale {
+export function calibrationScale(l:{width:number;height:number},opts:PrintOptions,axis:CalibrationAxis):CalibrationScale {
  if(opts.duplex==='none')throw Error('Select duplex printing before calibration');
  const xOffset=opts.backOffsetX??0,yOffset=opts.backOffsetY??0;
  if(!Number.isFinite(xOffset)||!Number.isFinite(yOffset)||
   Math.abs(xOffset)>20||Math.abs(yOffset)>20)throw Error('Back calibration offsets must be between -20 and 20 mm');
- const mirrorX=(opts.duplex==='long')!==(l.width>l.height);
+ const mirrorX=duplexMirrorsX(l,opts.duplex);
  const signX=mirrorX?-1:1,signY=mirrorX?1:-1;
  const origin={x:l.width/2,y:l.height/2+(axis==='x'?-24:24)};
  const offset=axis==='x'?xOffset:yOffset,sign=axis==='x'?signX:signY;
  const ticks:CalibrationTick[]=[];
- // 0.5 mm subdivisions; a labelled 2 mm mark appears every fourth tick.
- for(let i=-20;i<=20;i++){
+ // Calibrates the full +/-20 mm input range. Subdivide every 0.5 mm;
+ // a labelled 2 mm mark appears every fourth tick.
+ for(let i=-40;i<=40;i++){
   const value=i/2,delta=sign*(offset-value);
   ticks.push({
    value,x:origin.x+(axis==='x'?delta:0),
