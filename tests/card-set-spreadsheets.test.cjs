@@ -102,10 +102,10 @@ test('importing one set updates card details while preserving other sets and nam
   assert.equal(rows.length,1);
   assert.ok(!heads.some(h=>h.includes('Card Title')));
   const revised=rows[0].slice();
-  revised[heads.indexOf('Description')]='Updated details';
+  revised[heads.indexOf(front.name+' / Description')]='Updated details';
   const added=rows[0].slice();
   added[0]='Mage';
-  added[heads.indexOf('Description')]='New card details';
+  added[heads.indexOf(front.name+' / Description')]='New card details';
   // Card Set labels are verified before any state is modified.
   const incorrect=revised.slice();
   incorrect[heads.indexOf('Card Set')]='Equipment';
