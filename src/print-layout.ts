@@ -107,7 +107,12 @@ export function calibrationScale(l:{width:number;height:number},opts:PrintOption
   Math.abs(xOffset)>20||Math.abs(yOffset)>20)throw Error('Back calibration offsets must be between -20 and 20 mm');
  const mirrorX=duplexMirrorsX(l,opts.duplex);
  const signX=mirrorX?-1:1,signY=mirrorX?1:-1;
- const origin={x:l.width/2,y:l.height/2+(axis==='x'?-24:24)};
+ // A4/Letter: two clearly separated compact rulers, one horizontal and one
+ // vertical. On narrow paper, stack them instead of pushing them off the side.
+ const sideBySide=l.width>=160;
+ const origin=sideBySide?
+  {x:l.width/2+(axis==='x'?-45:45),y:l.height/2}:
+  {x:l.width/2,y:l.height/2+(axis==='x'?-36:36)};
  const offset=axis==='x'?xOffset:yOffset,sign=axis==='x'?signX:signY;
  const ticks:CalibrationTick[]=[];
  // Calibrates the full +/-20 mm input range. Subdivide every 0.5 mm;
