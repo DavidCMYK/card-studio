@@ -3,7 +3,7 @@ import {openNewProjectDialog} from './new-project';
 import {createTemplate,deleteTemplate,newCardSet,deleteCardSet,assignSetTemplate,moveCardToSet,uniqueTemplateName,uniqueCardSetName} from './project-collections';
 import { $ , toast } from './dom';
 import { renderStage } from './preview';
-import { repaint, renderInspector, renderLeft, renderCardControl, chooseCard, patchElement, addElement, updateDimensionReadouts, setKnownFonts, baseFonts, refreshHistoryButtons, selectInspectorTab, filterCardData, showDiscoveredFonts, toggleFontBrowser, closeFontBrowser, filterFontBrowser } from './interface';
+import { repaint, renderInspector, renderLeft, openSidebarSection, renderCardControl, chooseCard, patchElement, addElement, updateDimensionReadouts, setKnownFonts, baseFonts, refreshHistoryButtons, selectInspectorTab, filterCardData, showDiscoveredFonts, toggleFontBrowser, closeFontBrowser, filterFontBrowser } from './interface';
 import { imageCache, cacheImage, getImageData, setImageUpdateHandler, imageScreenOffset, imageOffsetPatch } from './image-sets';
 import { exportPNG, exportAll, exportTrimmedPNG,exportBacks,exportFrontsAndBacks } from './png-export';
 import {guidesFor,changeBleedMode,setGuideDistance,distanceMm,validateGuides,setCutDimension,setCanvasDimension,setSafeZoneDimension,setGuideLinked,setGuideUnit,setGuideCornerRadius} from './card-guides';
@@ -330,7 +330,7 @@ $('#inspector').addEventListener('keydown',event=>{
  selectInspectorTab(tabs[next] as any);
  event.preventDefault();
 });
-function listenClick(e){const menu=$('#fileMenu');const actionEl=e.target.closest('[data-action]');if(actionEl){menu.open=false;e.stopPropagation();mutateAction(actionEl.dataset.action,actionEl);return}if(menu.open&&!e.target.closest('#fileMenu'))menu.open=false;const listRow=e.target.closest('[data-layer]');if(listRow){S.selected=listRow.dataset.layer;repaint();return}const cardRow=e.target.closest('[data-cardindex]');if(cardRow){chooseCard(Number(cardRow.dataset.cardindex));return}const templateRow=e.target.closest('[data-template-id]');if(templateRow){if(selectProjectTemplate(templateRow.dataset.templateId)){repaint()}return}}
+function listenClick(e){const sidebar=e.target.closest('[data-sidebar-toggle]');if(sidebar){openSidebarSection(sidebar.dataset.sidebarToggle);return}const menu=$('#fileMenu');const actionEl=e.target.closest('[data-action]');if(actionEl){menu.open=false;e.stopPropagation();mutateAction(actionEl.dataset.action,actionEl);return}if(menu.open&&!e.target.closest('#fileMenu'))menu.open=false;const listRow=e.target.closest('[data-layer]');if(listRow){S.selected=listRow.dataset.layer;repaint();return}const cardRow=e.target.closest('[data-cardindex]');if(cardRow){chooseCard(Number(cardRow.dataset.cardindex));return}const templateRow=e.target.closest('[data-template-id]');if(templateRow){if(selectProjectTemplate(templateRow.dataset.templateId)){repaint()}return}}
 document.addEventListener('click',listenClick);
 $('#cardControl').addEventListener('change',e=>{
  if(e.target.id==='cardSelector')chooseCard(Number(e.target.value));
