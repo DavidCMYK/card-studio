@@ -1,10 +1,10 @@
-import { S, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, clamp, px, fmt, sizePx, makeElement, textKinds, escapeHTML, unitFactor, exportPixels, templateExportSize, isExported, isDataExported, visibleOnCard, opacityFor, cardSetFor, syncEditorTemplate, assignedTemplate, ensureCardExtras } from './model';
+import { S, card, templateEl, layerEls, cardExtras, isExtra, effective, actualValue, uniqName, clamp, px, fmt, sizePx, makeElement, textKinds, escapeHTML, unitFactor, exportPixels, templateExportSize, isExported, isDataExported, visibleOnCard, opacityFor, cardSetFor, syncEditorTemplate, assignedTemplate, ensureCardExtras } from './model';
 import {guideRects,displayedDistance,guidesFor} from './card-guides';
 import {guideSettingsHtml} from './guide-ui';
 import { $ } from './dom';
 import { renderStage } from './preview';
 import { layoutTextBox } from './text-layout';
-import { elementGeometry, offsetsForRect, anchorEdges } from './anchor-layout';
+import { elementGeometry, offsetsForRect, anchorEdges, hasAnchors, anchorTargetId, sourceEdge, wouldAnchorCycle } from './anchor-layout';
 import {checkpoint,historyState} from './history';
 import {bundledFontFamilies} from './project-fonts';
 import {renderCardThumbnails} from './card-thumbnails';
@@ -103,7 +103,7 @@ export function renderLeft(){
 function editorScope(){return `data-edit-owner="${escapeHTML(S.selected||'')}" data-edit-mode="${S.mode}" data-edit-card="${S.cardIndex}"`}
 function isPixelLengthField(key:string):boolean{
  if(['borderWidth','radius','letterSpacing','shadowOffsetX','shadowOffsetY','shadowSpread','imgOffsetX','imgOffsetY'].includes(key))return true;
- if(['template.width','template.height','guide.cut.width','guide.cut.height','guide.safeZone.width','guide.safeZone.height','x','y','w','h','gutterLeft','gutterRight','gutterTop','gutterBottom'].includes(key))return S.template.unit==='px';
+ if(['template.width','template.height','guide.cut.width','guide.cut.height','guide.safeZone.width','guide.safeZone.height','x','y','w','h','gutterLeft','gutterRight','gutterTop','gutterBottom','anchorOffsetLeft','anchorOffsetRight','anchorOffsetTop','anchorOffsetBottom'].includes(key))return S.template.unit==='px';
  return /^guide\.(bleed|safe|radius)\./.test(key)&&guidesFor(S.template).unit==='px';
 }
 function field(label,key,value,type='text',extra=''){
@@ -340,10 +340,25 @@ export function renderInspector(){
    field('Top ('+unit+')','gutterTop',dimensionValue(e.gutterTop||0),'number','min="0" step="any"')+
    field('Bottom ('+unit+')','gutterBottom',dimensionValue(e.gutterBottom||0),'number','min="0" step="any"')+
    `</div><div class="small" style="padding:0 0 10px">Text remains inside these clearances; the border and fill still cover the full box.</div>`);
- }else if(e.linkedTextId){
-  panes.layout+=fold('anchor-edges','Anchor edges to text',
-   `<div class="small" style="padding:0 0 8px">Lock selected edges to the linked text box. Opposite edges stretch the element when the text changes size.</div><div class="fields-two">${anchorEdges.map(side=>checkbox('Lock '+side.toLowerCase()+' edge','anchor'+side,!!e['anchor'+side])).join('')}</div>`);
  }
+ const possibleTargets=[...S.template.elements,...(S.mode==='cards'?cardExtras(card()):[])]
+  .filter(candidate=>candidate.id!==raw.id&&!wouldAnchorCycle(e,candidate.id));
+ const targetId=anchorTargetId(e);
+ const anchorFields=anchorEdges.map(side=>{
+  const enabled=e['anchor'+side]===true;
+  const other=side==='Left'?'Right':side==='Right'?'Left':side==='Top'?'Bottom':'Top';
+  const actualOffset=e['anchorOffset'+side]??offsetsForRect(e,geometry)['anchorOffset'+side]??0;
+  return '<div class="anchor-edge-controls">'+
+   checkbox('Anchor '+side.toLowerCase()+' edge','anchor'+side,enabled)+
+   (enabled?'<div class="fields-two">'+
+    selectionField('To target edge','anchorTarget'+side,[[side,side],[other,other]],sourceEdge(e,side))+
+    field('Offset ('+unit+')','anchorOffset'+side,dimensionValue(actualOffset),'number','step="any"')+
+    '</div>':'')+'</div>';
+ }).join('');
+ panes.layout+=fold('anchor-edges','Element anchoring',
+  selectionField('Anchor to element','anchorTargetId',[['','None'],...possibleTargets.map(item=>[item.id,item.name])],targetId)+
+  (targetId?'<div class="small" style="padding:0 0 8px">Select matching or opposite edges and set a signed offset.</div>'+anchorFields:
+   '<div class="small" style="padding:0 0 8px">Choose an element to enable edge anchors.</div>'));
  if(S.mode==='template')panes.content+=field('Element name (spreadsheet column)','name',raw.name);
  else panes.content+=`<div class="warn">Changes here affect only <b>${escapeHTML(card()?.name)}</b>. Switch to Template to edit every card.</div>`;
  if(raw.kind==='text'){
@@ -455,28 +470,36 @@ export function patchElement(id,patch){
  const raw=templateEl(id);if(!raw)return;
  const before=effective(raw),visual=elementGeometry(raw);
  const p={...patch};
- if(raw.kind!=='text'){
-  const linkChanged=Object.prototype.hasOwnProperty.call(p,'linkedTextId')&&p.linkedTextId!==before.linkedTextId;
-  if(linkChanged){
-   // The previous position is the starting position for a new link.
-   Object.assign(p,visual,{anchorLeft:false,anchorRight:false,anchorTop:false,anchorBottom:false,
-    anchorOffsetLeft:undefined,anchorOffsetRight:undefined,anchorOffsetTop:undefined,anchorOffsetBottom:undefined});
+ const legacyLinkChanged=raw.kind!=='text'&&
+  Object.prototype.hasOwnProperty.call(p,'linkedTextId')&&p.linkedTextId!==before.linkedTextId&&before.anchorTargetId===undefined;
+ if(legacyLinkChanged){
+  // Legacy linkedTextId remains the visibility link and old anchor fallback.
+  Object.assign(p,visual,{anchorLeft:false,anchorRight:false,anchorTop:false,anchorBottom:false,
+   anchorOffsetLeft:undefined,anchorOffsetRight:undefined,anchorOffsetTop:undefined,anchorOffsetBottom:undefined});
+ }
+ const after={...before,...p};
+ const targetChanged=Object.prototype.hasOwnProperty.call(p,'anchorTargetId')&&p.anchorTargetId!==before.anchorTargetId;
+ const anchorsChanged=anchorEdges.some(side=>Object.prototype.hasOwnProperty.call(p,'anchor'+side));
+ const mappingsChanged=anchorEdges.some(side=>Object.prototype.hasOwnProperty.call(p,'anchorTarget'+side));
+ if((targetChanged||anchorsChanged||mappingsChanged)&&hasAnchors(after)&&wouldAnchorCycle(after,anchorTargetId(after)))return;
+ const geometryChanged=['x','y','w','h'].some(key=>Object.prototype.hasOwnProperty.call(p,key));
+ if(geometryChanged||anchorsChanged||mappingsChanged||targetChanged){
+  const desired={...visual};
+  for(const key of ['x','y','w','h'])if(Object.prototype.hasOwnProperty.call(p,key))desired[key]=p[key];
+  // Removing an anchor must not snap an element to outdated stored coordinates.
+  if(anchorsChanged||(targetChanged&&!anchorTargetId(after))){
+   Object.assign(p,{x:desired.x,y:desired.y,w:desired.w,h:desired.h});
+   Object.assign(after,{x:desired.x,y:desired.y,w:desired.w,h:desired.h});
   }
-  const after={...before,...p};
-  const geometryChanged=['x','y','w','h'].some(k=>Object.prototype.hasOwnProperty.call(p,k));
-  const anchorsChanged=anchorEdges.some(side=>Object.prototype.hasOwnProperty.call(p,`anchor${side}`));
-  if(geometryChanged||anchorsChanged){
-   const desired={...visual};
-   for(const k of ['x','y','w','h'])if(Object.prototype.hasOwnProperty.call(p,k))desired[k]=p[k];
-   // Removing an anchor must not cause the element to snap to its former saved coordinates.
-   if(anchorsChanged){Object.assign(p,{x:desired.x,y:desired.y,w:desired.w,h:desired.h});}
-   const offsets=offsetsForRect(after,desired);
-   for(const side of anchorEdges){
-    const key=`anchorOffset${side}`;
-    if(!after[`anchor${side}`]){if(anchorsChanged)p[key]=undefined;continue;}
-    const axis=side==='Left'||side==='Right'?['x','w']:['y','h'];
-    if(Object.prototype.hasOwnProperty.call(p,`anchor${side}`)||axis.some(k=>Object.prototype.hasOwnProperty.call(p,k)))p[key]=offsets[key];
-   }
+  const offsets=offsetsForRect(after,desired);
+  for(const side of anchorEdges){
+   const key='anchorOffset'+side;
+   if(!after['anchor'+side]){if(anchorsChanged)p[key]=undefined;continue;}
+   const axis=side==='Left'||side==='Right'?['x','w']:['y','h'];
+   if(!Object.prototype.hasOwnProperty.call(p,key)&&
+    (targetChanged||Object.prototype.hasOwnProperty.call(p,'anchor'+side)||
+     Object.prototype.hasOwnProperty.call(p,'anchorTarget'+side)||axis.some(k=>Object.prototype.hasOwnProperty.call(p,k))))
+    p[key]=offsets[key];
   }
  }
  if(S.mode==='cards'){

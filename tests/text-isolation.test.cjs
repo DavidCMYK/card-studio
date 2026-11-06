@@ -104,3 +104,18 @@ test('without isolation, normal edits retain existing linked layout',()=>{
  patchTextIndependently(text.id,{x:text.x+14},patchElement);
  assert.equal(elementGeometry(panel,0,'template').x,start.x+14);
 });
+
+test('independent movement also compensates text elements anchored to text',()=>{
+ const {state,text}=scenario();
+ const follower=model.makeElement('text',{name:'Anchored description',x:42,y:115,w:120,h:31,text:'Second text'});
+ state.template.elements.push(follower);
+ patchElement(follower.id,{anchorTargetId:text.id});
+ patchElement(follower.id,{anchorBottom:true});
+ patchElement(follower.id,{anchorTargetBottom:'Top'});
+ const before=capture(state,[follower]);
+ assert.equal(enterTextIsolation(text.id),true);
+ patchTextIndependently(text.id,{y:text.y+19},patchElement);
+ check(state,[follower],before);
+ assert.equal(follower.anchorTargetId,text.id);
+ stopTextIsolation();
+});

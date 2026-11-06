@@ -88,7 +88,7 @@ test('inspector exposes independent edge locks and preview uses same geometry as
  global.document={querySelector:get,createElement(name){if(name==='canvas')return {width:0,height:0,getContext(){return context}};return get(name)}};
  const calls=[];const context=new Proxy({},{get(o,key){if(key==='canvas')return {};if(key==='globalAlpha')return 1;if(key==='width'||key==='height')return 1;if(key==='createLinearGradient')return ()=>({addColorStop(){}});return (...args)=>{calls.push([key,...args])}} ,set(){return true}});
  try{
-   renderInspector();assert.match(get('#inspector').innerHTML,/Lock left edge/);assert.match(get('#inspector').innerHTML,/Lock right edge/);
+   renderInspector();assert.match(get('#inspector').innerHTML,/Anchor left edge/);assert.match(get('#inspector').innerHTML,/Anchor right edge/);
    const g=elementGeometry(image);
    // Preview contains the computed x/y/w/h, not the stale base rectangle.
    renderStage();assert.ok(get('#stage').innerHTML.includes(`left:${g.x*state.zoom}px`));
@@ -116,4 +116,114 @@ test('edge anchors track the zero-sized geometry of an empty auto-sized text sou
  near(filledFollower.y,filled.y-8);
  assert.notEqual(emptyFollower.y,filledFollower.y);
  assert.equal(text.h,83,'the source element keeps its saved height');
+});
+
+test('two text boxes anchor bottom-to-top with a gap and collapse when optional text is empty',()=>{
+ const {state,text}=setup();
+ const lower=model.makeElement('text',{name:'Optional lower',x:30,y:185,w:185,h:60,autoHeight:true,valign:'bottom',text:'Default lower'});
+ state.template.elements.push(lower);
+ text.autoWidth=false;text.autoHeight=false;text.h=30;
+ patchElement(text.id,{anchorTargetId:lower.id});
+ patchElement(text.id,{anchorBottom:true});
+ patchElement(text.id,{anchorTargetBottom:'Top'});
+ patchElement(text.id,{anchorOffsetBottom:-6});
+ state.cards[0].values[lower.id]='';
+ state.cards.push({...structuredClone(state.cards[0]),id:'has-lower',name:'Has lower',values:{[lower.id]:'Some extra text'}});
+ state.mode='cards';
+ const blank=elementGeometry(lower,0,'cards'),present=elementGeometry(lower,1,'cards');
+ const topBlank=elementGeometry(text,0,'cards'),topPresent=elementGeometry(text,1,'cards');
+ near(blank.h,0);near(blank.y,lower.y+lower.h);
+ assert.ok(present.h>0&&present.y<blank.y);
+ near(topBlank.y+topBlank.h,blank.y-6);
+ near(topPresent.y+topPresent.h,present.y-6);
+ assert.ok(topBlank.y>topPresent.y);
+ near(lower.h,60);near(text.h,30);
+});
+test('any element kind can anchor to another with opposite horizontal edges, and chains resolve',()=>{
+ const {state,text,shape,image}=setup();
+ const follower=model.makeElement('text',{name:'Follower',x:24,y:100,w:80,h:35,text:'Note'});
+ state.template.elements.push(follower);
+ patchElement(shape.id,{anchorTargetId:text.id});
+ patchElement(shape.id,{anchorLeft:true});
+ patchElement(shape.id,{anchorTargetLeft:'Right'});
+ patchElement(shape.id,{anchorOffsetLeft:7});
+ patchElement(image.id,{anchorTargetId:shape.id});
+ patchElement(image.id,{anchorLeft:true});
+ patchElement(image.id,{anchorTargetLeft:'Right'});
+ patchElement(image.id,{anchorOffsetLeft:4});
+ patchElement(follower.id,{anchorTargetId:image.id});
+ patchElement(follower.id,{anchorLeft:true});
+ patchElement(follower.id,{anchorTargetLeft:'Right'});
+ patchElement(follower.id,{anchorOffsetLeft:3});
+ let tg=elementGeometry(text),sg=elementGeometry(shape),ig=elementGeometry(image),fg=elementGeometry(follower);
+ near(sg.x,tg.x+tg.w+7);
+ near(ig.x,sg.x+sg.w+4);
+ near(fg.x,ig.x+ig.w+3);
+ patchElement(text.id,{x:text.x+26});
+ tg=elementGeometry(text);sg=elementGeometry(shape);ig=elementGeometry(image);fg=elementGeometry(follower);
+ near(sg.x,tg.x+tg.w+7);near(ig.x,sg.x+sg.w+4);near(fg.x,ig.x+ig.w+3);
+});
+test('cycles and self-anchors are rejected while a malformed saved cycle does not recurse indefinitely',()=>{
+ const {text,shape,image}=setup();
+ patchElement(shape.id,{anchorTargetId:text.id});
+ patchElement(shape.id,{anchorTop:true});
+ patchElement(image.id,{anchorTargetId:shape.id});
+ patchElement(image.id,{anchorTop:true});
+ patchElement(text.id,{anchorTargetId:image.id,anchorTop:true});
+ assert.notEqual(text.anchorTargetId,image.id);
+ assert.notEqual(text.anchorTop,true);
+ patchElement(shape.id,{anchorTargetId:shape.id});
+ assert.notEqual(shape.anchorTargetId,shape.id);
+ // Malformed imported data should not crash the renderer.
+ text.anchorTargetId=image.id;text.anchorTop=true;
+ const r=elementGeometry(text);
+ assert.ok(Number.isFinite(r.x)&&Number.isFinite(r.y));
+});
+test('switching target edges and clearing the anchor target preserve the rendered rectangle',()=>{
+ const {text,shape}=setup();
+ patchElement(shape.id,{anchorTargetId:text.id});
+ patchElement(shape.id,{anchorBottom:true});
+ const before=elementGeometry(shape);
+ patchElement(shape.id,{anchorTargetBottom:'Top'});
+ let moved=elementGeometry(shape);
+ near(moved.x,before.x);near(moved.y,before.y);near(moved.w,before.w);near(moved.h,before.h);
+ patchElement(shape.id,{anchorOffsetBottom:-12});
+ moved=elementGeometry(shape);
+ near(moved.y+moved.h,elementGeometry(text).y-12);
+ patchElement(shape.id,{anchorTargetId:''});
+ const unlinked=elementGeometry(shape);
+ near(unlinked.x,moved.x);near(unlinked.y,moved.y);near(unlinked.w,moved.w);near(unlinked.h,moved.h);
+});
+test('old linkedTextId anchors continue to follow text even without the new anchor target field',()=>{
+ const {text,shape}=setup();
+ patchElement(shape.id,{linkedTextId:text.id});
+ patchElement(shape.id,{anchorLeft:true});
+ assert.equal(shape.anchorTargetId,undefined);
+ const old=elementGeometry(shape);
+ patchElement(text.id,{x:text.x+13});
+ near(elementGeometry(shape).x,old.x+13);
+});
+test('editor and PNG renderer use the same geometry for an anchored text box',async()=>{
+ const {state,text}=setup();
+ const other=model.makeElement('text',{name:'Anchor text',x:20,y:180,w:175,h:65,autoHeight:true,valign:'bottom',text:'Detail'});
+ state.template.elements.push(other);
+ patchElement(text.id,{anchorTargetId:other.id});
+ patchElement(text.id,{anchorBottom:true});
+ patchElement(text.id,{anchorTargetBottom:'Top'});
+ patchElement(text.id,{anchorOffsetBottom:-9});
+ state.cards[0].values[other.id]='';
+ state.mode='cards';state.selected=text.id;
+ const nodes=new Map(),calls=[];
+ const get=key=>{if(!nodes.has(key))nodes.set(key,{innerHTML:'',textContent:'',style:{},classList:{toggle(){}}});return nodes.get(key)};
+ const context=new Proxy({},{get(o,key){if(key==='canvas')return {};if(key==='globalAlpha')return 1;if(key==='width'||key==='height')return 1;if(key==='createLinearGradient')return ()=>({addColorStop(){}});if(key==='measureText')return t=>({width:String(t).length*10});return (...args)=>{calls.push([key,...args])}},set(){return true}});
+ const prev=global.document;
+ global.document={querySelector:get,createElement(name){if(name==='canvas')return {width:0,height:0,getContext(){return context}};return get(name)}};
+ try{
+  const geom=elementGeometry(text,0,'cards');
+  renderStage();
+  assert.ok(get('#stage').innerHTML.includes('top:'+geom.y*state.zoom+'px'));
+  await canvasCard(0,'cards');
+  assert.ok(calls.some(c=>c[0]==='rect'&&Math.abs(c[2]-geom.y)<.001&&Math.abs(c[4]-geom.h)<.001),
+   'PNG text bounds must match the preview');
+ }finally{global.document=prev}
 });

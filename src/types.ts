@@ -15,7 +15,12 @@ export interface CardElement {
   invisibleIfEmpty?: boolean;
   /** Shape/image: link visibility to the selected text element's ID. */
   linkedTextId?: string;
-  /** Optional positional/size anchors to the linked text box. */
+  /** Anchor target (any element); undefined falls back to legacy linkedTextId. */
+  anchorTargetId?: string;
+  /** Each child edge may track the matching or opposite parallel target edge. */
+  anchorTargetLeft?: 'Left'|'Right'; anchorTargetRight?: 'Left'|'Right';
+  anchorTargetTop?: 'Top'|'Bottom'; anchorTargetBottom?: 'Top'|'Bottom';
+  /** Optional positional/size anchors to the selected element. */
   anchorLeft?: boolean; anchorRight?: boolean; anchorTop?: boolean; anchorBottom?: boolean;
   /** Signed edge offsets from the linked text rectangle, in design pixels. */
   anchorOffsetLeft?: number; anchorOffsetRight?: number;

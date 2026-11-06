@@ -1,7 +1,7 @@
 /** Temporary independent text layout mode. The mode is not saved; compensated anchor offsets are. */
-import {S,templateEl} from './model';
+import {S,templateEl,cardExtras} from './model';
 import type {CardElement,StudioProject} from './types';
-import {elementGeometry,hasAnchors,offsetsForRect,Rect} from './anchor-layout';
+import {elementGeometry,hasAnchors,offsetsForRect,anchorTargetId,Rect} from './anchor-layout';
 
 type Session={id:string;project:StudioProject;mode:'template'|'cards';cardIndex:number};
 type Snapshot={id:string;mode:'template'|'cards';ci:number;rect:Rect;isExtra:boolean};
@@ -28,14 +28,13 @@ export function enterTextIsolation(id:string):boolean{
 }
 function linkedDependents(id:string,mode:'template'|'cards',ci:number):Snapshot[]{
  const selected=mode==='cards'?S.cards[ci]:null;
- const all=[...S.template.elements,...(selected?.extraElements||[])];
+ const all=[...S.template.elements,...(selected?cardExtras(selected):[])];
  return all.filter(raw=>{
-  if(raw.kind==='text')return false;
   const element=mode==='cards'?{...raw,...(selected?.overrides?.[raw.id]||{})}:raw;
-  return element.linkedTextId===id&&hasAnchors(element);
+  return anchorTargetId(element)===id&&hasAnchors(element);
  }).map(raw=>({
   id:raw.id,mode,ci,rect:elementGeometry(raw,ci,mode),
-  isExtra:!!selected?.extraElements?.some(el=>el.id===raw.id)
+  isExtra:!!selected&&cardExtras(selected).some(el=>el.id===raw.id)
  }));
 }
 const unchanged=(a:Rect,b:Rect)=>Math.abs(a.x-b.x)<1e-6&&Math.abs(a.y-b.y)<1e-6&&Math.abs(a.w-b.w)<1e-6&&Math.abs(a.h-b.h)<1e-6;
@@ -57,11 +56,11 @@ export function patchTextIndependently(
  apply(id,patch);
  for(const snapshot of snapshots){
   const c=snapshot.mode==='cards'?S.cards[snapshot.ci]:null;
-  const raw=snapshot.isExtra?c?.extraElements?.find(el=>el.id===snapshot.id):
+  const raw=snapshot.isExtra?(c?cardExtras(c).find(el=>el.id===snapshot.id):null):
    S.template.elements.find(el=>el.id===snapshot.id);
   if(!raw)continue;
   const effective=snapshot.mode==='cards'?{...raw,...(c?.overrides?.[raw.id]||{})}:raw;
-  if(effective.linkedTextId!==id||!hasAnchors(effective))continue;
+  if(anchorTargetId(effective)!==id||!hasAnchors(effective))continue;
   if(unchanged(elementGeometry(raw,snapshot.ci,snapshot.mode),snapshot.rect))continue;
   const offsets=offsetsForRect(effective,snapshot.rect,snapshot.ci,snapshot.mode);
   if(!Object.keys(offsets).length)continue;

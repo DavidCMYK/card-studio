@@ -38,7 +38,7 @@ export function renderStage(){const st=$('#stage'),{w,h}=sizePx(),z=S.zoom;
   }
   const value=e.kind==='text'?actualValue(raw):'';
   if(e.kind==='text'){
-   const layout=layoutTextBox(e,actualValue(raw));
+   const layout=layoutTextBox({...e,...geom,autoWidth:false,autoHeight:false},actualValue(raw));
    const style=`font-family:${escapeHTML(e.font)},serif;font-size:${layout.fontPx*z}px;font-weight:${e.fontWeight};font-style:${e.italic?'italic':'normal'};text-decoration:${e.underline?'underline':'none'};color:${e.color};text-align:${e.align};line-height:${layout.linePx*z}px;letter-spacing:${e.letterSpacing*z}px;align-items:${e.valign==='top'?'flex-start':e.valign==='bottom'?'flex-end':'center'};left:${layout.left*z}px;right:${layout.right*z}px;top:${layout.top*z}px;bottom:${layout.bottom*z}px;`;
    content=`<div class="txt-inner" style="${style}"><div class="txt-content">${layout.lines.map(line=>`<span class="txt-line">${line?escapeHTML(line):'&nbsp;'}</span>`).join('')}</div></div>`;
   }else if(e.kind==='image'){
