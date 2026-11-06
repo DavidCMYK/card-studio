@@ -11,6 +11,7 @@ import { openPrintStudio } from './print-studio';
 import {openPreflight} from './preflight-ui';
 import {openCardDataGrid} from './card-data-grid-ui';
 import {openArtworkMatcher} from './artwork-auto-match-ui';
+import {isDirectTouchPointer,DOUBLE_TAP_MS,DOUBLE_TAP_RADIUS_PX} from './tap-gesture';
 import { exportXLSX, readSheet } from './spreadsheet';
 import { saveProject, saveProjectAs, saveTemplate, saveTemplateAs, saveAllTemplates, openFromDisk, openJSON, resetFileHandles } from './project-storage';
 import { importImages, setTargetImageSet } from './assets';
@@ -389,9 +390,11 @@ let lastEditPointer:{id:string;x:number;y:number;at:number}|null=null;
 // element before the event bubbles here, so target.closest('#stage') becomes false.
 $('#canvasOuter').addEventListener('pointerdown',e=>{if(!(e.pointerType==='touch'&&document.documentElement?.dataset.layout==='mobile')&&e.button===0&&!e.composedPath().includes(stage))clearSelection()});
 stage.addEventListener('pointerdown',e=>{
- if(e.button!==0||(e.pointerType==='touch'&&document.documentElement?.dataset.layout==='mobile'))return;
+ if(e.button!==0||(isDirectTouchPointer(e.pointerType)&&document.documentElement?.dataset.layout==='mobile'))return;
  const now=Date.now(),previous=lastEditPointer;
- const rapid=!!previous&&now-previous.at<490&&Math.hypot(previous.x-e.clientX,previous.y-e.clientY)<24;
+ const touchLike=isDirectTouchPointer(e.pointerType);
+ const rapid=!!previous&&now-previous.at<=(touchLike?DOUBLE_TAP_MS:490)&&
+  Math.hypot(previous.x-e.clientX,previous.y-e.clientY)<=(touchLike?DOUBLE_TAP_RADIUS_PX:24);
  const node=e.target.closest('.element');
  const id=node?.dataset.id||(rapid?previous!.id:null);
  if(!id){lastEditPointer=null;clearSelection();return}
