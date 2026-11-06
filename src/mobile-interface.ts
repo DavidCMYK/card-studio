@@ -5,7 +5,7 @@ import {repaint,patchElement} from './interface';
 import {effective} from './model';
 import {elementGeometry} from './anchor-layout';
 import {getImageData,cacheImage} from './image-sets';
-import {repositionImageId,imageDragPatch} from './image-reposition';
+import {canRepositionImage,repositionImageId,imageDragPatch} from './image-reposition';
 import {isolatedTextId,patchTextIndependently} from './text-isolation';
 import {chooseEditorLayout,fitCardZoom,EditorLayout} from './mobile-mode';
 import {installMobileGestures} from './mobile-touch';
@@ -38,6 +38,15 @@ function refresh(){
   if(sideToggle){sideToggle.hidden=S.mode!=='cards';sideToggle.disabled=!assignedTemplate(S.cardIndex,'back');sideToggle.textContent=S.side==='back'?'Back':'Front';}
  const selected=S.selected?templateEl(S.selected):null;
  const context=document.getElementById('mobileSelection');if(context)context.hidden=!selected&&S.mode!=='cards';
+ const artworkButton=document.getElementById('mobileArtworkModeButton') as HTMLButtonElement|null;
+ if(artworkButton){
+  const eligible=selected?.kind==='image'&&canRepositionImage(effective(selected));
+  const active=eligible&&repositionImageId()===selected!.id;
+  artworkButton.hidden=!eligible;
+  artworkButton.dataset.action=active?'finish-reposition-image':'reposition-image';
+  artworkButton.textContent=active?'Done moving artwork':'Move artwork';
+  artworkButton.setAttribute('aria-pressed',String(!!active));
+ }
  const selectedName=document.getElementById('mobileSelectionName');if(selectedName)selectedName.textContent=selected?selected.name:'Card data';
  const quickButton=document.getElementById('mobileQuickButton');
  if(quickButton)quickButton.textContent=selected?.kind==='text'?'Edit text':selected?.kind==='image'?'Choose artwork':selected?'Edit style':'Edit card data';
@@ -93,7 +102,7 @@ function start(){
  nav.innerHTML='<button data-action="prev-card" aria-label="Previous card">‹</button><button data-mobile="cards" id="mobileCardLabel">Card</button><button data-action="next-card" aria-label="Next card">›</button><button data-mobile="side-toggle" id="mobileSideToggle" title="Switch card front or back">Front</button>';
  $('.viewport').append(nav);
  const context=document.createElement('div');context.id='mobileSelection';context.className='m-selection';
- context.innerHTML='<div><strong id="mobileSelectionName"></strong><small id="mobileSelectionScope"></small></div><button data-mobile="nudge" id="mobileNudgeButton">Move</button><button data-mobile="quick" id="mobileQuickButton">Edit</button>';
+ context.innerHTML='<div><strong id="mobileSelectionName"></strong><small id="mobileSelectionScope"></small></div><button data-mobile="nudge" id="mobileNudgeButton">Move</button><button type="button" data-action="reposition-image" id="mobileArtworkModeButton" aria-pressed="false" hidden>Move artwork</button><button data-mobile="quick" id="mobileQuickButton">Edit</button>';
  app.append(context);
  const dock=document.createElement('nav');dock.className='m-dock';dock.setAttribute('aria-label','Mobile editing tools');
  dock.innerHTML='<button data-mobile="add"><span>＋</span>Add</button><button data-mobile="layers"><span>▤</span>Layers</button><button data-mobile="templates"><span>▣</span>Sets</button><button data-mobile="cards"><span>▦</span>Cards</button><button data-mobile="images"><span>▧</span>Images</button><button data-mobile="properties"><span>⚙</span>Properties</button><button data-mobile="fit"><span>⛶</span>Fit</button>';

@@ -18,7 +18,11 @@
 :root[data-layout="mobile"] .m-card-nav[hidden]{display:none}
 :root[data-layout="mobile"] .m-card-nav button{border:0;background:transparent;color:#2c527f;font-weight:650;font-size:14px;padding:6px 15px;min-height:38px}
 :root[data-layout="mobile"] .m-card-nav button:first-child,:root[data-layout="mobile"] .m-card-nav button:last-child{font-size:26px}
-:root[data-layout="mobile"] .m-selection{display:flex;flex:none;align-items:center;justify-content:space-between;gap:8px;padding:8px 13px;border-top:1px solid #d9e4ee;background:#f9fbfd}
+:root[data-layout="mobile"] .m-selection{display:flex;flex:none;align-items:center;justify-content:space-between;gap:8px;padding:8px 13px;border-top:1px solid #d9e4ee;background:#f9fbfd;flex-wrap:wrap}
+:root[data-layout="mobile"] .m-selection>div{flex:1;min-width:92px}
+:root[data-layout="mobile"] #mobileArtworkModeButton{background:#2665b7;color:#fff;border-color:#2665b7}
+:root[data-layout="mobile"] #mobileArtworkModeButton[aria-pressed="true"]{background:#e2efff;color:#1d5499;border-color:#91bdf3}
+:root[data-layout="mobile"] #mobileArtworkModeButton[hidden]{display:none}
 :root[data-layout="mobile"] .m-selection[hidden]{display:none}
 :root[data-layout="mobile"] .m-selection strong{display:block;font-size:13px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 :root[data-layout="mobile"] .m-selection small{display:block;color:#718198;font-size:10px;margin-top:3px}

@@ -512,6 +512,16 @@ const server=http.createServer((req,res)=>{
   await client.detach();
   await page.locator('#imageRepositionBar button').tap();
   assert.equal(await page.locator('#imageRepositionBar').isVisible(),false,'mobile Done ends crop mode');
+  // Explicit artwork mode button is an alternative to double-tapping on touch devices.
+  const phoneMoveArtwork=page.locator('#mobileArtworkModeButton');
+  assert.equal(await phoneMoveArtwork.isVisible(),true,'selected image exposes Move artwork');
+  await phoneMoveArtwork.tap();
+  assert.equal(await page.locator('#stage .element.repositioning').count(),1,'Move artwork button enters image reposition mode');
+  assert.equal(await phoneMoveArtwork.getAttribute('aria-pressed'),'true');
+  assert.match(await phoneMoveArtwork.innerText(),/Done moving artwork/);
+  await phoneMoveArtwork.tap();
+  assert.equal(await page.locator('#stage .element.repositioning').count(),0,'Done moving artwork button exits image mode');
+  assert.equal(await phoneMoveArtwork.getAttribute('aria-pressed'),'false');
   assert.equal(await page.locator('.top').isVisible(),false,'desktop controls hidden on phone');
   // Double-tap allows the same text-only editing mode on touch screens.
   const mobileTitle=page.locator('#stage .element').nth(3);
@@ -608,6 +618,14 @@ const server=http.createServer((req,res)=>{
   await tp.locator('#imageRepositionBar button').tap();
   assert.equal(await tp.locator('#stage .element.repositioning').count(),0,
    'tablet Done exits repositioning');
+  const tabletMoveArtwork=tp.locator('#mobileArtworkModeButton');
+  assert.equal(await tabletMoveArtwork.isVisible(),true,'tablet shows visible artwork mode control');
+  await tabletMoveArtwork.tap();
+  assert.equal(await tp.locator('#stage .element.repositioning').count(),1,
+   'tablet button enters image repositioning without double-tap');
+  await tabletMoveArtwork.tap();
+  assert.equal(await tp.locator('#stage .element.repositioning').count(),0,
+   'tablet button exits image repositioning');
 
   // A stylus exposes pointerType "pen" rather than "touch" on many tablets.
   await tp.evaluate(id=>{
