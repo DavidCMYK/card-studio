@@ -16,7 +16,8 @@ export type GridOrder='asc'|'desc'|null;
 const NAME_ID='@card:name';
 
 export function gridColumns(setId:string):GridColumn[]{
- return [{id:NAME_ID,label:'Card Name',kind:'name'},...spreadsheetColumns(setId).map(col=>({
+ const name:GridColumn={id:NAME_ID,label:'Card Name',kind:'name'};
+ return [name,...spreadsheetColumns(setId).map(col=>({
   id:col.id,label:col.label,kind:col.element.kind as 'text'|'image',element:col.element
  }))];
 }
