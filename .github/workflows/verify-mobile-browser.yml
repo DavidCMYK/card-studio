@@ -1,8 +1,6 @@
 name: Verify Card Studio mobile browser
 
 on:
-  push:
-    branches: [feature/mobile-studio]
   workflow_dispatch:
 
 jobs:
