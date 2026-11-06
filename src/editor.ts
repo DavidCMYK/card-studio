@@ -19,6 +19,7 @@ import { layoutTextBox } from './text-layout';
 import { resizedRect, locksImageCornerAspect } from './resize';
 import { elementGeometry } from './anchor-layout';
 import {enterImageReposition,stopImageReposition,repositionImageId,imageDragPatch,imageScalePatch} from './image-reposition';
+import {isImageDoublePress} from './image-double-press';
 import {enterTextIsolation,stopTextIsolation,isolatedTextId,patchTextIndependently} from './text-isolation';
 import {checkpoint,undo,redo,resetHistory} from './history';
 import {showRecovery,recordProjectReplaced,noteLiveEdit} from './recovery';
@@ -384,6 +385,40 @@ let drag: any = null;
 function clearSelection(){if(S.selected===null&&!repositionImageId()&&!isolatedTextId())return;stopImageReposition();stopTextIsolation();S.selected=null;renderInspector();renderLeft();renderStage()}
 const stage=$('#stage');
 let lastEditPointer:{id:string;x:number;y:number;at:number}|null=null;
+let lastImagePress:import('./image-double-press').ImagePress|null=null;
+/** This capture listener lives on the unchanging canvas container. The stage
+ * redraws on the first pointerdown, so click/dblclick events and even the next
+ * hit target cannot be relied upon. Image mode starts on the second press. */
+$('#canvasOuter').addEventListener('pointerdown',(e:PointerEvent)=>{
+ if(e.button!==0||document.documentElement?.dataset.layout==='mobile')return;
+ if(!e.composedPath().includes(stage)){lastImagePress=null;return;}
+ const target=e.target as HTMLElement;
+ if(target.closest?.('[data-handle]')){lastImagePress=null;return;}
+ const hit=target.closest?.('.element') as HTMLElement|null;
+ const hitId=hit?.dataset.id||null;
+ const previous=lastImagePress;
+ const now=Date.now();
+ const possibleId=hitId||previous?.id||null;
+ const candidate=possibleId?{id:possibleId,x:e.clientX,y:e.clientY,at:now}:null;
+ const candidateEl=possibleId?templateEl(possibleId):null;
+ if(candidate&&candidateEl?.kind==='image'&&isImageDoublePress(previous,candidate)&&
+    (!hitId||hitId===previous?.id)){
+  const geom=elementGeometry(candidateEl),stageRect=stage.getBoundingClientRect();
+  const localX=(e.clientX-stageRect.left)/S.zoom,localY=(e.clientY-stageRect.top)/S.zoom;
+  if(localX>=geom.x&&localY>=geom.y&&localX<=geom.x+geom.w&&localY<=geom.y+geom.h){
+   S.selected=possibleId!;drag=null;lastEditPointer=null;lastImagePress=null;
+   if(enterImageReposition(possibleId!)){renderInspector();renderLeft();renderStage();}
+   e.preventDefault();e.stopImmediatePropagation();return;
+  }
+ }
+ lastImagePress=hitId&&templateEl(hitId)?.kind==='image'?
+  {id:hitId,x:e.clientX,y:e.clientY,at:now}:null;
+},true);
+document.addEventListener('pointermove',(e:PointerEvent)=>{
+ if((e.buttons&1)&&lastImagePress&&
+    Math.hypot(lastImagePress.x-e.clientX,lastImagePress.y-e.clientY)>9)lastImagePress=null;
+},true);
+
 // The card may be entirely covered by elements. Click the workspace to clear selection.
 // Use the event's original propagation path: renderStage() can replace the clicked
 // element before the event bubbles here, so target.closest('#stage') becomes false.

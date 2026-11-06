@@ -258,6 +258,28 @@ const server=http.createServer((req,res)=>{
   await dp.locator('#inspector [data-inspector-fold="setup-rendering"] summary').click();
   assert.equal(await dp.locator('#inspector [data-inspector-fold="setup-rendering"]').getAttribute('open'),'','rendering can expand');
 
+  // The stable canvas must activate artwork mode even when a redraw suppresses
+  // the stage's pointerdown/click/dblclick handlers between two mouse presses.
+  await dp.evaluate(()=>{
+   const stage=document.querySelector('#stage');
+   const block=e=>e.stopImmediatePropagation();
+   window.__blockStageGestures=block;
+   for(const event of ['pointerdown','click','dblclick'])stage.addEventListener(event,block,true);
+  });
+  const stableImage=dp.locator('#stage .element').nth(2);
+  const stableRect=await stableImage.boundingBox();
+  const stableX=stableRect.x+42,stableY=stableRect.y+42;
+  await dp.mouse.click(stableX,stableY);
+  await dp.waitForTimeout(130);
+  await dp.mouse.click(stableX+8,stableY+5);
+  assert.equal(await dp.locator('#stage .element.repositioning').count(),1,
+   'two desktop pointer presses activate image mode even when stage handlers do not run');
+  await dp.locator('#imageRepositionBar button').click();
+  await dp.evaluate(()=>{
+   const stage=document.querySelector('#stage'),block=window.__blockStageGestures;
+   for(const event of ['pointerdown','click','dblclick'])stage.removeEventListener(event,block,true);
+   delete window.__blockStageGestures;
+  });
   // Desktop: double-click enters image-content mode; drag and wheel change only image placement.
   await dp.locator('#stage .element').nth(2).dblclick({position:{x:42,y:42}});
   assert.equal(await dp.locator('#imageRepositionBar').isVisible(),true,'double-click enters image reposition mode');
