@@ -400,11 +400,11 @@ function deferSelectionRedraw(){
 }
 /** Only change selection decorations: never replace the image or guides on a press. */
 function markSelectedInStage(node:HTMLElement,id:string){
- for(const old of stage.querySelectorAll<HTMLElement>('.element.selected')){
-  if(old===node)continue;
+ stage.querySelectorAll<HTMLElement>('.element.selected').forEach(old=>{
+  if(old===node)return;
   old.classList.remove('selected');
   old.querySelector(':scope > .selection-label')?.remove();
- }
+ });
  node.classList.add('selected');
  if(node.querySelector(':scope > .selection-label'))return;
  const raw=templateEl(id);if(!raw)return;
