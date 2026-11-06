@@ -68,7 +68,7 @@ test('small, remote and unsupported image sources keep their original URI',()=>{
 test('card preview uses the cached image URL without changing saved image data',()=>{
  const preview=fs.readFileSync(path.join(__dirname,'../src/preview.ts'),'utf8');
  const imageSets=fs.readFileSync(path.join(__dirname,'../src/image-sets.ts'),'utf8');
- assert.match(preview,/src="\$\{im\.displayUrl\}"/);
+ assert.match(preview,/src="\$\{im\.displayUrl\|\|src\}"/);
  assert.doesNotMatch(preview,/src="\$\{src\}" style="left:/);
  assert.match(imageSets,/export const getImageData=.*getImageRef.*\.data/);
 });
