@@ -384,12 +384,51 @@ let drag: any = null;
 function clearSelection(){if(S.selected===null&&!repositionImageId()&&!isolatedTextId())return;stopImageReposition();stopTextIsolation();S.selected=null;renderInspector();renderLeft();renderStage()}
 const stage=$('#stage');
 let lastEditPointer:{id:string;x:number;y:number;at:number}|null=null;
+/** Large inline images are costly to recreate during ordinary clicks.
+ * A first click must not block the next pointerdown while the frame is selected.
+ * Keep the image and guide DOM intact until the double-click interval passes. */
+const LARGE_INLINE_IMAGE_CHARS=250000;
+const SELECTION_REDRAW_DELAY_MS=650;
+const SELECTION_DRAG_SLOP_PX=4;
+let deferredSelectionRedraw:ReturnType<typeof setTimeout>|null=null;
+function cancelSelectionRedraw(){
+ if(deferredSelectionRedraw!==null){clearTimeout(deferredSelectionRedraw);deferredSelectionRedraw=null;}
+}
+function deferSelectionRedraw(){
+ cancelSelectionRedraw();
+ deferredSelectionRedraw=setTimeout(()=>{deferredSelectionRedraw=null;renderStage()},SELECTION_REDRAW_DELAY_MS);
+}
+/** Only change selection decorations: never replace the image or guides on a press. */
+function markSelectedInStage(node:HTMLElement,id:string){
+ for(const old of stage.querySelectorAll<HTMLElement>('.element.selected')){
+  if(old===node)continue;
+  old.classList.remove('selected');
+  old.querySelector(':scope > .selection-label')?.remove();
+ }
+ node.classList.add('selected');
+ if(node.querySelector(':scope > .selection-label'))return;
+ const raw=templateEl(id);if(!raw)return;
+ const label=document.createElement('span');
+ label.className='selection-label';
+ label.textContent=raw.name;
+ if(!effective(raw).locked){
+  for(const handle of ['nw','n','ne','e','se','s','sw','w']){
+   const grip=document.createElement('span');
+   grip.className='resize-handle resize-'+handle;
+   grip.dataset.handle=handle;
+   label.appendChild(grip);
+  }
+ }
+ node.appendChild(label);
+}
+
 // The card may be entirely covered by elements. Click the workspace to clear selection.
 // Use the event's original propagation path: renderStage() can replace the clicked
 // element before the event bubbles here, so target.closest('#stage') becomes false.
 $('#canvasOuter').addEventListener('pointerdown',e=>{if(!(e.pointerType==='touch'&&document.documentElement?.dataset.layout==='mobile')&&e.button===0&&!e.composedPath().includes(stage))clearSelection()});
 stage.addEventListener('pointerdown',e=>{
  if(e.button!==0||(e.pointerType==='touch'&&document.documentElement?.dataset.layout==='mobile'))return;
+ cancelSelectionRedraw();
  const now=Date.now(),previous=lastEditPointer;
  const rapid=!!previous&&now-previous.at<490&&Math.hypot(previous.x-e.clientX,previous.y-e.clientY)<24;
  const node=e.target.closest('.element');
@@ -409,15 +448,31 @@ stage.addEventListener('pointerdown',e=>{
  const el=effective(templateEl(id)),rect=elementGeometry(templateEl(id));
  const isImageDrag=repositionImageId()===id&&el.kind==='image';
  const handle=isImageDrag?null:e.target.closest('[data-handle]')?.dataset.handle||null;
- renderStage();
+ const imageSource=el.kind==='image'?getImageData(templateEl(id),S.cardIndex,S.mode):null;
+ const deferSelection=!!(imageSource&&imageSource.length>=LARGE_INLINE_IMAGE_CHARS&&!handle&&
+  !isImageDrag&&!isolatedTextId());
+ if(deferSelection){
+  markSelectedInStage(node as HTMLElement,id);
+  deferSelectionRedraw();
+ }else renderStage();
  if(el.locked&&!isImageDrag)return;
- drag={id,type:isImageDrag?'image':handle?'resize':'move',handle,initialX:e.clientX,initialY:e.clientY,
+ drag={id,type:isImageDrag?'image':handle?'resize':'move',handle,initialX:e.clientX,initialY:e.clientY,liveMoved:false,deferSelection,
   x:rect.x,y:rect.y,w:rect.w,h:rect.h,visual:{...rect},
   imageStart:{...el,...rect},lockAspect:locksImageCornerAspect(el.kind,el.imageFit,handle)};
  e.preventDefault();
 });
-document.addEventListener('pointermove',e=>{if(!drag)return;if(Math.hypot(e.clientX-drag.initialX,e.clientY-drag.initialY)>9)lastEditPointer=null;const {w,h}=sizePx(),dx=(e.clientX-drag.initialX)/S.zoom,dy=(e.clientY-drag.initialY)/S.zoom;let patch;if(drag.type==='image'){const raw=templateEl(drag.id),src=raw?getImageData(raw,S.cardIndex,S.mode):null,cached=src?cacheImage(src):null;patch=imageDragPatch(drag.imageStart,dx,dy,cached?.loaded?cached.im:null)}else if(drag.type==='resize'){const rect=resizedRect(drag.visual,drag.handle||'se',dx,dy,{w,h},drag.lockAspect);const handle=drag.handle||'se';patch={};if(handle.includes('w')||handle.includes('e'))Object.assign(patch,{x:rect.x,w:rect.w,autoWidth:false});if(handle.includes('n')||handle.includes('s'))Object.assign(patch,{y:rect.y,h:rect.h,autoHeight:false})}else patch={x:Math.round(clamp(drag.x+dx,-drag.w+4,w-4)),y:Math.round(clamp(drag.y+dy,-drag.h+4,h-4))};if(isolatedTextId()===drag.id)patchTextIndependently(drag.id,patch,patchElement);else patchElement(drag.id,patch);renderStage();renderInspector()});
-document.addEventListener('pointerup',()=>{if(drag){drag=null;checkpoint();refreshHistoryButtons();renderInspector();renderLeft();renderStage()}});
+document.addEventListener('pointermove',e=>{if(!drag)return;
+ const pixelDistance=Math.hypot(e.clientX-drag.initialX,e.clientY-drag.initialY);
+ if(drag.deferSelection&&pixelDistance<SELECTION_DRAG_SLOP_PX)return;
+ if(pixelDistance>=SELECTION_DRAG_SLOP_PX)drag.liveMoved=true;
+ if(drag.deferSelection){cancelSelectionRedraw();drag.deferSelection=false;}
+ if(pixelDistance>9)lastEditPointer=null;const {w,h}=sizePx(),dx=(e.clientX-drag.initialX)/S.zoom,dy=(e.clientY-drag.initialY)/S.zoom;let patch;if(drag.type==='image'){const raw=templateEl(drag.id),src=raw?getImageData(raw,S.cardIndex,S.mode):null,cached=src?cacheImage(src):null;patch=imageDragPatch(drag.imageStart,dx,dy,cached?.loaded?cached.im:null)}else if(drag.type==='resize'){const rect=resizedRect(drag.visual,drag.handle||'se',dx,dy,{w,h},drag.lockAspect);const handle=drag.handle||'se';patch={};if(handle.includes('w')||handle.includes('e'))Object.assign(patch,{x:rect.x,w:rect.w,autoWidth:false});if(handle.includes('n')||handle.includes('s'))Object.assign(patch,{y:rect.y,h:rect.h,autoHeight:false})}else patch={x:Math.round(clamp(drag.x+dx,-drag.w+4,w-4)),y:Math.round(clamp(drag.y+dy,-drag.h+4,h-4))};if(isolatedTextId()===drag.id)patchTextIndependently(drag.id,patch,patchElement);else patchElement(drag.id,patch);renderStage();renderInspector()});
+document.addEventListener('pointerup',()=>{if(drag){
+ const defer=drag.deferSelection&&!drag.liveMoved;
+ drag=null;
+ if(defer){deferSelectionRedraw();return;}
+ checkpoint();refreshHistoryButtons();renderInspector();renderLeft();renderStage()
+}});
 function onElementDoubleClick(e:MouseEvent){
  if(document.documentElement?.dataset.layout==='mobile')return;
  // The first pointerdown redraws the selected element. On some browsers the
