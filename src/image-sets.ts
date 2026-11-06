@@ -26,7 +26,7 @@ function previewImageUrl(src:string):string {
   const decoded=atob(src.slice(match[0].length));
   const bytes=new Uint8Array(decoded.length);
   for(let i=0;i<decoded.length;i++)bytes[i]=decoded.charCodeAt(i);
-  return URL.createObjectURL(new Blob([bytes],{type:match[1].toLowerCase()}));
+  return URL.createObjectURL(new Blob([bytes.buffer as ArrayBuffer],{type:match[1].toLowerCase()}));
  }catch{return src;}
 }
 
