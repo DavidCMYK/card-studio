@@ -9,40 +9,50 @@ import type {GridRow} from './card-data-grid';
 
 const PAGE_SIZE=80;
 const styles=String.raw`<style>
-#gridEditor{position:fixed;inset:0;z-index:15150;background:#09131bdf;display:flex;align-items:center;justify-content:center;padding:10px;color:#e7eef8;font:13px system-ui,sans-serif}
+#gridEditor{position:fixed;inset:0;z-index:15150;background:#09131bdf;display:flex;align-items:center;justify-content:center;padding:10px;color:#20364f;font:13px system-ui,sans-serif;color-scheme:light}
 #gridEditor *{box-sizing:border-box}
-#gridEditor .dg-panel{width:min(1480px,100%);max-height:97vh;background:#15263b;border:1px solid #48627f;border-radius:11px;display:flex;flex-direction:column;overflow:hidden}
-#gridEditor .dg-head,#gridEditor .dg-footer{display:flex;align-items:center;gap:10px;padding:11px 14px;background:#1e344b;flex-wrap:wrap}
+#gridEditor .dg-panel{width:min(1480px,100%);max-height:97vh;background:#fff;border:1px solid #c7d3e1;border-radius:11px;display:flex;flex-direction:column;overflow:hidden}
+#gridEditor .dg-head,#gridEditor .dg-footer{display:flex;align-items:center;gap:10px;padding:11px 14px;background:#f4f7fb;flex-wrap:wrap}
+#gridEditor .dg-head{background:#14253b;color:#f0f5fc}
+#gridEditor .dg-head .dg-hint{color:#c8d6e7}
 #gridEditor .dg-head strong{font-size:18px;flex:1}
-#gridEditor .dg-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid #36526b}
+#gridEditor .dg-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid #d8e1ec;background:#f7f9fc;color:#334960}
 #gridEditor .dg-tools label{display:flex;align-items:center;gap:5px}
-#gridEditor button,#gridEditor select,#gridEditor input{font:inherit;border:1px solid #607994;background:#253e55;color:#eef4fa;border-radius:5px;padding:6px 8px;max-width:100%}
-#gridEditor button{cursor:pointer}
+#gridEditor button,#gridEditor select,#gridEditor input,#gridEditor textarea{font:inherit;border:1px solid #b9c8d9;background:#fff;color:#20364f;border-radius:5px;padding:6px 8px;max-width:100%}
+#gridEditor button{cursor:pointer;background:#eaf1fa;color:#214d7c;font-weight:600}
+#gridEditor button:hover:not(:disabled){background:#dceaff}
+#gridEditor .dg-head button{background:#293f5b;border-color:#526a87;color:#f5f8ff}
+#gridEditor .dg-head button:hover:not(:disabled){background:#385677}
 #gridEditor button:disabled{cursor:default;opacity:.45}
-#gridEditor input[type=checkbox]{accent-color:#65b6ef}
+#gridEditor input[type=checkbox]{accent-color:#256bc1}
 #gridEditor input[type=search]{width:205px}
 #gridEditor input[type=number]{width:63px}
-#gridEditor .dg-table-scroll{min-height:90px;max-height:min(63vh,680px);overflow:auto;position:relative;overscroll-behavior:contain}
+#gridEditor .dg-table-scroll{min-height:90px;max-height:min(63vh,680px);overflow:auto;position:relative;overscroll-behavior:contain;background:#fff}
 #gridEditor table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;table-layout:fixed}
-#gridEditor th,#gridEditor td{padding:0;border-right:1px solid #34506b;border-bottom:1px solid #34506b}
-#gridEditor thead th{position:sticky;top:0;z-index:2;background:#28455e;color:#f0f6fc;white-space:nowrap}
-#gridEditor thead th button{background:transparent;border:0;text-align:left;width:100%;padding:9px;white-space:nowrap}
+#gridEditor th,#gridEditor td{padding:0;border-right:1px solid #dce4ee;border-bottom:1px solid #dce4ee}
+#gridEditor thead th{position:sticky;top:0;z-index:2;background:#254363;color:#f6f9ff;white-space:nowrap}
+#gridEditor thead th button{background:transparent;border:0;color:#f6f9ff;text-align:left;width:100%;padding:9px;white-space:nowrap}
 #gridEditor td.dg-cell{min-width:165px;width:190px}
-#gridEditor td.dg-cell input,#gridEditor td.dg-cell textarea{border:0;background:transparent;width:100%;padding:9px 10px;border-radius:0;text-overflow:ellipsis}
-#gridEditor td.dg-cell input:focus,#gridEditor td.dg-cell textarea:focus{outline:2px solid #79c9ff;outline-offset:-2px;background:#1b344b;overflow:visible;text-overflow:clip}
+#gridEditor td.dg-cell input,#gridEditor td.dg-cell textarea{border:0;background:transparent;color:#20364f;caret-color:#20364f;width:100%;padding:9px 10px;border-radius:0;text-overflow:ellipsis}
+#gridEditor td.dg-cell input:focus,#gridEditor td.dg-cell textarea:focus{outline:2px solid #2371d2;outline-offset:-2px;background:#fff;overflow:visible;text-overflow:clip}
 #gridEditor td.dg-cell textarea{height:36px;min-height:36px;display:block;resize:vertical;white-space:pre;line-height:18px}
-#gridEditor tbody tr:nth-child(even){background:#1b3045}
-#gridEditor tbody tr.dg-selected{background:#284862}
-#gridEditor .dg-select{position:sticky;left:0;z-index:1;background:#1e344b;width:38px;min-width:38px;text-align:center}
-#gridEditor thead .dg-select{z-index:4}
-#gridEditor .dg-name{position:sticky;left:38px;z-index:1;min-width:160px;width:190px;background:#1b3146}
-#gridEditor thead .dg-name{z-index:3;background:#28455e}
+#gridEditor tbody tr{background:#fff}
+#gridEditor tbody tr:nth-child(even){background:#f2f6fb}
+#gridEditor tbody tr.dg-selected{background:#e4f0ff}
+#gridEditor .dg-select{position:sticky;left:0;z-index:1;background:#fff;width:38px;min-width:38px;text-align:center}
+#gridEditor thead .dg-select{z-index:4;background:#254363}
+#gridEditor tbody tr:nth-child(even) .dg-select{background:#f2f6fb}
+#gridEditor tbody tr.dg-selected .dg-select{background:#e4f0ff}
+#gridEditor .dg-name{position:sticky;left:38px;z-index:1;min-width:160px;width:190px;background:#fff}
+#gridEditor tbody tr:nth-child(even) .dg-name{background:#f2f6fb}
+#gridEditor tbody tr.dg-selected .dg-name{background:#e4f0ff}
+#gridEditor thead .dg-name{z-index:3;background:#254363}
 #gridEditor .dg-open{min-width:78px;width:78px;text-align:center}
 #gridEditor .dg-open button{padding:5px;margin:4px}
-#gridEditor .dg-status{min-height:22px;color:#bfd0e2;padding:6px 14px;font-size:12px}
-#gridEditor .dg-footer{border-top:1px solid #48627f}
-#gridEditor .dg-footer span{flex:1;color:#c4d1df}
-#gridEditor .dg-hint{font-size:11px;color:#b2c4d6}
+#gridEditor .dg-status{min-height:22px;color:#35536e;padding:6px 14px;font-size:12px}
+#gridEditor .dg-footer{border-top:1px solid #d4deea}
+#gridEditor .dg-footer span{flex:1;color:#435b73}
+#gridEditor .dg-hint{font-size:11px;color:#516a82}
 @media(max-width:700px){#gridEditor{padding:3px}#gridEditor .dg-panel{max-height:99vh}#gridEditor .dg-head,#gridEditor .dg-tools,#gridEditor .dg-footer{padding:7px;gap:6px}#gridEditor input[type=search]{width:150px}#gridEditor .dg-table-scroll{max-height:61vh}}
 </style>`;
 const cellTSV=(value:string)=>{

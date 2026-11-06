@@ -207,3 +207,12 @@ test('bulk editor is accessible from desktop header, card set toolbox and mobile
  assert.match(ui,/input instanceof HTMLInputElement && input\.dataset\.dgSelect!==undefined/,
   'Checkbox state must be read only after narrowing the event target to an input');
 });
+
+test('bulk data editor has explicit high-contrast colours for input and multiline text on light rows',()=>{
+ const src=fs.readFileSync(path.join(__dirname,'../src/card-data-grid-ui.ts'),'utf8');
+ assert.match(src,/#gridEditor td\.dg-cell input,#gridEditor td\.dg-cell textarea\{[^}]*color:#20364f;/);
+ assert.match(src,/#gridEditor tbody tr\{background:#fff\}/);
+ assert.match(src,/#gridEditor tbody tr:nth-child\(even\)\{background:#f2f6fb\}/);
+ assert.match(src,/#gridEditor thead th\{[^}]*background:#254363;color:#f6f9ff;/);
+ assert.match(src,/#gridEditor button,#gridEditor select,#gridEditor input,#gridEditor textarea\{[^}]*background:#fff;color:#20364f;/);
+});
