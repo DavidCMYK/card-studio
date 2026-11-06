@@ -72,7 +72,7 @@ test('text field matching supports card IDs and never uses an unrelated set',()=
  assert.equal(result[0].source,'100212');
  assert.equal(result[0].status,'exact');
  const other=collections.newCardSet('Another');
- assert.equal(match.suggestArtwork(params(other,image)),undefined); // wrong template field guarded
+ assert.deepEqual(match.suggestArtwork(params(other,image)),[]); // no staged cards in other set
 });
 
 test('assigned art and fixed template art are protected by default',()=>{
@@ -80,9 +80,9 @@ test('assigned art and fixed template art are protected by default',()=>{
  add(imgset,'Knight.png');add(imgset,'Knight-New.png');
  const c=state.cards[0];c.name='Knight';c.values[image.id]='Characters/Knight-New.png';
  assert.equal(match.suggestArtwork(params(set,image))[0].status,'assigned');
- assert.equal(match.applyArtwork(params(set,image),[{
+ assert.throws(()=>match.applyArtwork(params(set,image),[{
   cardId:c.id,imageKey:match.imageKey(imgset.id,'Knight.png')
- }]),0); // protected? should throw if changing
+ }]),/must not be overwritten/);
 });
 
 test('apply preview decisions is atomic, uses qualified names, and remains undoable',()=>{

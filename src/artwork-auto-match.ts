@@ -116,7 +116,7 @@ export function suggestArtwork(options:MatchOptions):MatchRow[]{
    const result=matchScore(source,choice.name);
    return {...choice,...result,
     // Prefer a frame's own image set only to break an otherwise exact tie.
-    rank:result.score+(preferred===choice.setId&&result.score>=90?2:0)
+    rank:result.score+(preferred===choice.setId&&result.score>=90?10:0)
    };
   }).filter(item=>item.score>=60)
    .sort((a,b)=>b.rank-a.rank||a.setName.localeCompare(b.setName)||a.name.localeCompare(b.name));
