@@ -8,7 +8,7 @@ test('large-image first press does not rebuild image tags or guides',()=>{
  const cache=fs.readFileSync(path.join(__dirname,'../src/image-sets.ts'),'utf8');
  assert.match(source,/const LARGE_INLINE_IMAGE_CHARS=250000;/);
  assert.match(source,/function markSelectedInStage\(node:HTMLElement,id:string\)/);
- assert.match(source,/querySelectorAll<HTMLElement>\('\.element\.selected'\)\.forEach\(old=>/);
+ assert.match(source,/querySelectorAll\('\.element\.selected'\)\.forEach\(\(old:HTMLElement\)=>/);
  assert.doesNotMatch(source,/for\(const old of stage\.querySelectorAll/,'DOM.Iterable is not enabled in this project');
  assert.match(source,/if\(deferSelection\)\{\s*markSelectedInStage\(node as HTMLElement,id\);\s*deferSelectionRedraw\(\);\s*\}else renderStage\(\)/);
  assert.match(source,/if\(drag\.deferSelection&&pixelDistance<SELECTION_DRAG_SLOP_PX\)return;/);

@@ -400,7 +400,7 @@ function deferSelectionRedraw(){
 }
 /** Only change selection decorations: never replace the image or guides on a press. */
 function markSelectedInStage(node:HTMLElement,id:string){
- stage.querySelectorAll<HTMLElement>('.element.selected').forEach(old=>{
+ stage.querySelectorAll('.element.selected').forEach((old:HTMLElement)=>{
   if(old===node)return;
   old.classList.remove('selected');
   old.querySelector(':scope > .selection-label')?.remove();
