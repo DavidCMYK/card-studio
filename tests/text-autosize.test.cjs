@@ -61,3 +61,38 @@ test('legacy text geometry does not change without auto-sizing',()=>{
  const layout=layoutTextBox(e,'A longer text');
  assert.deepEqual([layout.x,layout.y,layout.w,layout.h],[100,200,100,80]);
 });
+
+test('empty text collapses only auto-sized axes, independent of visibility and gutters',()=>{
+ dom();const {e}=setup({invisibleIfEmpty:false,align:'center',valign:'bottom'});
+ for(const value of ['', '   ', '\n \t']){
+  const layout=layoutTextBox(e,value);
+  assert.deepEqual([layout.x,layout.y,layout.w,layout.h],[150,280,0,0]);
+  assert.deepEqual([layout.innerW,layout.innerH,layout.textHeight,layout.lines.length],[0,0,0,0]);
+ }
+ e.autoWidth=false;
+ assert.deepEqual([layoutTextBox(e,'').w,layoutTextBox(e,'').h],[100,0]);
+ e.autoWidth=true;e.autoHeight=false;
+ assert.deepEqual([layoutTextBox(e,'').w,layoutTextBox(e,'').h],[0,80]);
+ e.autoWidth=false;
+ assert.deepEqual([layoutTextBox(e,'').w,layoutTextBox(e,'').h],[100,80]);
+ assert.deepEqual([e.w,e.h],[100,80],'saved anchor dimensions must not change');
+});
+test('empty and populated cards have their own auto-sized geometry in preview and PNG',async()=>{
+ const {nodes,draws}=dom();const {state,e}=setup({invisibleIfEmpty:false});
+ state.mode='cards';
+ state.cards=[
+  {id:'empty',name:'Empty',values:{[e.id]:''},overrides:{},extraElements:[]},
+  {id:'populated',name:'Populated',values:{[e.id]:'AB'},overrides:{},extraElements:[]}
+ ];
+ for(let i=0;i<2;i++){
+  state.cardIndex=i;
+  const layout=layoutTextBox(e,state.cards[i].values[e.id]);
+  if(i===0)assert.deepEqual([layout.w,layout.h],[0,0]);
+  else assert.ok(layout.w>0&&layout.h>0);
+  renderStage();
+  assert.ok(nodes.get('#stage').innerHTML.includes('width:'+layout.w*state.zoom+'px;height:'+layout.h*state.zoom+'px'));
+  draws.length=0;await canvasCard(i,'cards');
+  assert.ok(draws.some(x=>x.type==='fill'&&x.w===layout.w&&x.h===layout.h),
+   'PNG element geometry should match the preview');
+ }
+});

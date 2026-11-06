@@ -49,15 +49,16 @@ export function layoutTextBox(e:CardElement,value:string):TextLayout{
  if(ctx){ctx.font=fontCSS(e,fontPx);if('letterSpacing' in ctx)ctx.letterSpacing=spacing+'px';}
  const measure=(t:string)=>widthOf(t,ctx,fontPx,spacing);
  const str=String(value??'').replace(/\r\n?/g,'\n');
+ const empty=str.trim()==='';
  const autoW=e.autoWidth===true,autoH=e.autoHeight===true;
- const naturalLines=str.split('\n');
+ const naturalLines=empty?[]:str.split('\n');
  const maxLine=Math.max(0,...naturalLines.map(measure));
- const w=autoW?Math.max(1,Math.ceil(maxLine+left+right+2)):Math.max(1,e.w);
- const innerW=Math.max(1,w-left-right);
- const lines=autoW?naturalLines:lineWrap(str,innerW,measure);
+ const w=autoW?(empty?0:Math.max(1,Math.ceil(maxLine+left+right+2))):Math.max(1,e.w);
+ const innerW=w===0?0:Math.max(1,w-left-right);
+ const lines=empty?[]:autoW?naturalLines:lineWrap(str,innerW,measure);
  const textHeight=lines.length*linePx;
- const h=autoH?Math.max(1,Math.ceil(textHeight+top+bottom)):Math.max(1,e.h);
+ const h=autoH?(empty?0:Math.max(1,Math.ceil(textHeight+top+bottom))):Math.max(1,e.h);
  const x=e.x+(autoW?(e.align==='right'?e.w-w:e.align==='center'?(e.w-w)/2:0):0);
  const y=e.y+(autoH?(e.valign==='bottom'?e.h-h:e.valign==='middle'?(e.h-h)/2:0):0);
- return {x,y,w,h,left,right,top,bottom,innerW,innerH:Math.max(1,h-top-bottom),fontPx,linePx,lines,textHeight};
+ return {x,y,w,h,left,right,top,bottom,innerW,innerH:h===0?0:Math.max(1,h-top-bottom),fontPx,linePx,lines,textHeight};
 }

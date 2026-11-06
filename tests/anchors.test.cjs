@@ -96,3 +96,24 @@ test('inspector exposes independent edge locks and preview uses same geometry as
    const cvs=await canvasCard(0,'template');assert.ok(cvs.width>0);assert.ok(calls.some(c=>c[0]==='rect'&&Math.abs(c[1]-g.x)<.001&&Math.abs(c[3]-g.w)<.001),'PNG should draw the anchored frame rectangle'); 
  }finally{global.document=prev}
 });
+
+test('edge anchors track the zero-sized geometry of an empty auto-sized text source',()=>{
+ const {state,text,shape}=setup();
+ text.align='right';text.valign='bottom';
+ attach(shape,text);
+ shape.anchorRight=true;shape.anchorTop=true;
+ shape.anchorOffsetRight=5;shape.anchorOffsetTop=-8;
+ state.cards[0].values[text.id]='';
+ state.cards.push({...structuredClone(state.cards[0]),id:'filled',name:'Filled',values:{[text.id]:'Full text'}});
+ state.mode='cards';
+ const empty=textGeometry(text,0,'cards'),filled=textGeometry(text,1,'cards');
+ assert.deepEqual([empty.w,empty.h],[0,0]);
+ assert.ok(filled.w>0&&filled.h>0);
+ const emptyFollower=elementGeometry(shape,0,'cards'),filledFollower=elementGeometry(shape,1,'cards');
+ near(emptyFollower.x+emptyFollower.w,empty.x+empty.w+5);
+ near(filledFollower.x+filledFollower.w,filled.x+filled.w+5);
+ near(emptyFollower.y,empty.y-8);
+ near(filledFollower.y,filled.y-8);
+ assert.notEqual(emptyFollower.y,filledFollower.y);
+ assert.equal(text.h,83,'the source element keeps its saved height');
+});
