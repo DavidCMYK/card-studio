@@ -33,6 +33,18 @@ export function createTemplate(source?:CardTemplate):CardTemplate{
  selectProjectTemplate(template.id!);
  return template;
 }
+/** Delete an element from the authoritative shared template. Do not replace
+ * S.template.elements with a new array: S.template is an alias to templates[],
+ * and replacing that array in the wrong object can leave XLSX columns stale. */
+export function removeTemplateElement(id:string):boolean{
+ if(S.mode!=='template'||!id)return false;
+ const template=templateById(S.selectedTemplateId);
+ if(!template)return false;
+ const index=template.elements.findIndex(element=>element.id===id);
+ if(index<0)return false;
+ template.elements.splice(index,1);
+ return true;
+}
 export function deleteTemplate(id:string):void{
  if(S.templates!.length<=1)throw Error('At least one template is required');
  if(S.cardSets!.some(set=>set.frontTemplateId===id||set.backTemplateId===id))

@@ -9,7 +9,6 @@ import {getImageData,cacheImage,imageScreenOffset,imageOffsetPatch} from './imag
 import {enterImageReposition,stopImageReposition,repositionImageId,imageDragPatch,imageScalePatch} from './image-reposition';
 import {enterTextIsolation,stopTextIsolation,isolatedTextId,patchTextIndependently} from './text-isolation';
 import {resizedRect,locksImageCornerAspect,ResizeHandle} from './resize';
-import {isDirectTouchPointer,matchesDoubleTap,wasTapMoved,MAX_TAP_DURATION_MS} from './tap-gesture';
 type P={x:number;y:number};
 type Drag={id:string;kind:'frame'|'image';handle:ResizeHandle|null;start:P;x:number;y:number;w:number;h:number;locked:boolean;lockAspect:boolean;moved:boolean;startElement:CardElement};
 type ImagePinch={id:string;start:CardElement;focal:P;center:P;image:any};
@@ -17,7 +16,7 @@ const points=new Map<number,P>();
 let drag:Drag|null=null,pan:{start:P;left:number;top:number}|null=null,pinchDistance=0,pinchZoom=1,hadPinch=false;
 let imagePinch:ImagePinch|null=null;
 let pinchFocal:P={x:0,y:0};
-let touchCandidate:{id:string;point:P;time:number}|null=null;
+let touchCandidate:{id:string;point:P}|null=null;
 let lastTap:{id:string;point:P;time:number}|null=null;
 const mobile=()=>document.documentElement.dataset.layout==='mobile';
 const p=(e:PointerEvent):P=>({x:e.clientX,y:e.clientY});
@@ -33,7 +32,7 @@ export function installMobileGestures(refresh:()=>void,manualZoom:()=>void){
   outer.scrollTop+=after.top+pinchFocal.y*S.zoom-center.y;
  };
  outer.addEventListener('pointerdown',(e:PointerEvent)=>{
-  if(!mobile()||!isDirectTouchPointer(e.pointerType)||e.button!==0)return;
+  if(!mobile()||e.pointerType!=='touch')return;
   e.preventDefault();try{outer.setPointerCapture(e.pointerId)}catch{}
   points.set(e.pointerId,p(e));
   const target=e.target as HTMLElement;
@@ -54,8 +53,7 @@ export function installMobileGestures(refresh:()=>void,manualZoom:()=>void){
   }
   hadPinch=false;imagePinch=null;
   const raw=element?templateEl(element.dataset.id||null):null;
-  touchCandidate=raw?{id:raw.id,point:p(e),time:Date.now()}:null;
-  if(!raw)lastTap=null;
+  touchCandidate=raw?{id:raw.id,point:p(e)}:null;
   if(raw){
    if(repositionImageId()&&repositionImageId()!==raw.id)stopImageReposition();
    if(isolatedTextId()&&isolatedTextId()!==raw.id)stopTextIsolation();
@@ -76,10 +74,8 @@ export function installMobileGestures(refresh:()=>void,manualZoom:()=>void){
   }
  },{capture:true});
  document.addEventListener('pointermove',(e:PointerEvent)=>{
-  if(!mobile()||!isDirectTouchPointer(e.pointerType)||!points.has(e.pointerId))return;
+  if(!mobile()||e.pointerType!=='touch'||!points.has(e.pointerId))return;
   e.preventDefault();points.set(e.pointerId,p(e));
-  // Scrolling/panning is not a tap, even when no selected-frame drag started.
-  if(touchCandidate&&wasTapMoved(touchCandidate.point,p(e))){touchCandidate=null;lastTap=null;}
   if(points.size>=2){
    const pair=[...points.values()],center=middle(pair[0],pair[1]);
    if(pinchDistance>0){
@@ -114,19 +110,18 @@ export function installMobileGestures(refresh:()=>void,manualZoom:()=>void){
   if(isolatedTextId()===drag.id)patchTextIndependently(drag.id,patch,patchElement);else patchElement(drag.id,patch);renderStage();
  },{capture:true});
  const end=(e:PointerEvent)=>{
-  if(!isDirectTouchPointer(e.pointerType)||!points.has(e.pointerId))return;
+  if(e.pointerType!=='touch'||!points.has(e.pointerId))return;
   points.delete(e.pointerId);if(points.size<2)pinchDistance=0;
   if(!points.size){
-   const changed=!!drag?.moved||hadPinch||e.type==='pointercancel',candidate=touchCandidate;
-   if(!changed&&candidate&&!wasTapMoved(candidate.point,p(e))&&
-      Date.now()-candidate.time<=MAX_TAP_DURATION_MS){
+   const changed=!!drag?.moved||hadPinch,candidate=touchCandidate;
+   if(!changed&&candidate){
     const now=Date.now();
-    if(matchesDoubleTap(lastTap,{id:candidate.id,point:candidate.point,time:now})){
+    if(lastTap?.id===candidate.id&&now-lastTap.time<380&&dist(lastTap.point,candidate.point)<25){
      const raw=templateEl(candidate.id);
      if(S.selected===raw?.id&&((raw.kind==='image'&&enterImageReposition(raw.id))||(raw.kind==='text'&&enterTextIsolation(raw.id))))repaintSelection();
      lastTap=null;
     }else lastTap={id:candidate.id,point:candidate.point,time:now};
-   }else lastTap=null;
+   }else if(changed)lastTap=null;
    drag=null;pan=null;hadPinch=false;imagePinch=null;touchCandidate=null;
    if(changed){checkpoint();refreshHistoryButtons();repaintSelection()}else refresh();
   }else{drag=null;pan=null;hadPinch=true;touchCandidate=null;imagePinch=null}

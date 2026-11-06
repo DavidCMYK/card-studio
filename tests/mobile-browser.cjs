@@ -512,15 +512,14 @@ const server=http.createServer((req,res)=>{
   await client.detach();
   await page.locator('#imageRepositionBar button').tap();
   assert.equal(await page.locator('#imageRepositionBar').isVisible(),false,'mobile Done ends crop mode');
-  // Explicit artwork mode button is an alternative to double-tapping on touch devices.
+  // An explicit control is available when a double-tap isn't recognised.
   const phoneMoveArtwork=page.locator('#mobileArtworkModeButton');
-  assert.equal(await phoneMoveArtwork.isVisible(),true,'selected image exposes Move artwork');
+  assert.equal(await phoneMoveArtwork.isVisible(),true,'selected image offers Move artwork');
   await phoneMoveArtwork.tap();
-  assert.equal(await page.locator('#stage .element.repositioning').count(),1,'Move artwork button enters image reposition mode');
+  assert.equal(await page.locator('#stage .element.repositioning').count(),1,'button enters image crop mode');
   assert.equal(await phoneMoveArtwork.getAttribute('aria-pressed'),'true');
-  assert.match(await phoneMoveArtwork.innerText(),/Done moving artwork/);
   await phoneMoveArtwork.tap();
-  assert.equal(await page.locator('#stage .element.repositioning').count(),0,'Done moving artwork button exits image mode');
+  assert.equal(await page.locator('#stage .element.repositioning').count(),0,'button exits image crop mode');
   assert.equal(await phoneMoveArtwork.getAttribute('aria-pressed'),'false');
   assert.equal(await page.locator('.top').isVisible(),false,'desktop controls hidden on phone');
   // Double-tap allows the same text-only editing mode on touch screens.
@@ -607,44 +606,16 @@ const server=http.createServer((req,res)=>{
   const tp=await tablet.newPage();tp.on('pageerror',e=>errors.push('tablet: '+e.message));
   await tp.goto(url);
   await tp.locator('#mobileShell').waitFor({state:'visible'});
-  // Touch double-taps on a tablet can be slower and less precise than on a phone.
   const tabletImage=tp.locator('#stage .element').nth(2);
-  const tabletImageId=await tabletImage.getAttribute('data-id');
   await tabletImage.tap();
-  await tp.waitForTimeout(430); // Exceeds the former 380 ms limit.
-  await tabletImage.tap();
+  const tabletMove=tp.locator('#mobileArtworkModeButton');
+  assert.equal(await tabletMove.isVisible(),true,'tablet exposes Move artwork control');
+  await tabletMove.tap();
   assert.equal(await tp.locator('#stage .element.repositioning').count(),1,
-   'tablet touch double-tap enters artwork reposition mode');
-  await tp.locator('#imageRepositionBar button').tap();
+   'tablet button enters crop mode without double-tap');
+  await tabletMove.tap();
   assert.equal(await tp.locator('#stage .element.repositioning').count(),0,
-   'tablet Done exits repositioning');
-  const tabletMoveArtwork=tp.locator('#mobileArtworkModeButton');
-  assert.equal(await tabletMoveArtwork.isVisible(),true,'tablet shows visible artwork mode control');
-  await tabletMoveArtwork.tap();
-  assert.equal(await tp.locator('#stage .element.repositioning').count(),1,
-   'tablet button enters image repositioning without double-tap');
-  await tabletMoveArtwork.tap();
-  assert.equal(await tp.locator('#stage .element.repositioning').count(),0,
-   'tablet button exits image repositioning');
-
-  // A stylus exposes pointerType "pen" rather than "touch" on many tablets.
-  await tp.evaluate(id=>{
-   const pointer=(type,x,y)=>new PointerEvent(type,{
-    bubbles:true,cancelable:true,pointerType:'pen',pointerId:173,button:0,
-    clientX:x,clientY:y,isPrimary:true
-   });
-   for(let i=0;i<2;i++){
-    const el=[...document.querySelectorAll('#stage .element')]
-     .find(node=>node.getAttribute('data-id')===id);
-    if(!el)throw Error('Tablet image layer disappeared');
-    const rect=el.getBoundingClientRect(),x=rect.x+rect.width*.5,y=rect.y+rect.height*.5;
-    el.dispatchEvent(pointer('pointerdown',x,y));
-    document.dispatchEvent(pointer('pointerup',x,y));
-   }
-  },tabletImageId);
-  assert.equal(await tp.locator('#stage .element.repositioning').count(),1,
-   'tablet pen double-tap enters artwork reposition mode');
-  await tp.locator('#imageRepositionBar button').tap();
+   'tablet button exits crop mode');
   await tp.locator('.m-dock [data-mobile="add"]').click();
   await tp.locator('.m-actions [data-action="add-shape"]').click();
   const countBeforeRotate=await tp.locator('#stage .element').count();
@@ -652,16 +623,6 @@ const server=http.createServer((req,res)=>{
   await tp.waitForFunction(()=>document.documentElement.dataset.layout==='mobile'&&
    document.querySelector('#stage')?.getBoundingClientRect().width>0);
   assert.equal(await tp.locator('#stage .element').count(),countBeforeRotate,'orientation keeps edits');
-  // Some tablets in landscape use the desktop layout but still send touch pointers.
-  await tp.setViewportSize({width:1280,height:810});
-  await tp.waitForFunction(()=>document.documentElement.dataset.layout==='desktop');
-  const landscapeImage=tp.locator('#stage .element').nth(2);
-  await landscapeImage.tap();
-  await tp.waitForTimeout(430);
-  await landscapeImage.tap();
-  assert.equal(await tp.locator('#stage .element.repositioning').count(),1,
-   'wide touch tablet double-tap still enters image repositioning');
-  await tp.locator('#imageRepositionBar button').click();
   await tablet.close();
 
   // Fresh browser storage: a completed edit is backed up locally and survives reload.

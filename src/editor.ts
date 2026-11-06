@@ -1,6 +1,6 @@
 import { S, initial, replaceState, card, templateEl, layerEls, isExtra, effective, actualValue, uniqName, px, unitFactor, sizePx, clamp, uid, templateById,selectProjectTemplate,syncEditorTemplate,setCardSide,cardSetFor,cardExtras,ensureCardExtras } from './model';
 import {openNewProjectDialog} from './new-project';
-import {createTemplate,deleteTemplate,newCardSet,deleteCardSet,assignSetTemplate,moveCardToSet,uniqueTemplateName,uniqueCardSetName} from './project-collections';
+import {createTemplate,deleteTemplate,newCardSet,deleteCardSet,assignSetTemplate,moveCardToSet,uniqueTemplateName,uniqueCardSetName,removeTemplateElement} from './project-collections';
 import { $ , toast } from './dom';
 import { renderStage } from './preview';
 import { repaint, renderInspector, renderLeft, openSidebarSection, renderCardControl, chooseCard, patchElement, addElement, updateDimensionReadouts, setKnownFonts, baseFonts, refreshHistoryButtons, selectInspectorTab, filterCardData, showDiscoveredFonts, toggleFontBrowser, closeFontBrowser, filterFontBrowser } from './interface';
@@ -11,7 +11,6 @@ import { openPrintStudio } from './print-studio';
 import {openPreflight} from './preflight-ui';
 import {openCardDataGrid} from './card-data-grid-ui';
 import {openArtworkMatcher} from './artwork-auto-match-ui';
-import {isDirectTouchPointer,DOUBLE_TAP_MS,DOUBLE_TAP_RADIUS_PX} from './tap-gesture';
 import { exportXLSX, readSheet } from './spreadsheet';
 import { saveProject, saveProjectAs, saveTemplate, saveTemplateAs, saveAllTemplates, openFromDisk, openJSON, resetFileHandles } from './project-storage';
 import { importImages, setTargetImageSet } from './assets';
@@ -39,7 +38,7 @@ function copyElement(cut = false): boolean {
   if (cut) {
     // Retain the original ID in the clipboard so card-specific spreadsheet values
     // and overrides still refer to this element when it is pasted back.
-    S.template.elements = S.template.elements.filter(x => x.id !== el.id);
+    removeTemplateElement(el.id);
     S.selected = null;
     repaint();
   }
@@ -146,7 +145,7 @@ case 'undo':if(undo()){imageCache.clear();void activateProjectFonts();repaint()}
 case 'mode-template':case 'card-setup':if(S.mode==='cards')S.selectedTemplateId=S.template.id;S.mode='template';syncEditorTemplate();repaint();break;case 'mode-cards':S.mode='cards';syncEditorTemplate();repaint();break;
 case 'add-text':case 'add-image':case 'add-shape':addElement(action.slice(4));break;
 case 'copy-element':copyElement();break;case 'cut-element':copyElement(true);break;case 'paste-element':pasteElement();break;
-case 'delete-element':if(!S.selected)return;if(S.mode==='cards'){if(isExtra(S.selected)){S.side==='back'?card().backExtraElements=cardExtras(card()).filter(x=>x.id!==S.selected):card().extraElements=cardExtras(card()).filter(x=>x.id!==S.selected)}else patchElement(S.selected,{hidden:true});S.selected=null;repaint();toast('Removed from this card only')}else if(confirm('Delete this element from the template and all cards?')){S.template.elements=S.template.elements.filter(x=>x.id!==S.selected);S.selected=null;repaint()}break;
+case 'delete-element':if(!S.selected)return;if(S.mode==='cards'){if(isExtra(S.selected)){S.side==='back'?card().backExtraElements=cardExtras(card()).filter(x=>x.id!==S.selected):card().extraElements=cardExtras(card()).filter(x=>x.id!==S.selected)}else patchElement(S.selected,{hidden:true});S.selected=null;repaint();toast('Removed from this card only')}else if(confirm('Delete this element from the template and all cards?')){if(removeTemplateElement(S.selected)){S.selected=null;repaint()}}break;
 case 'layer-up':case 'layer-down':{if(S.mode==='cards'&&!isExtra(S.selected)){toast('Shared layer order is changed in Template mode');return}const a=S.mode==='cards'?ensureCardExtras(card()):S.template.elements;let ix=a.findIndex(e=>e.id===S.selected),delta=action==='layer-up'?1:-1;if(ix<0||ix+delta<0||ix+delta>=a.length)return;[a[ix],a[ix+delta]]=[a[ix+delta],a[ix]];repaint();break}
 case 'zoom-in':changeZoom(.1);break;
 case 'zoom-out':changeZoom(-.1);break;
@@ -390,11 +389,9 @@ let lastEditPointer:{id:string;x:number;y:number;at:number}|null=null;
 // element before the event bubbles here, so target.closest('#stage') becomes false.
 $('#canvasOuter').addEventListener('pointerdown',e=>{if(!(e.pointerType==='touch'&&document.documentElement?.dataset.layout==='mobile')&&e.button===0&&!e.composedPath().includes(stage))clearSelection()});
 stage.addEventListener('pointerdown',e=>{
- if(e.button!==0||(isDirectTouchPointer(e.pointerType)&&document.documentElement?.dataset.layout==='mobile'))return;
+ if(e.button!==0||(e.pointerType==='touch'&&document.documentElement?.dataset.layout==='mobile'))return;
  const now=Date.now(),previous=lastEditPointer;
- const touchLike=isDirectTouchPointer(e.pointerType);
- const rapid=!!previous&&now-previous.at<=(touchLike?DOUBLE_TAP_MS:490)&&
-  Math.hypot(previous.x-e.clientX,previous.y-e.clientY)<=(touchLike?DOUBLE_TAP_RADIUS_PX:24);
+ const rapid=!!previous&&now-previous.at<490&&Math.hypot(previous.x-e.clientX,previous.y-e.clientY)<24;
  const node=e.target.closest('.element');
  const id=node?.dataset.id||(rapid?previous!.id:null);
  if(!id){lastEditPointer=null;clearSelection();return}
