@@ -10,6 +10,7 @@ import {guidesFor,changeBleedMode,setGuideDistance,distanceMm,validateGuides,set
 import { openPrintStudio } from './print-studio';
 import {openPreflight} from './preflight-ui';
 import {openCardDataGrid} from './card-data-grid-ui';
+import {openArtworkMatcher} from './artwork-auto-match-ui';
 import { exportXLSX, readSheet } from './spreadsheet';
 import { saveProject, saveProjectAs, saveTemplate, saveTemplateAs, saveAllTemplates, openFromDisk, openJSON, resetFileHandles } from './project-storage';
 import { importImages, setTargetImageSet } from './assets';
@@ -165,6 +166,7 @@ case 'reset-card':if(card()&&confirm('Reset layout edits for the '+(S.side==='ba
 case 'reset-element':if(card()){if(isExtra(S.selected)){if(S.side==='back')card().backExtraElements=cardExtras(card()).filter(e=>e.id!==S.selected);else card().extraElements=cardExtras(card()).filter(e=>e.id!==S.selected);S.selected=null}else delete card().overrides[S.selected];repaint()}break;
 case 'prev-card':chooseCard(S.cardIndex-1);break;case 'next-card':chooseCard(S.cardIndex+1);break;
 case 'edit-card-data':openCardDataGrid(el?.dataset?.setId);break;
+case 'match-artwork':openArtworkMatcher(el?.dataset?.setId);break;
 case 'export-sheet':exportXLSX().catch(err=>alert(err.message));break;
 case 'import-sheet':chooseSheetForImport();break;
 case 'export-set-sheet':{

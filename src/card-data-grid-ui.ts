@@ -1,6 +1,8 @@
 /** A set-scoped spreadsheet editor for staged card data. All edits reuse the
  * XLSX field mapping and take exactly one document-history step per operation. */
 import {S,escapeHTML,cardSetFor} from './model';
+import {getImageRef} from './image-sets';
+import {openArtworkMatcher} from './artwork-auto-match-ui';
 import {repaint,chooseCard} from './interface';
 import {checkpoint,undo,redo,historyState} from './history';
 import {gridColumns,gridRows,editGridCell,addGridCards,duplicateGridCards,
@@ -36,6 +38,9 @@ const styles=String.raw`<style>
 #gridEditor td.dg-cell input,#gridEditor td.dg-cell textarea{border:0;background:transparent;color:#20364f;caret-color:#20364f;width:100%;padding:9px 10px;border-radius:0;text-overflow:ellipsis}
 #gridEditor td.dg-cell input:focus,#gridEditor td.dg-cell textarea:focus{outline:2px solid #2371d2;outline-offset:-2px;background:#fff;overflow:visible;text-overflow:clip}
 #gridEditor td.dg-cell textarea{height:36px;min-height:36px;display:block;resize:vertical;white-space:pre;line-height:18px}
+#gridEditor td.dg-cell .dg-image-cell{display:flex;align-items:center;min-width:165px}
+#gridEditor td.dg-cell .dg-image-cell img{width:38px;height:36px;object-fit:contain;border:1px solid #cbd8e4;background:white;flex:none}
+#gridEditor td.dg-cell .dg-image-cell input{min-width:0;flex:1}
 #gridEditor tbody tr{background:#fff}
 #gridEditor tbody tr:nth-child(even){background:#f2f6fb}
 #gridEditor tbody tr.dg-selected{background:#e4f0ff}
@@ -75,7 +80,7 @@ export function openCardDataGrid(initialSetId?:string):void{
  <label>Sort <select id="dgSort"></select></label><button type="button" data-dg="direction" title="Reverse display sort">A–Z</button>
  <button type="button" data-dg="undo">Undo</button><button type="button" data-dg="redo">Redo</button></div>
  <div class="dg-tools"><button type="button" data-dg="select-page">Select page</button><button type="button" data-dg="select-filtered">Select all filtered</button><button type="button" data-dg="clear">Clear selection</button>
- <button type="button" data-dg="copy">Copy selected rows</button><button type="button" data-dg="duplicate">Duplicate selected</button><button type="button" data-dg="delete">Delete selected</button>
+ <button type="button" data-dg="copy">Copy selected rows</button><button type="button" data-dg="duplicate">Duplicate selected</button><button type="button" data-dg="match-artwork">Match artwork</button><button type="button" data-dg="delete">Delete selected</button>
  <label>Add <input id="dgCount" type="number" value="1" min="1" max="500" step="1" aria-label="Number of new cards"></label><button type="button" data-dg="add">Add cards</button></div>
  <div id="dgStatus" class="dg-status" aria-live="polite"></div>
  <div class="dg-table-scroll" id="dgScroll"><table aria-label="Editable card data"><thead id="dgHead"></thead><tbody id="dgBody"></tbody></table></div>
@@ -126,11 +131,19 @@ export function openCardDataGrid(initialSetId?:string):void{
       '" aria-label="'+escapeHTML(name+' - '+columns[index].label)+'"';
      const field=columns[index].kind==='text'?
       '<textarea spellcheck="false" rows="1" wrap="off"'+attrs+'>'+escapeHTML(value)+'</textarea>':
+      columns[index].kind==='image'?
+      '<div class="dg-image-cell"><img alt="" data-dg-thumb-row="'+escapeHTML(row.cardId)+'" data-dg-thumb-field="'+escapeHTML(columns[index].id)+'" hidden><input type="text" spellcheck="false"'+attrs+' value="'+escapeHTML(value)+'"></div>':
       '<input type="text" spellcheck="false"'+attrs+' value="'+escapeHTML(value)+'">';
      return '<td class="dg-cell '+(index===0?'dg-name':'')+'">'+field+'</td>';
     }).join('')+
     '<td class="dg-open"><button type="button" data-dg-open="'+escapeHTML(row.cardId)+'">Open</button></td></tr>';
   }).join(''):'<tr><td colspan="'+(columns.length+2)+'" style="padding:16px">No matching cards. Clear the search or add cards.</td></tr>';
+  root.querySelectorAll<HTMLImageElement>('[data-dg-thumb-row]').forEach(img=>{
+   const index=S.cards.findIndex(card=>card.id===img.dataset.dgThumbRow);
+   const field=columns.find(col=>col.id===img.dataset.dgThumbField);
+   const src=index>=0&&field?.element?getImageRef(field.element,index,'cards')?.data:null;
+   if(src){img.src=src;img.hidden=false;}else{img.removeAttribute('src');img.hidden=true;}
+  });
   pageInfo.textContent=rows.length+' of '+S.cards.filter(card=>card.setId===setId).length+
    ' cards shown · '+selected.size+' selected · Page '+(page+1)+' of '+pages;
   root.querySelector<HTMLButtonElement>('[data-dg="prev"]')!.disabled=page===0;
@@ -174,7 +187,16 @@ export function openCardDataGrid(initialSetId?:string):void{
   if(input.dataset.dgCell!==undefined){
    try{
     const changed=editGridCell(setId,input.dataset.dgId!,Number(input.dataset.dgCell),input.value);
-    if(changed)afterEdit('Updated card data. Save the project to keep these changes.');
+    if(changed){
+     afterEdit('Updated card data. Save the project to keep these changes.');
+     const field=gridColumns(setId)[Number(input.dataset.dgCell)];
+     if(field?.kind==='image'){
+      const image=root.querySelector<HTMLImageElement>('[data-dg-thumb-row="'+input.dataset.dgId+'"][data-dg-thumb-field="'+field.id+'"]');
+      const index=S.cards.findIndex(card=>card.id===input.dataset.dgId);
+      const src=index>=0&&field.element?getImageRef(field.element,index,'cards')?.data:null;
+      if(image){if(src){image.src=src;image.hidden=false;}else{image.removeAttribute('src');image.hidden=true;}}
+     }
+    }
     input.value=input.dataset.dgCell==='0'?input.value.trim():input.value;
    }catch(error){message((error as Error).message);refresh();}
   }
@@ -214,6 +236,7 @@ export function openCardDataGrid(initialSetId?:string):void{
   const action=target.closest<HTMLElement>('[data-dg]')?.dataset.dg;
   if(!action)return;
   if(action==='close'){close();return;}
+  if(action==='match-artwork'){openArtworkMatcher(setId);return;}
   if(action==='prev'||action==='next'){
    page+=action==='prev'?-1:1;scroller.scrollTop=0;refresh();return;
   }
