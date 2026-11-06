@@ -7,7 +7,7 @@ type SheetTable={name:string;setId:string;heads:string[];rows:string[][]};
 type ImportedSheet={name:string;rows:string[][]};
 
 /** Every workbook, whether one set or many, is built from the same per-set table. */
-function spreadsheetColumns(setId:string){
+export function spreadsheetColumns(setId:string){
  const set=S.cardSets?.find(s=>s.id===setId);
  if(!set)throw Error('Card set not found');
  const templates=[set.frontTemplateId,set.backTemplateId]
