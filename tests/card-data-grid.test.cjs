@@ -197,4 +197,11 @@ test('bulk editor is accessible from desktop header, card set toolbox and mobile
  assert.match(editor,/case 'edit-card-data':openCardDataGrid/);
  assert.match(sidebar,/data-action="edit-card-data" data-set-id=/);
  assert.match(mobile,/\['edit-card-data','Edit card data'\]/);
+ const ui=fs.readFileSync(path.join(root,'src/card-data-grid-ui.ts'),'utf8');
+ assert.match(ui,/columns\[index\]\.kind==='text'/,'Text fields need multiline editing');
+ assert.match(ui,/<textarea spellcheck=/);
+ assert.match(ui,/data-dg="select-filtered"/);
+ assert.match(ui,/data-dg="undo"/);
+ assert.match(ui,/data-dg="redo"/);
+ assert.match(ui,/!query&&sortColumn===null/,'Filtered paste must not create hidden rows');
 });
