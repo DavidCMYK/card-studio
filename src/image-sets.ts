@@ -1,5 +1,35 @@
 import { S } from './model';
-export const imageCache = new Map<string, any>();
+/** The preview must not put megabytes of Base64 text back into stage.innerHTML
+ * every time a card is selected. Keep one browser URL per decoded asset.
+ * Export/save paths still use the original, lossless data URI in S.sets. */
+class ImageCache extends Map<string,any>{
+ private revoke(item:any){
+  if(item?.displayUrl?.startsWith('blob:')&&typeof URL!=='undefined'&&URL.revokeObjectURL)
+   URL.revokeObjectURL(item.displayUrl);
+ }
+ delete(key:string):boolean {
+  this.revoke(this.get(key));return super.delete(key);
+ }
+ clear():void {
+  for(const item of this.values())this.revoke(item);
+  super.clear();
+ }
+}
+export const imageCache = new ImageCache();
+const PREVIEW_BLOB_MIN_CHARS=250000;
+function previewImageUrl(src:string):string {
+ if(src.length<PREVIEW_BLOB_MIN_CHARS||typeof URL==='undefined'||
+    typeof URL.createObjectURL!=='function'||typeof Blob==='undefined')return src;
+ const match=/^data:(image\/(?:png|jpeg|gif|webp|avif|bmp));base64,/i.exec(src);
+ if(!match)return src;
+ try {
+  const decoded=atob(src.slice(match[0].length));
+  const bytes=new Uint8Array(decoded.length);
+  for(let i=0;i<decoded.length;i++)bytes[i]=decoded.charCodeAt(i);
+  return URL.createObjectURL(new Blob([bytes],{type:match[1].toLowerCase()}));
+ }catch{return src;}
+}
+
 let onImageLoaded = () => {};
 export const setImageUpdateHandler = (callback: () => void) => { onImageLoaded = callback; };
 export const getImageRef=(el,ci=S.cardIndex,mode=S.mode)=>{
@@ -37,7 +67,17 @@ export const getImageRef=(el,ci=S.cardIndex,mode=S.mode)=>{
  return set.images[idx%set.images.length];
 };
 export const getImageData=(e,ci,mode)=>getImageRef(e,ci,mode)?.data||null;
-export function cacheImage(src){if(!src)return null;if(imageCache.has(src))return imageCache.get(src);const im=new Image();const item={im,loaded:false,error:false};imageCache.set(src,item);im.onload=()=>{item.loaded=true;onImageLoaded()};im.onerror=()=>{item.error=true};im.src=src;return item}
+export function cacheImage(src){
+ if(!src)return null;
+ if(imageCache.has(src))return imageCache.get(src);
+ const displayUrl=previewImageUrl(src);
+ const im=new Image(),item={im,loaded:false,error:false,displayUrl};
+ imageCache.set(src,item);
+ im.onload=()=>{item.loaded=true;onImageLoaded()};
+ im.onerror=()=>{item.error=true};
+ im.src=displayUrl;
+ return item;
+}
 export async function loadedImage(src){const o=cacheImage(src);if(!o)return null;if(o.loaded)return o.im;if(o.error)return null;return await new Promise(resolve=>{const im=o.im;im.addEventListener('load',()=>resolve(im),{once:true});im.addEventListener('error',()=>resolve(null),{once:true})})}
 /** Automatic fit always determines the image dimensions; only Free uses imgScale. */
 function fittedImageSize(e:any,img:any){

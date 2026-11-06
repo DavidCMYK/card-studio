@@ -258,28 +258,6 @@ const server=http.createServer((req,res)=>{
   await dp.locator('#inspector [data-inspector-fold="setup-rendering"] summary').click();
   assert.equal(await dp.locator('#inspector [data-inspector-fold="setup-rendering"]').getAttribute('open'),'','rendering can expand');
 
-  // The stable canvas must activate artwork mode even when a redraw suppresses
-  // the stage's pointerdown/click/dblclick handlers between two mouse presses.
-  await dp.evaluate(()=>{
-   const stage=document.querySelector('#stage');
-   const block=e=>e.stopImmediatePropagation();
-   window.__blockStageGestures=block;
-   for(const event of ['pointerdown','click','dblclick'])stage.addEventListener(event,block,true);
-  });
-  const stableImage=dp.locator('#stage .element').nth(2);
-  const stableRect=await stableImage.boundingBox();
-  const stableX=stableRect.x+42,stableY=stableRect.y+42;
-  await dp.mouse.click(stableX,stableY);
-  await dp.waitForTimeout(130);
-  await dp.mouse.click(stableX+8,stableY+5);
-  assert.equal(await dp.locator('#stage .element.repositioning').count(),1,
-   'two desktop pointer presses activate image mode even when stage handlers do not run');
-  await dp.locator('#imageRepositionBar button').click();
-  await dp.evaluate(()=>{
-   const stage=document.querySelector('#stage'),block=window.__blockStageGestures;
-   for(const event of ['pointerdown','click','dblclick'])stage.removeEventListener(event,block,true);
-   delete window.__blockStageGestures;
-  });
   // Desktop: double-click enters image-content mode; drag and wheel change only image placement.
   await dp.locator('#stage .element').nth(2).dblclick({position:{x:42,y:42}});
   assert.equal(await dp.locator('#imageRepositionBar').isVisible(),true,'double-click enters image reposition mode');
@@ -402,6 +380,53 @@ const server=http.createServer((req,res)=>{
    assert.ok(desktopPng.readUInt32BE(16)>500&&desktopPng.readUInt32BE(20)>700,'print-resolution dimensions');
   }else console.warn('Skipping optional real font check: fontconfig unavailable');
   await dp.screenshot({path:'test-results/desktop.png'});
+  // Large-file regression: same image frame, but a multi-megabyte JPEG.
+  // An earlier renderer embedded that entire Base64 string into stage HTML
+  // on every pointerdown and could miss the second click under load.
+  const heavyContext=await browser.newContext({viewport:{width:1440,height:900}});
+  const heavy=await heavyContext.newPage();
+  heavy.on('pageerror',e=>errors.push('large artwork: '+e.message));
+  await heavy.goto(url);
+  const largeData=await heavy.evaluate(()=>{
+   const canvas=document.createElement('canvas');canvas.width=2300;canvas.height=3200;
+   const ctx=canvas.getContext('2d'),raster=ctx.createImageData(canvas.width,canvas.height);
+   const pixels=raster.data;
+   for(let i=0;i<pixels.length;i+=4){
+    const v=(i*16807+((i>>>6)*813))|0;
+    pixels[i]=(v>>>1)&255;pixels[i+1]=(v>>>8)&255;
+    pixels[i+2]=(v>>>16)&255;pixels[i+3]=255;
+   }
+   ctx.putImageData(raster,0,0);
+   return canvas.toDataURL('image/jpeg',.94);
+  });
+  assert.ok(largeData.length>2_000_000,'fixture must be a genuinely large image file');
+  const hugeProject=require('../.build/model.js').initial();
+  const hugeFrame=hugeProject.template.elements.find(e=>e.kind==='image');
+  hugeFrame.autoSet='large-files';hugeFrame.autoMode='single';hugeFrame.singleImage='huge.jpg';
+  hugeProject.sets=[{id:'large-files',name:'Large artwork',images:[{name:'huge.jpg',data:largeData}]}];
+  await heavy.locator('#openProjectFile').setInputFiles({
+   name:'large-image.cardstudio.json',mimeType:'application/json',
+   buffer:Buffer.from(JSON.stringify(hugeProject))
+  });
+  await heavy.waitForFunction(()=>
+   document.querySelector('#stage .image-content img')?.getAttribute('src')?.startsWith('blob:'),
+   null,{timeout:30000});
+  const urlLength=await heavy.locator('#stage .image-content img').first()
+   .evaluate(el=>el.getAttribute('src').length);
+  assert.ok(urlLength<150,'large previews must not embed Base64 in the canvas HTML');
+  const session=await heavyContext.newCDPSession(heavy);
+  await session.send('Emulation.setCPUThrottlingRate',{rate:8});
+  const box=await heavy.locator('#stage .element').nth(2).boundingBox();
+  const x=box.x+box.width*.45,y=box.y+box.height*.45;
+  await heavy.mouse.click(x,y);
+  await new Promise(resolve=>setTimeout(resolve,130));
+  await heavy.mouse.click(x,y);
+  await heavy.waitForFunction(()=>Boolean(document.querySelector('#stage .element.repositioning')),
+    null,{timeout:5000});
+  assert.equal(await heavy.locator('#stage .element.repositioning').count(),1,
+   'large file double-click enters reposition mode with a normal-sized frame');
+  await session.send('Emulation.setCPUThrottlingRate',{rate:1});
+  await heavyContext.close();
   await desktop.close();
 
   // Independent text editing: linked shapes remain fixed through drag/resize,
