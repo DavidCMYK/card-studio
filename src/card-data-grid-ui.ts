@@ -28,8 +28,9 @@ const styles=String.raw`<style>
 #gridEditor thead th{position:sticky;top:0;z-index:2;background:#28455e;color:#f0f6fc;white-space:nowrap}
 #gridEditor thead th button{background:transparent;border:0;text-align:left;width:100%;padding:9px;white-space:nowrap}
 #gridEditor td.dg-cell{min-width:165px;width:190px}
-#gridEditor td.dg-cell input{border:0;background:transparent;width:100%;padding:9px 10px;border-radius:0;text-overflow:ellipsis}
-#gridEditor td.dg-cell input:focus{outline:2px solid #79c9ff;outline-offset:-2px;background:#1b344b;overflow:visible;text-overflow:clip}
+#gridEditor td.dg-cell input,#gridEditor td.dg-cell textarea{border:0;background:transparent;width:100%;padding:9px 10px;border-radius:0;text-overflow:ellipsis}
+#gridEditor td.dg-cell input:focus,#gridEditor td.dg-cell textarea:focus{outline:2px solid #79c9ff;outline-offset:-2px;background:#1b344b;overflow:visible;text-overflow:clip}
+#gridEditor td.dg-cell textarea{height:36px;min-height:36px;display:block;resize:vertical;white-space:pre;line-height:18px}
 #gridEditor tbody tr:nth-child(even){background:#1b3045}
 #gridEditor tbody tr.dg-selected{background:#284862}
 #gridEditor .dg-select{position:sticky;left:0;z-index:1;background:#1e344b;width:38px;min-width:38px;text-align:center}
@@ -110,9 +111,14 @@ export function openCardDataGrid(initialSetId?:string):void{
    const checked=selected.has(row.cardId),name=row.values[0];
    return '<tr class="'+(checked?'dg-selected':'')+'"><td class="dg-select"><input type="checkbox" data-dg-select="'+escapeHTML(row.cardId)+
     '" aria-label="Select '+escapeHTML(name)+'" '+(checked?'checked':'')+'></td>'+
-    row.values.map((value,index)=>'<td class="dg-cell '+(index===0?'dg-name':'')+'"><input type="text" spellcheck="false" data-dg-cell="'+index+
-    '" data-dg-id="'+escapeHTML(row.cardId)+'" aria-label="'+escapeHTML(name+' - '+columns[index].label)+
-    '" value="'+escapeHTML(value)+'"></td>').join('')+
+    row.values.map((value,index)=>{
+     const attrs=' data-dg-cell="'+index+'" data-dg-id="'+escapeHTML(row.cardId)+
+      '" aria-label="'+escapeHTML(name+' - '+columns[index].label)+'"';
+     const field=columns[index].kind==='text'?
+      '<textarea spellcheck="false" rows="1" wrap="off"'+attrs+'>'+escapeHTML(value)+'</textarea>':
+      '<input type="text" spellcheck="false"'+attrs+' value="'+escapeHTML(value)+'">';
+     return '<td class="dg-cell '+(index===0?'dg-name':'')+'">'+field+'</td>';
+    }).join('')+
     '<td class="dg-open"><button type="button" data-dg-open="'+escapeHTML(row.cardId)+'">Open</button></td></tr>';
   }).join(''):'<tr><td colspan="'+(columns.length+2)+'" style="padding:16px">No matching cards. Clear the search or add cards.</td></tr>';
   pageInfo.textContent=rows.length+' of '+S.cards.filter(card=>card.setId===setId).length+
@@ -140,7 +146,7 @@ export function openCardDataGrid(initialSetId?:string):void{
  }
  function close(){if(holder.querySelector('#gridEditor')===root){holder.innerHTML='';repaint();}}
  root.addEventListener('change',event=>{
-  const input=event.target as HTMLInputElement|HTMLSelectElement;
+  const input=event.target as HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement;
   if(input.id==='dgSet'){
    setId=input.value;query='';sortColumn=null;sortOrder=null;page=0;selected.clear();
    search.value='';message('');refresh(true);return;
@@ -170,7 +176,7 @@ export function openCardDataGrid(initialSetId?:string):void{
   const target=event.target as HTMLInputElement;
   if(target.dataset.dgCell===undefined)return;
   const plain=(event as ClipboardEvent).clipboardData?.getData('text/plain')||'';
-  if(!/[\t\r\n]/.test(plain))return;
+  if(!/\t/.test(plain)&&!(target instanceof HTMLInputElement&&/[\r\n]/.test(plain)))return;
   event.preventDefault();
   try{
    const values=parseGridPaste(plain),before=allRows();
