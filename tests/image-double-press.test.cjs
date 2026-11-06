@@ -16,7 +16,10 @@ test('double press is recognized by time, distance and stable element ID',()=>{
 test('desktop image handler uses stable capture phase before stage selection redraw',()=>{
  const editor=fs.readFileSync(path.join(__dirname,'../src/editor.ts'),'utf8');
  assert.match(editor,/#canvasOuter'\)\.addEventListener\('pointerdown',[\s\S]*?e\.stopImmediatePropagation\(\);return;/);
- assert.match(editor,/\},true\);\s*document\.addEventListener\('pointermove'/);
+ const original=editor.indexOf("document.addEventListener('pointermove',e=>{if(!drag)");
+ const stable=editor.indexOf("document.addEventListener('pointermove',(e:PointerEvent)=>{");
+ assert.ok(original>=0&&stable>original,
+  'original drag listener must remain first for normal dragging and smoke tests');
  assert.match(editor,/isImageDoublePress\(previous,candidate\)/);
  assert.match(editor,/if\(enterImageReposition\(possibleId!\)\)/);
  assert.match(editor,/document\.documentElement\?\.dataset\.layout==='mobile'/);

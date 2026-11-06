@@ -414,10 +414,6 @@ $('#canvasOuter').addEventListener('pointerdown',(e:PointerEvent)=>{
  lastImagePress=hitId&&templateEl(hitId)?.kind==='image'?
   {id:hitId,x:e.clientX,y:e.clientY,at:now}:null;
 },true);
-document.addEventListener('pointermove',(e:PointerEvent)=>{
- if((e.buttons&1)&&lastImagePress&&
-    Math.hypot(lastImagePress.x-e.clientX,lastImagePress.y-e.clientY)>9)lastImagePress=null;
-},true);
 
 // The card may be entirely covered by elements. Click the workspace to clear selection.
 // Use the event's original propagation path: renderStage() can replace the clicked
@@ -453,6 +449,11 @@ stage.addEventListener('pointerdown',e=>{
 });
 document.addEventListener('pointermove',e=>{if(!drag)return;if(Math.hypot(e.clientX-drag.initialX,e.clientY-drag.initialY)>9)lastEditPointer=null;const {w,h}=sizePx(),dx=(e.clientX-drag.initialX)/S.zoom,dy=(e.clientY-drag.initialY)/S.zoom;let patch;if(drag.type==='image'){const raw=templateEl(drag.id),src=raw?getImageData(raw,S.cardIndex,S.mode):null,cached=src?cacheImage(src):null;patch=imageDragPatch(drag.imageStart,dx,dy,cached?.loaded?cached.im:null)}else if(drag.type==='resize'){const rect=resizedRect(drag.visual,drag.handle||'se',dx,dy,{w,h},drag.lockAspect);const handle=drag.handle||'se';patch={};if(handle.includes('w')||handle.includes('e'))Object.assign(patch,{x:rect.x,w:rect.w,autoWidth:false});if(handle.includes('n')||handle.includes('s'))Object.assign(patch,{y:rect.y,h:rect.h,autoHeight:false})}else patch={x:Math.round(clamp(drag.x+dx,-drag.w+4,w-4)),y:Math.round(clamp(drag.y+dy,-drag.h+4,h-4))};if(isolatedTextId()===drag.id)patchTextIndependently(drag.id,patch,patchElement);else patchElement(drag.id,patch);renderStage();renderInspector()});
 document.addEventListener('pointerup',()=>{if(drag){drag=null;checkpoint();refreshHistoryButtons();renderInspector();renderLeft();renderStage()}});
+document.addEventListener('pointermove',(e:PointerEvent)=>{
+ if((e.buttons&1)&&lastImagePress&&
+    Math.hypot(lastImagePress.x-e.clientX,lastImagePress.y-e.clientY)>9)lastImagePress=null;
+},true);
+
 function onElementDoubleClick(e:MouseEvent){
  if(document.documentElement?.dataset.layout==='mobile')return;
  // The first pointerdown redraws the selected element. On some browsers the
