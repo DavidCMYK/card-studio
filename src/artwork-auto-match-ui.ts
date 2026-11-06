@@ -138,21 +138,21 @@ export function openArtworkMatcher(initialSetId?:string):void{
   return rows.filter(row=>{
    const choice=chosen(row);
    if(filter==='ready'&&!selected.has(row.cardId))return false;
-   if(filter==='missing'&&row.status!=='missing')return false;
-   if(filter==='review'&&row.status!=='review'&&row.status!=='ambiguous'&&row.status!=='missing'&&row.status!=='fixed')return false;
+   if(filter==='missing'&&row.status!=='missing'&&row.status!=='missing-file')return false;
+   if(filter==='review'&&row.status!=='review'&&row.status!=='ambiguous'&&row.status!=='missing'&&row.status!=='missing-file'&&row.status!=='fixed')return false;
    return !needle||[row.cardName,row.source,row.existing,choice?.name||'',choice?.setName||'']
     .some(value=>value.toLocaleLowerCase().includes(needle));
   });
  }
  function render(){
   if(holder.querySelector('#artMatch')!==root)return;
-  const counted={exact:0,review:0,ambiguous:0,missing:0,assigned:0,fixed:0};
+  const counted={exact:0,review:0,ambiguous:0,missing:0,'missing-file':0,assigned:0,fixed:0};
   for(const row of rows){
    if(row.status in counted)counted[row.status as keyof typeof counted]++;
   }
   stats.textContent=rows.length+' cards · '+selected.size+' selected · '+
    counted.exact+' exact · '+(counted.review+counted.ambiguous)+' to review · '+
-   counted.missing+' unmatched · '+(counted.assigned+counted.fixed)+' already assigned/fixed';
+   (counted.missing+counted['missing-file'])+' unmatched/missing files · '+(counted.assigned+counted.fixed)+' assigned/fixed';
   const filtered=visibleRows(),pages=Math.max(1,Math.ceil(filtered.length/PAGE));
   page=Math.min(page,pages-1);
   const shown=filtered.slice(page*PAGE,(page+1)*PAGE);
@@ -168,7 +168,8 @@ export function openArtworkMatcher(initialSetId?:string):void{
     '<span class="am-img-placeholder">No image</span>';
    const label=row.status==='exact'?'High confidence':
     row.status==='review'?'Review suggestion':row.status==='ambiguous'?'Ambiguous':
-    row.status==='missing'?'No match':row.status==='assigned'?'Already assigned':'Fixed template image';
+    row.status==='missing'?'No match':row.status==='missing-file'?'Missing image file':
+    row.status==='assigned'?'Already assigned':'Fixed template image';
    return '<tr class="'+(checked?'am-picked':'')+'"><td><input type="checkbox" data-am-use="'+safe(row.cardId)+
     '" aria-label="Apply match for '+safe(row.cardName)+'" '+(checked?'checked ':'')+
     (!canSelect?'disabled':'')+'></td><td><strong>'+safe(row.cardName)+'</strong><div class="am-dim">'+safe(row.source)+'</div>'+
@@ -177,7 +178,7 @@ export function openArtworkMatcher(initialSetId?:string):void{
     (row.status==='fixed'?'disabled':'')+'>'+choices+'</select><button data-am-browse="'+safe(row.cardId)+'" '+
     (row.status==='fixed'?'disabled':'')+'>Browse</button></div></td>'+
     '<td><span class="am-badge">'+safe(label)+'</span><div class="am-dim">'+
-    safe(row.suggested?.reason||'')+'</div></td></tr>';
+    safe(manual.has(row.cardId)?'Image chosen manually':row.suggested?.reason||'')+'</div></td></tr>';
   }).join(''):'<tr><td colspan="5" style="padding:14px">No matching cards.</td></tr>';
   for(const row of shown){
    const choice=chosen(row);

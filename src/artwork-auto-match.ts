@@ -2,10 +2,11 @@
  * Always preview before applying, and never treat fuzzy matches as certain. */
 import {S} from './model';
 import {gridColumns} from './card-data-grid';
+import {getImageRef} from './image-sets';
 import type {CardElement,ImageAsset,StagedCard} from './types';
 
 export const CARD_NAME_KEY='@card-name';
-export type Confidence='exact'|'strong'|'review'|'ambiguous'|'missing'|'assigned'|'fixed';
+export type Confidence='exact'|'review'|'ambiguous'|'missing'|'missing-file'|'assigned'|'fixed';
 export interface ImageChoice {
  key:string;setId:string;setName:string;name:string;data:string;
 }
@@ -24,7 +25,8 @@ export interface MatchOptions {
 }
 const normalize=(raw:string):string=>String(raw||'').normalize('NFKD')
  .replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase()
- .replace(/&/g,' and ').replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ');
+ .replace(/&/g,' and ').replace(/([a-z])(\d)/g,'$1 $2').replace(/(\d)([a-z])/g,'$1 $2')
+ .replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ');
 const fileBase=(text:string):string=>String(text||'').replace(/\\/g,'/').split('/').pop()||'';
 const withoutExtension=(text:string):string=>text.replace(/\.(png|jpe?g|webp|gif|avif|bmp|tiff?)$/i,'');
 const commonEnd=/(?:[\s_-]+(?:art|artwork|illustration|image|img|render|final|final\d+|hires|highres|draft|copy|front|back|ver\d+|version\d+|v\d+|rev\d+))+$/i;
@@ -62,6 +64,8 @@ export function matchScore(value:string,filename:string):{score:number;reason:st
    Math.min(x.length,y.length)>=7)
   return {score:82,reason:'Artwork name contains the card words'};
  // Approximate match only. Never selected automatically.
+ if(Math.abs(x.length-y.length)>Math.max(4,Math.min(x.length,y.length)*.28))
+  return {score:0,reason:'No useful match'};
  const similarity=1-editDistance(x,y)/Math.max(x.length,y.length);
  if(similarity>=.87&&Math.abs(x.length-y.length)<=4)
   return {score:79,reason:'Very similar spelling (review required)'};
@@ -104,14 +108,14 @@ export function suggestArtwork(options:MatchOptions):MatchRow[]{
  if(options.sourceId!==CARD_NAME_KEY)sourceText({name:'',id:'',values:{},overrides:{},extraElements:[]},options.sourceId,options.setId);
  const candidates=imageChoices(options.imageSetId);
  const preferred=S.sets.find(set=>set.id===element.autoSet||set.name===element.autoSet)?.id;
- return S.cards.filter(card=>card.setId===options.setId).map(card=>{
+ return S.cards.map((card,index)=>({card,index})).filter(({card})=>card.setId===options.setId).map(({card,index})=>{
   const existing=String(card.values?.[element.id]??'');
   const source=sourceText(card,options.sourceId,options.setId);
   const base={cardId:card.id,cardName:card.name,source,existing};
   if(element.autoMode==='single')
    return {...base,status:'fixed' as Confidence,suggested:null,alternatives:[]};
   if(existing.trim()&&!options.overwrite)
-   return {...base,status:'assigned' as Confidence,suggested:null,alternatives:[]};
+   return {...base,status:(existing.trim().toLocaleLowerCase()==='none'||getImageRef(element,index,'cards')?'assigned':'missing-file') as Confidence,suggested:null,alternatives:[]};
   const scored=candidates.map(choice=>{
    const result=matchScore(source,choice.name);
    return {...choice,...result,

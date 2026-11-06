@@ -135,6 +135,14 @@ The front and back of any one set must have matching **finished cut dimensions**
 
 **Deployment:** Commits to `feature/mobile-studio` should trigger the Cloudflare Pages test build. The three GitHub Actions verification workflows are configured for manual dispatch only; do not use commit-message CI skip markers, since they can suppress Cloudflare deployment as well.
 
+## Automatic artwork matching (test branch)
+
+Open **Match artwork** from the desktop toolbar, mobile Export menu, a card set or the bulk data editor. Choose the card set, image field (front or back), matching key (**Card name** or a text/ID field) and optional image set to search. Add files via file picker, select an entire image folder in supporting browsers, or drop image files into the dialog. Imported images use the project's existing image sets. Matching is local; it does not upload artwork to an AI service.
+
+The matcher compares exact filenames, punctuation/case/accent-normalized names, common artwork suffixes (e.g. `-final` or `-art`), rearranged words and cautious spelling similarity. A target image frame's preferred image set breaks exact ties. **Only unique, high-confidence suggestions are preselected.** Fuzzy suggestions and ambiguous matches are left for review. Browse a thumbnail gallery or manually choose another image for any row, then click **Apply selected matches**. Multiple assignments are one undoable operation. Each saved image reference includes its image-set name to avoid collisions, and exports and the spreadsheet editor use those exact same references. Existing assignments are never replaced unless **Replace existing card assignments** is checked; missing old files are explicitly flagged. A template image fixed to a single file is never modified by per-card matching.
+
+Matching uses filenames and existing card data, not image-content recognition. It cannot infer that an unrelated filename contains the correct character illustration, or guarantee that a fuzzy match is right. Review suggestions before applying.
+
 ## Bulk card data editor (test branch)
 
 Open **Edit card data** on desktop, in the mobile Export menu, or from a specific **Card set → Edit data** button. The grid shows one row per staged card and the **same column names, order, front/back template fields, and data-export exclusions** as the matching XLSX worksheet. Choose a set, then edit any card name, text value, or image filename directly. Card-specific geometry, overrides, print settings and images are preserved. The grid does not modify templates.

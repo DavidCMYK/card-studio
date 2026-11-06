@@ -25,6 +25,7 @@ test('matching understands exact filename, separators, accents, suffixes, and wo
  assert.deepEqual(match.matchScore('brakka.png','brakka.png'),{score:100,reason:'Exact filename'});
  assert.equal(match.matchScore('Seraphine Wildblood','seraphine_wildblood.png').score,97);
  assert.equal(match.matchScore('Elián','elian.jpg').score,97);
+ assert.equal(match.matchScore('Card001','card_001.png').score,97);
  assert.equal(match.matchScore('Orin Grey Scholar','Orin_Grey_Scholar-final.png').score,94);
  assert.equal(match.matchScore('Far Eye Tarin','Tarin Far Eye.png').score,91);
  assert.equal(match.matchScore('Mage','Unrelated Figure.png').score,0);
@@ -83,6 +84,20 @@ test('assigned art and fixed template art are protected by default',()=>{
  assert.throws(()=>match.applyArtwork(params(set,image),[{
   cardId:c.id,imageKey:match.imageKey(imgset.id,'Knight.png')
  }]),/must not be overwritten/);
+});
+
+test('unresolvable saved filenames are shown as missing files, without overwriting them',()=>{
+ const {state,set,image,imgset}=setup();
+ state.cards[0].name='Knight';
+ state.cards[0].values[image.id]='Characters/no-longer-exists.png';
+ add(imgset,'Knight.png');
+ const row=match.suggestArtwork(params(set,image))[0];
+ assert.equal(row.status,'missing-file');
+ assert.equal(row.suggested,null);
+ const replacement=match.suggestArtwork(params(set,image,{overwrite:true}))[0];
+ assert.equal(replacement.status,'exact');
+ assert.equal(replacement.suggested.name,'Knight.png');
+ assert.equal(state.cards[0].values[image.id],'Characters/no-longer-exists.png');
 });
 
 test('apply preview decisions is atomic, uses qualified names, and remains undoable',()=>{
