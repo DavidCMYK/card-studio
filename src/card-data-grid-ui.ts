@@ -156,7 +156,7 @@ export function openCardDataGrid(initialSetId?:string):void{
    sortOrder=sortColumn===null?null:'asc';page=0;scroller.scrollTop=0;
    refresh();return;
   }
-  if(input.dataset.dgSelect!==undefined){
+  if(input instanceof HTMLInputElement && input.dataset.dgSelect!==undefined){
    if(input.checked)selected.add(input.dataset.dgSelect);
    else selected.delete(input.dataset.dgSelect);
    refresh();return;

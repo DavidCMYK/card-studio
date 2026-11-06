@@ -204,4 +204,6 @@ test('bulk editor is accessible from desktop header, card set toolbox and mobile
  assert.match(ui,/data-dg="undo"/);
  assert.match(ui,/data-dg="redo"/);
  assert.match(ui,/!query&&sortColumn===null/,'Filtered paste must not create hidden rows');
+ assert.match(ui,/input instanceof HTMLInputElement && input\.dataset\.dgSelect!==undefined/,
+  'Checkbox state must be read only after narrowing the event target to an input');
 });
