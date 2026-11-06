@@ -80,7 +80,7 @@ export function addGridCards(setId:string,count=1):StagedCard[]{
  if(!Number.isInteger(count)||count<1||count>500)throw Error('Add between 1 and 500 cards at once');
  const currentId=S.cards[S.cardIndex]?.id,names=nameRegistry();
  const cards=Array.from({length:count},()=>newCard(setId,names));
- const last=S.cards.findLastIndex(card=>card.setId===setId);
+ const last=S.cards.reduce((index,card,i)=>card.setId===setId?i:index,-1);
  S.cards.splice(last<0?S.cards.length:last+1,0,...cards);
  keepCurrentCard(currentId);
  return cards;
