@@ -1,6 +1,6 @@
 /** A set-scoped spreadsheet editor for staged card data. All edits reuse the
  * XLSX field mapping and take exactly one document-history step per operation. */
-import {S,escapeHTML,cardSetFor,safeFile} from './model';
+import {S,escapeHTML,cardSetFor} from './model';
 import {repaint,chooseCard} from './interface';
 import {checkpoint,undo,redo,historyState} from './history';
 import {gridColumns,gridRows,editGridCell,addGridCards,duplicateGridCards,
@@ -59,7 +59,7 @@ export function openCardDataGrid(initialSetId?:string):void{
  let query='',sortColumn:number|null=null,sortOrder:GridOrder=null,page=0;
  const selected=new Set<string>();
  holder.innerHTML=styles+String.raw`<section id="gridEditor"><div class="dg-panel" role="dialog" aria-modal="true" aria-label="Bulk card data editor">
- <header class="dg-head"><strong>Card data</strong><span class="dg-hint">Changes shared templates: never. Changes staged card values: yes.</span><button type="button" data-dg="close">Close</button></header>
+ <header class="dg-head"><strong>Card data</strong><span class="dg-hint">Edit staged card data without changing shared templates.</span><button type="button" data-dg="close">Close</button></header>
  <div class="dg-tools"><label>Card set <select id="dgSet"></select></label><input id="dgSearch" type="search" placeholder="Search all fields" aria-label="Search cards">
  <label>Sort <select id="dgSort"></select></label><button type="button" data-dg="direction" title="Reverse display sort">A–Z</button>
  <button type="button" data-dg="undo">Undo</button><button type="button" data-dg="redo">Redo</button></div>
@@ -85,8 +85,8 @@ export function openCardDataGrid(initialSetId?:string):void{
   '<option value="'+escapeHTML(set.id)+'">'+escapeHTML(set.name)+'</option>').join('');
  setPicker.value=setId;
  function validSelection(){
-  const inSet=new Set(S.cards.filter(card=>card.setId===setId).map(card=>card.id));
-  for(const id of selected)if(!inSet.has(id))selected.delete(id);
+  const visible=new Set(gridRows(setId,query,sortColumn,sortOrder).map(row=>row.cardId));
+  for(const id of selected)if(!visible.has(id))selected.delete(id);
  }
  function allRows():GridRow[]{return gridRows(setId,query,sortColumn,sortOrder);}
  function message(text:string){status.textContent=text;}
@@ -127,7 +127,7 @@ export function openCardDataGrid(initialSetId?:string):void{
    root.querySelector<HTMLButtonElement>('[data-dg="'+action+'"]')!.disabled=selected.size===0;
  }
  function afterEdit(text:string){
-  checkpoint();repaint();
+  checkpoint();
   message(text);
   // Do not rebuild inputs on a normal cell change: Tab must move naturally
   // to the next field without discarding browser focus.
@@ -138,7 +138,7 @@ export function openCardDataGrid(initialSetId?:string):void{
   repaint();if(text)message(text);
   refresh();
  }
- function close(){if(holder.querySelector('#gridEditor')===root)holder.innerHTML='';}
+ function close(){if(holder.querySelector('#gridEditor')===root){holder.innerHTML='';repaint();}}
  root.addEventListener('change',event=>{
   const input=event.target as HTMLInputElement|HTMLSelectElement;
   if(input.id==='dgSet'){
@@ -222,7 +222,8 @@ export function openCardDataGrid(initialSetId?:string):void{
   if(action==='add'){
    try{
     const n=Number(count.value),cards=addGridCards(setId,n);
-    page=Math.max(0,Math.ceil(gridRows(setId,query,sortColumn,sortOrder).length/PAGE_SIZE)-1);
+    query='';search.value='';sortColumn=null;sortOrder=null;sort.value='-1';
+    page=Math.max(0,Math.ceil(gridRows(setId).length/PAGE_SIZE)-1);
     selected.clear();rerender('Added '+cards.length+' card(s).');
    }catch(error){message((error as Error).message);}
    return;
