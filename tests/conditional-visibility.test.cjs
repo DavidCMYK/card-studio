@@ -112,3 +112,56 @@ test('imported blank spreadsheet cells hide linked objects without affecting ano
  assert.equal(model.visibleOnCard(shape,0,'cards'),false);
  assert.equal(model.visibleOnCard(image,1,'cards'),true);
 });
+
+test('a top/bottom anchored image follows blank template text visibility, not its remaining geometry',async()=>{
+ const {get,paints,clear}=dom();
+ const {s,text,image}=setup();
+ text.autoHeight=true;
+ text.valign='bottom';
+ patchElement(image.id,{anchorTargetId:text.id});
+ patchElement(image.id,{anchorTop:true});
+ patchElement(image.id,{anchorBottom:true});
+ s.mode='template';
+ renderStage();
+ assert.ok(has(get('#stage').innerHTML,text.id));
+ assert.ok(has(get('#stage').innerHTML,image.id));
+ text.text='';
+ const {elementGeometry}=require('../.build/anchor-layout.js');
+ assert.equal(elementGeometry(text).h,0);
+ assert.equal(model.visibleOnCard(image,0,'template'),false);
+ renderStage();renderLeft();
+ assert.ok(has(get('#stage').innerHTML,text.id),'empty text remains selectable in Template mode');
+ assert.ok(!has(get('#stage').innerHTML,image.id),'anchored image disappears, not merely shrinks');
+ assert.match(get('#leftBody').innerHTML,new RegExp(image.name),'image remains available in Layers for editing');
+ clear();await canvasCard(0,'template');
+ assert.ok(!paints.some(p=>p.color==='#0000ff'),'template PNG must also omit the linked image');
+ text.text='Restored description';
+ assert.equal(model.visibleOnCard(image,0,'template'),true);
+ renderStage();
+ assert.ok(has(get('#stage').innerHTML,image.id));
+ clear();await canvasCard(0,'template');
+ assert.ok(paints.some(p=>p.color==='#0000ff'),'the linked image returns in template export');
+});
+test('visibility follows its explicit text link in Cards mode regardless of separate anchoring',()=>{
+ dom();
+ const {s,text,image}=setup();
+ const unrelated=model.makeElement('text',{name:'Other text',text:'Always visible'});
+ s.template.elements.push(unrelated);
+ patchElement(image.id,{anchorTargetId:unrelated.id,anchorTop:true,anchorBottom:true});
+ assert.equal(image.linkedTextId,text.id);
+ s.mode='cards';
+ s.cardIndex=0;
+ assert.equal(model.visibleOnCard(image,0,'cards'),false);
+ s.cardIndex=1;
+ assert.equal(model.visibleOnCard(image,1,'cards'),true);
+ // An anchor alone does not implicitly make the target a visibility source.
+ patchElement(image.id,{linkedTextId:''});
+ s.cardIndex=0;
+ assert.equal(model.visibleOnCard(image,0,'cards'),true);
+});
+test('an empty template text box can deliberately keep its linked image visible',()=>{
+ const {get}=dom(),{text,image}=setup();
+ text.text='';text.invisibleIfEmpty=false;
+ renderStage();
+ assert.ok(has(get('#stage').innerHTML,image.id));
+});

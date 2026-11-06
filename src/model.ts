@@ -122,13 +122,20 @@ export function cardTextValue(e: CardElement, cardIndex: number): string {
  const values=S.cards[cardIndex]?.values||{};
  return String(Object.prototype.hasOwnProperty.call(values,e.id)?values[e.id]:e.text??'');
 }
+/** Template editing keeps empty text selectable, but elements following its visibility
+ * must still disappear when its default text is empty. This is independent of anchors. */
+export function linkedTextVisibleInTemplate(raw:CardElement,template:CardTemplate=S.template):boolean{
+ if((raw.kind!=='shape'&&raw.kind!=='image')||!raw.linkedTextId)return true;
+ const source=template.elements.find(item=>item.id===raw.linkedTextId&&item.kind==='text');
+ return !source||(!source.hidden&&(source.invisibleIfEmpty===false||String(source.text??'').trim()!==''));
+}
 /** Single visibility rule shared by card preview, layers, and all PNG exports. */
 export function visibleOnCard(raw: CardElement, cardIndex: number, mode: 'template'|'cards'='cards',template:CardTemplate=S.template,side:CardSide=S.side||'front'): boolean {
  const overrides=mode==='cards'?S.cards[cardIndex]?.overrides?.[raw.id]:null;
  const el=overrides?{...raw,...overrides}:raw;
  if(el.hidden||!isExported(raw)||!isExported(el))return false;
  // Template PNG exports should still render default text/backgrounds, but no guides.
- if(mode!=='cards')return true;
+ if(mode!=='cards')return linkedTextVisibleInTemplate(raw,template);
  if(el.kind==='text')return el.invisibleIfEmpty===false||cardTextValue(raw,cardIndex).trim()!=='';
  if((el.kind==='shape'||el.kind==='image')&&el.linkedTextId){
   const source=[...template.elements,...cardExtras(S.cards[cardIndex],side)]

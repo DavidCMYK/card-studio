@@ -1,5 +1,5 @@
 import {guidesFor} from './card-guides';
-import { S, sizePx, layerEls, effective, actualValue, escapeHTML, templateExportSize, visibleOnCard, opacityFor } from './model';
+import { S, sizePx, layerEls, effective, actualValue, escapeHTML, templateExportSize, visibleOnCard, linkedTextVisibleInTemplate, opacityFor } from './model';
 import {guideOverlay} from './guide-overlay';
 import { $ } from './dom';
 import { getImageData, cacheImage, imgBox } from './image-sets';
@@ -27,7 +27,7 @@ export function renderStage(){const st=$('#stage'),{w,h}=sizePx(),z=S.zoom;
  const mergeMode=S.template.shadowOverlapMode==='merge';
  const visibleElements:{html:string;shadow:ShadowGraphic|null;alpha:ElementAlpha|null;x:number;y:number}[]=[];
  for(const raw of layerEls()){
-  const e=effective(raw);if(S.mode==='template'?e.hidden:!visibleOnCard(raw,S.cardIndex,'cards'))continue;
+  const e=effective(raw);if(S.mode==='template'?(e.hidden||!linkedTextVisibleInTemplate(raw,S.template)):!visibleOnCard(raw,S.cardIndex,'cards'))continue;
   const selected=S.selected===raw.id,repositioning=activeImage===raw.id,independent=activeText===raw.id,src=getImageData(raw,S.cardIndex,S.mode);const geom=elementGeometry(raw,S.cardIndex,S.mode);let content='',ghost='';
   if(repositioning){
    const hint=document.querySelector('#imageRepositionHint');
