@@ -45,7 +45,7 @@ export function renderStage(){const st=$('#stage'),{w,h}=sizePx(),z=S.zoom;
    const im=cacheImage(src);if(src&&im?.loaded){const box=imgBox({...e,...geom},im.im);
    const angle=Number(e.imgRotation)||0,sx=e.imgFlipX===true?-1:1,sy=e.imgFlipY===true?-1:1;
    const transform=angle||sx<0||sy<0?`transform-origin:${(geom.w/2-box.x)*z}px ${(geom.h/2-box.y)*z}px;transform:rotate(${angle}deg) scale(${sx},${sy});`:'';
-   const imageHTML=`<img alt="" draggable="false" src="${src}" style="left:${box.x*z}px;top:${box.y*z}px;width:${box.w*z}px;height:${box.h*z}px;${transform}">`;
+   const imageHTML=`<img alt="" draggable="false" src="${im.displayUrl||src}" style="left:${box.x*z}px;top:${box.y*z}px;width:${box.w*z}px;height:${box.h*z}px;${transform}>`;
    content=`<div class="image-content">${imageHTML}</div>`;
    if(repositioning)ghost=`<div class="image-reposition-ghost">${imageHTML}</div>`;}
    else content=`<div class="missing">${src?'Loading image…':`IMAGE FRAME<br>${escapeHTML(raw.name)}`}</div>`;
